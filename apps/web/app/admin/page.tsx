@@ -2800,6 +2800,73 @@ const ACTION_PLAN_TABS: Array<{
   },
 ];
 
+const SECTION_RETENTION_ACTIONS: Record<
+  string,
+  {
+    planKey: ActionPlanTabKey;
+    planLabel: string;
+    recommendation: string;
+    sector: RoadmapSector;
+  }
+> = {
+  home: {
+    planKey: 'plan_cliente',
+    planLabel: 'Interfaz cliente',
+    recommendation:
+      'Revisar el recorrido inicial y dejar una próxima acción clara para que la cuenta tenga un motivo concreto para volver.',
+    sector: 'clientes',
+  },
+  technicians: {
+    planKey: 'plan_tecnico',
+    planLabel: 'Interfaz técnico',
+    recommendation:
+      'Revisar el panel técnico y priorizar accesos directos a las tareas que el profesional necesita repetir.',
+    sector: 'interfaz',
+  },
+  clients: {
+    planKey: 'plan_cliente',
+    planLabel: 'Interfaz cliente',
+    recommendation:
+      'Simplificar el seguimiento de pedidos y presupuestos para que el cliente encuentre una razón visible para regresar.',
+    sector: 'clientes',
+  },
+  marketplace: {
+    planKey: 'plan_cliente',
+    planLabel: 'Interfaz cliente',
+    recommendation:
+      'Mejorar el paso desde la exploración del mapa hasta el contacto y facilitar el regreso a perfiles ya consultados.',
+    sector: 'clientes',
+  },
+  community: {
+    planKey: 'plan_comunidad',
+    planLabel: 'Comunidad',
+    recommendation:
+      'Reforzar contenido útil, respuestas y avisos para que el muro muestre novedades relevantes en cada visita.',
+    sector: 'funcionalidades',
+  },
+  quotes: {
+    planKey: 'plan_presupuestador',
+    planLabel: 'Presupuestador',
+    recommendation:
+      'Facilitar la continuidad de presupuestos guardados y destacar las cotizaciones que requieren una próxima acción.',
+    sector: 'funcionalidades',
+  },
+  news: {
+    planKey: 'plan_redes',
+    planLabel: 'Redes sociales',
+    recommendation:
+      'Conectar cada novedad con contenido relacionado y una llamada clara para volver a consultar actualizaciones.',
+    sector: 'web',
+  },
+  other: {
+    planKey: 'plan_redes',
+    planLabel: 'Redes sociales',
+    recommendation:
+      'Identificar las rutas que concentran esta actividad y definir una próxima acción visible antes de optimizarlas.',
+    sector: 'web',
+  },
+};
+
 const ADMIN_TAB_ICONS: Record<AdminTabKey, React.ComponentType<{ className?: string }>> = {
   resumen: BarChart3,
   planes: Globe2,
@@ -2904,6 +2971,69 @@ export default function AdminPage() {
     series: { date: string; views: number; minutes: number }[];
     totals: { views: number; minutes: number; uniqueSessions: number; uniqueUsers: number };
     prevTotals: { views: number; minutes: number; uniqueSessions: number; uniqueUsers: number };
+    registrationConversion?: {
+      visitorSessions: number;
+      prevVisitorSessions: number;
+      started: number;
+      prevStarted: number;
+      completed: number;
+      prevCompleted: number;
+      visitToStartRate: number;
+      prevVisitToStartRate: number;
+      startToCompleteRate: number;
+      prevStartToCompleteRate: number;
+      visitToCompleteRate: number;
+      prevVisitToCompleteRate: number;
+      measurementReady: boolean;
+      roles: {
+        key: 'technical' | 'client';
+        label: string;
+        started: number;
+        completed: number;
+        prevStarted: number;
+        prevCompleted: number;
+        completionRate: number;
+        prevCompletionRate: number;
+        dropOffRate: number;
+      }[];
+    };
+    retention?: {
+      activeAccounts: number;
+      prevActiveAccounts: number;
+      returningAccounts: number;
+      prevReturningAccounts: number;
+      singleDayAccounts: number;
+      prevSingleDayAccounts: number;
+      returnRate: number;
+      prevReturnRate: number;
+      measurementReady: boolean;
+      roles: {
+        key: 'technical' | 'client' | 'unknown';
+        label: string;
+        activeAccounts: number;
+        prevActiveAccounts: number;
+        returningAccounts: number;
+        prevReturningAccounts: number;
+        singleDayAccounts: number;
+        returnRate: number;
+        prevReturnRate: number;
+      }[];
+    };
+    sectionRetention?: {
+      measurementReady: boolean;
+      prioritySectionKey: string | null;
+      sections: {
+        key: string;
+        label: string;
+        activeAccounts: number;
+        prevActiveAccounts: number;
+        returningAccounts: number;
+        prevReturningAccounts: number;
+        singleDayAccounts: number;
+        returnRate: number;
+        prevReturnRate: number;
+      }[];
+    };
     funnel?: {
       totalEvents: number;
       prevTotalEvents: number;
@@ -3762,7 +3892,7 @@ export default function AdminPage() {
     }
 
     const sector: RoadmapSector =
-      journey.key === 'technical_activation'
+      journey.key === 'technical_activation' || journey.key === 'technical_profile_onboarding'
         ? 'interfaz'
         : journey.key === 'client_demand'
           ? 'clientes'
@@ -3811,6 +3941,129 @@ export default function AdminPage() {
       setActivityPlanMessage(`Plan creado para ${journey.label}.`);
     } catch (error: any) {
       setActivityPlanError(error?.message || 'No se pudo crear el plan de acción.');
+    } finally {
+      setActivityPlanCreatingKey(null);
+    }
+  };
+
+  const handleRetentionPlanCreate = async () => {
+    if (!session?.access_token || !activityData?.retention) return;
+    const sourceKey = 'activity-retention:accounts';
+    const title = 'Mejorar retención de cuentas';
+    const existing = roadmapUpdates.find((item) => item.source_key === sourceKey);
+    if (existing) {
+      setRoadmapSearch(existing.title);
+      setRoadmapScopeFilter('all');
+      setRoadmapPendingOnly(false);
+      selectAdminTab('roadmap', 'planes');
+      return;
+    }
+
+    const retention = activityData.retention;
+    const priority: RoadmapPriority = retention.returnRate < 20 ? 'high' : 'medium';
+    setActivityPlanCreatingKey('retention');
+    setActivityPlanMessage('');
+    setActivityPlanError('');
+    try {
+      const response = await fetch('/api/admin/roadmap', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title,
+          description: `En el período analizado hubo ${retention.activeAccounts} cuentas activas y ${retention.returningAccounts} regresaron en otro día. La tasa de retorno actual es ${retention.returnRate.toFixed(
+            0
+          )}%. Preparar acciones de seguimiento, notificaciones útiles y motivos claros para volver a UrbanFix.`,
+          status: 'planned',
+          area: 'web',
+          priority,
+          sector: 'funcionalidades',
+          owner: 'UrbanFix',
+          eta_date: getIsoDateFromOffset(priority === 'high' ? 14 : 21),
+          source_key: sourceKey,
+          source_files: ['admin/actividad', 'admin/planes-de-accion'],
+          feedback_body:
+            'Creado desde el reporte de Actividad para mejorar el regreso de técnicos y clientes.',
+          feedback_sentiment: 'neutral',
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.error || 'No se pudo crear el plan de retención.');
+      }
+
+      await loadRoadmap(session.access_token);
+      setRoadmapSearch(title);
+      setRoadmapScopeFilter('all');
+      setRoadmapPendingOnly(false);
+      selectAdminTab('roadmap', 'planes');
+    } catch (error: any) {
+      setActivityPlanError(error?.message || 'No se pudo crear el plan de retención.');
+    } finally {
+      setActivityPlanCreatingKey(null);
+    }
+  };
+
+  const handleSectionRetentionPlanCreate = async (section: {
+    key: string;
+    label: string;
+    activeAccounts: number;
+    returningAccounts: number;
+    singleDayAccounts: number;
+    returnRate: number;
+  }) => {
+    if (!session?.access_token) return;
+    const action = SECTION_RETENTION_ACTIONS[section.key] || SECTION_RETENTION_ACTIONS.other;
+    const sourceKey = `activity-section-retention:${section.key}`;
+    const title = `Mejorar retorno en ${section.label}`;
+    const existing = roadmapUpdates.find((item) => item.source_key === sourceKey);
+    if (existing) {
+      setRoadmapSearch(existing.title);
+      setRoadmapScopeFilter('all');
+      setRoadmapPendingOnly(false);
+      selectAdminTab('roadmap', 'planes');
+      return;
+    }
+
+    const priority: RoadmapPriority = section.returnRate < 20 ? 'high' : 'medium';
+    setActivityPlanCreatingKey(sourceKey);
+    setActivityPlanMessage('');
+    setActivityPlanError('');
+    try {
+      const response = await fetch('/api/admin/roadmap', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title,
+          description: `${section.singleDayAccounts} de ${section.activeAccounts} cuentas activas usaron ${section.label} un solo día. La tasa de retorno es ${section.returnRate.toFixed(
+            0
+          )}% y ${section.returningAccounts} cuentas regresaron. Acción recomendada: ${action.recommendation}`,
+          status: 'planned',
+          area: 'web',
+          priority,
+          sector: action.sector,
+          owner: action.planLabel,
+          eta_date: getIsoDateFromOffset(priority === 'high' ? 14 : 21),
+          source_key: sourceKey,
+          source_files: ['admin/actividad', `admin/${action.planKey}`],
+          feedback_body: `Creado desde la retención por sección y vinculado al plan ${action.planLabel}.`,
+          feedback_sentiment: 'neutral',
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.error || 'No se pudo crear la tarea de seguimiento.');
+      }
+
+      await loadRoadmap(session.access_token);
+      setActivityPlanMessage(`Tarea creada y vinculada a ${action.planLabel}.`);
+    } catch (error: any) {
+      setActivityPlanError(error?.message || 'No se pudo crear la tarea de seguimiento.');
     } finally {
       setActivityPlanCreatingKey(null);
     }
@@ -4346,6 +4599,33 @@ export default function AdminPage() {
         successMessage: options?.successMessage || 'Acción rápida aplicada.',
       }
     );
+  };
+
+  const handleActivityPlanQuickAction = async (
+    plan: RoadmapUpdateItem,
+    action: 'start' | 'unblock' | 'block' | 'resolve',
+    journeyLabel: string
+  ) => {
+    const successByAction = {
+      start: `Plan iniciado para ${journeyLabel}.`,
+      unblock: `Plan reanudado para ${journeyLabel}.`,
+      block: `Plan bloqueado para ${journeyLabel}.`,
+      resolve: `Plan resuelto para ${journeyLabel}.`,
+    };
+
+    setActivityPlanMessage('');
+    setActivityPlanError('');
+    const updated = await runRoadmapQuickAction(plan, action, {
+      contextLabel: `Actividad - ${journeyLabel}`,
+      successMessage: successByAction[action],
+    });
+
+    if (updated) {
+      setActivityPlanMessage(successByAction[action]);
+      return;
+    }
+
+    setActivityPlanError(`No se pudo actualizar el plan de ${journeyLabel}.`);
   };
 
   const handleCopyRoadmapTicket = useCallback(
@@ -6426,6 +6706,64 @@ export default function AdminPage() {
     const blocked = roadmapUpdates.filter((item) => item.status === 'blocked').length;
     return { total, done, inProgress, blocked };
   }, [roadmapUpdates]);
+
+  const activityOpportunities = useMemo(() => {
+    const plansBySource = new Map(
+      roadmapUpdates
+        .filter((item) => item.source_key?.startsWith('activity-funnel:'))
+        .map((item) => [item.source_key, item])
+    );
+
+    return (activityData?.funnel?.journeys || [])
+      .filter((journey) => journey.hasData && journey.dropOffRate > 0)
+      .map((journey) => {
+        const plan = plansBySource.get(`activity-funnel:${journey.key}`) || null;
+        const impact =
+          journey.dropOffRate >= 60 || journey.completionRate <= 25
+            ? 'critical'
+            : journey.dropOffRate >= 35 || journey.completionRate <= 50
+              ? 'high'
+              : 'moderate';
+        const followUpRank =
+          plan?.status === 'blocked'
+            ? 4
+            : !plan
+              ? 3
+              : plan.status === 'planned'
+                ? 2
+                : plan.status === 'in_progress'
+                  ? 1
+                  : 0;
+
+        return {
+          journey,
+          plan,
+          impact,
+          followUpRank,
+          score: followUpRank * 1000 + journey.dropOffRate * 10 + (100 - journey.completionRate),
+        };
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 4);
+  }, [activityData, roadmapUpdates]);
+
+  const retentionPlan = useMemo(
+    () => roadmapUpdates.find((item) => item.source_key === 'activity-retention:accounts') || null,
+    [roadmapUpdates]
+  );
+  const sectionRetentionPriority = useMemo(() => {
+    const priorityKey = activityData?.sectionRetention?.prioritySectionKey;
+    if (!priorityKey) return null;
+    const section =
+      activityData?.sectionRetention?.sections.find((item) => item.key === priorityKey) || null;
+    if (!section) return null;
+    const action = SECTION_RETENTION_ACTIONS[section.key] || SECTION_RETENTION_ACTIONS.other;
+    const roadmapPlan =
+      roadmapUpdates.find(
+        (item) => item.source_key === `activity-section-retention:${section.key}`
+      ) || null;
+    return { section, action, roadmapPlan };
+  }, [activityData, roadmapUpdates]);
 
   const activeTabLabel = useMemo(
     () => tabs.find((tab) => tab.key === activeTab)?.label || 'Resumen',
@@ -12235,6 +12573,557 @@ export default function AdminPage() {
                     </div>
                   </div>
 
+                  {activityData.registrationConversion && (
+                    <section className="mt-8 border-y border-slate-200 py-6">
+                      <div className="flex flex-wrap items-end justify-between gap-4">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <Users className="h-4 w-4 text-slate-700" />
+                            <h4 className="text-lg font-semibold text-slate-900">
+                              Conversión de visitas a cuentas
+                            </h4>
+                          </div>
+                          <p className="mt-1 text-xs text-slate-500">
+                            Mide cuántas sesiones comienzan el registro y cuántas crean una cuenta.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRoadmapSearch('Convertir visitas en registros');
+                            setRoadmapScopeFilter('all');
+                            setRoadmapPendingOnly(false);
+                            selectAdminTab('roadmap', 'planes');
+                          }}
+                          className="inline-flex min-h-10 items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-800 transition hover:border-slate-500"
+                        >
+                          Abrir plan de conversión
+                          <ArrowRight className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      <div className="mt-5 grid overflow-hidden rounded-2xl border border-slate-200 bg-white md:grid-cols-4 md:divide-x md:divide-slate-200">
+                        {[
+                          {
+                            label: 'Sesiones visitantes',
+                            value: activityData.registrationConversion.visitorSessions,
+                            previous: activityData.registrationConversion.prevVisitorSessions,
+                          },
+                          {
+                            label: 'Iniciaron registro',
+                            value: activityData.registrationConversion.started,
+                            previous: activityData.registrationConversion.prevStarted,
+                          },
+                          {
+                            label: 'Cuentas creadas',
+                            value: activityData.registrationConversion.completed,
+                            previous: activityData.registrationConversion.prevCompleted,
+                          },
+                        ].map((metric) => (
+                          <div
+                            key={metric.label}
+                            className="border-b border-slate-200 px-4 py-4 last:border-b-0 md:border-b-0"
+                          >
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                              {metric.label}
+                            </p>
+                            <p className="mt-2 text-2xl font-semibold text-slate-900">
+                              {formatNumber(metric.value)}
+                            </p>
+                            <p className={`mt-1 text-xs ${getDeltaLabel(metric.value, metric.previous).tone}`}>
+                              {getDeltaLabel(metric.value, metric.previous).text}
+                            </p>
+                          </div>
+                        ))}
+                        <div className="px-4 py-4">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                            Conversión total
+                          </p>
+                          <p className="mt-2 text-2xl font-semibold text-slate-900">
+                            {activityData.registrationConversion.visitToCompleteRate.toFixed(1).replace('.', ',')}%
+                          </p>
+                          <p
+                            className={`mt-1 text-xs ${
+                              getDeltaLabel(
+                                activityData.registrationConversion.visitToCompleteRate,
+                                activityData.registrationConversion.prevVisitToCompleteRate
+                              ).tone
+                            }`}
+                          >
+                            {
+                              getDeltaLabel(
+                                activityData.registrationConversion.visitToCompleteRate,
+                                activityData.registrationConversion.prevVisitToCompleteRate
+                              ).text
+                            }
+                          </p>
+                        </div>
+                      </div>
+
+                      {!activityData.registrationConversion.measurementReady && (
+                        <div className="mt-4 flex items-start gap-3 border-l-2 border-amber-400 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                          <CircleHelp className="mt-0.5 h-4 w-4 shrink-0" />
+                          <p>
+                            Los inicios de registro comienzan a medirse desde esta actualización. Las cuentas
+                            creadas anteriormente siguen visibles, pero no se usan para calcular el abandono.
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="mt-5 divide-y divide-slate-200 border-y border-slate-200">
+                        {activityData.registrationConversion.roles.map((role) => (
+                          <article
+                            key={role.key}
+                            className="grid gap-4 py-4 md:grid-cols-[minmax(140px,0.8fr)_repeat(3,minmax(110px,0.6fr))_minmax(180px,1.4fr)] md:items-center"
+                          >
+                            <div>
+                              <p className="text-sm font-semibold text-slate-900">{role.label}</p>
+                              <p className="text-xs text-slate-500">
+                                {role.started > 0 ? 'Embudo medido' : 'Esperando nuevos inicios'}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400">Inicios</p>
+                              <p className="mt-1 text-lg font-semibold text-slate-900">
+                                {formatNumber(role.started)}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400">Altas</p>
+                              <p className="mt-1 text-lg font-semibold text-slate-900">
+                                {formatNumber(role.completed)}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400">Abandono</p>
+                              <p className="mt-1 text-lg font-semibold text-slate-900">
+                                {role.dropOffRate.toFixed(1).replace('.', ',')}%
+                              </p>
+                            </div>
+                            <div>
+                              <div className="flex items-center justify-between gap-3 text-xs">
+                                <span className="font-semibold text-slate-700">Inicio → cuenta</span>
+                                <span className="text-slate-500">
+                                  {role.completionRate.toFixed(1).replace('.', ',')}%
+                                </span>
+                              </div>
+                              <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
+                                <div
+                                  className="h-full rounded-full bg-emerald-500 transition-[width]"
+                                  style={{ width: `${Math.max(0, Math.min(100, role.completionRate))}%` }}
+                                />
+                              </div>
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {activityData.retention && (
+                    <section className="mt-8 border-y border-slate-200 py-6">
+                      <div className="flex flex-wrap items-end justify-between gap-4">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <RefreshCw className="h-4 w-4 text-slate-700" />
+                            <h4 className="text-lg font-semibold text-slate-900">
+                              Retención de cuentas
+                            </h4>
+                          </div>
+                          <p className="mt-1 text-xs text-slate-500">
+                            Una cuenta retorna cuando vuelve a usar UrbanFix en un día distinto.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleRetentionPlanCreate}
+                          disabled={
+                            activityPlanCreatingKey === 'retention' ||
+                            roadmapLoading ||
+                            !activityData.retention.measurementReady
+                          }
+                          className="inline-flex min-h-10 items-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {retentionPlan ? (
+                            <>
+                              Abrir plan de retención
+                              <ArrowRight className="h-4 w-4" />
+                            </>
+                          ) : (
+                            <>
+                              <ClipboardList className="h-4 w-4" />
+                              {activityPlanCreatingKey === 'retention'
+                                ? 'Creando...'
+                                : 'Crear plan de retención'}
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      <div className="mt-5 grid overflow-hidden rounded-2xl border border-slate-200 bg-white md:grid-cols-4 md:divide-x md:divide-slate-200">
+                        <div className="border-b border-slate-200 px-4 py-4 md:border-b-0">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                            Cuentas activas
+                          </p>
+                          <p className="mt-2 text-2xl font-semibold text-slate-900">
+                            {formatNumber(activityData.retention.activeAccounts)}
+                          </p>
+                          <p
+                            className={`mt-1 text-xs ${
+                              getDeltaLabel(
+                                activityData.retention.activeAccounts,
+                                activityData.retention.prevActiveAccounts
+                              ).tone
+                            }`}
+                          >
+                            {
+                              getDeltaLabel(
+                                activityData.retention.activeAccounts,
+                                activityData.retention.prevActiveAccounts
+                              ).text
+                            }
+                          </p>
+                        </div>
+                        <div className="border-b border-slate-200 px-4 py-4 md:border-b-0">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                            Volvieron otro día
+                          </p>
+                          <p className="mt-2 text-2xl font-semibold text-slate-900">
+                            {formatNumber(activityData.retention.returningAccounts)}
+                          </p>
+                          <p
+                            className={`mt-1 text-xs ${
+                              getDeltaLabel(
+                                activityData.retention.returningAccounts,
+                                activityData.retention.prevReturningAccounts
+                              ).tone
+                            }`}
+                          >
+                            {
+                              getDeltaLabel(
+                                activityData.retention.returningAccounts,
+                                activityData.retention.prevReturningAccounts
+                              ).text
+                            }
+                          </p>
+                        </div>
+                        <div className="border-b border-slate-200 px-4 py-4 md:border-b-0">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                            Uso de un solo día
+                          </p>
+                          <p className="mt-2 text-2xl font-semibold text-slate-900">
+                            {formatNumber(activityData.retention.singleDayAccounts)}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-400">
+                            Anterior: {formatNumber(activityData.retention.prevSingleDayAccounts)}
+                          </p>
+                        </div>
+                        <div className="px-4 py-4">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                            Tasa de retorno
+                          </p>
+                          <p className="mt-2 text-2xl font-semibold text-slate-900">
+                            {activityData.retention.returnRate.toFixed(1).replace('.', ',')}%
+                          </p>
+                          <p
+                            className={`mt-1 text-xs ${
+                              getDeltaLabel(
+                                activityData.retention.returnRate,
+                                activityData.retention.prevReturnRate
+                              ).tone
+                            }`}
+                          >
+                            {
+                              getDeltaLabel(
+                                activityData.retention.returnRate,
+                                activityData.retention.prevReturnRate
+                              ).text
+                            }
+                          </p>
+                        </div>
+                      </div>
+
+                      {!activityData.retention.measurementReady && (
+                        <div className="mt-4 flex items-start gap-3 border-l-2 border-amber-400 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                          <CircleHelp className="mt-0.5 h-4 w-4 shrink-0" />
+                          <p>
+                            Se necesitan cuentas activas y al menos dos días de medición para calcular el
+                            regreso real.
+                          </p>
+                        </div>
+                      )}
+
+                      {activityPlanError && (
+                        <div className="mt-4 border-l-2 border-rose-400 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-700">
+                          {activityPlanError}
+                        </div>
+                      )}
+
+                      <div className="mt-5 divide-y divide-slate-200 border-y border-slate-200">
+                        {activityData.retention.roles
+                          .filter(
+                            (role) =>
+                              role.key !== 'unknown' ||
+                              role.activeAccounts > 0 ||
+                              role.prevActiveAccounts > 0
+                          )
+                          .map((role) => (
+                            <article
+                              key={role.key}
+                              className="grid gap-4 py-4 md:grid-cols-[minmax(150px,0.9fr)_repeat(2,minmax(110px,0.55fr))_minmax(220px,1.5fr)] md:items-center"
+                            >
+                              <div>
+                                <p className="text-sm font-semibold text-slate-900">{role.label}</p>
+                                <p className="text-xs text-slate-500">
+                                  {role.singleDayAccounts} con actividad en un solo día
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400">
+                                  Activas
+                                </p>
+                                <p className="mt-1 text-lg font-semibold text-slate-900">
+                                  {formatNumber(role.activeAccounts)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400">
+                                  Retornaron
+                                </p>
+                                <p className="mt-1 text-lg font-semibold text-slate-900">
+                                  {formatNumber(role.returningAccounts)}
+                                </p>
+                              </div>
+                              <div>
+                                <div className="flex items-center justify-between gap-3 text-xs">
+                                  <span className="font-semibold text-slate-700">Tasa de retorno</span>
+                                  <span className="text-slate-500">
+                                    {role.returnRate.toFixed(1).replace('.', ',')}%
+                                  </span>
+                                </div>
+                                <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
+                                  <div
+                                    className="h-full rounded-full bg-emerald-500 transition-[width]"
+                                    style={{
+                                      width: `${Math.max(0, Math.min(100, role.returnRate))}%`,
+                                    }}
+                                  />
+                                </div>
+                                <p
+                                  className={`mt-1 text-[11px] ${
+                                    getDeltaLabel(role.returnRate, role.prevReturnRate).tone
+                                  }`}
+                                >
+                                  {getDeltaLabel(role.returnRate, role.prevReturnRate).text}
+                                </p>
+                              </div>
+                            </article>
+                          ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {activityData.sectionRetention &&
+                    activityData.sectionRetention.sections.length > 0 && (
+                      <section className="mt-8 border-b border-slate-200 pb-6">
+                        <div className="flex flex-wrap items-end justify-between gap-4">
+                          <div>
+                            <h4 className="text-lg font-semibold text-slate-900">
+                              Retención por sección
+                            </h4>
+                            <p className="mt-1 text-xs text-slate-500">
+                              Mide si una misma cuenta vuelve a esa área de UrbanFix en otro día.
+                            </p>
+                          </div>
+                          <span className="text-xs font-semibold text-slate-500">
+                            {activityData.sectionRetention.sections.length} áreas con actividad
+                          </span>
+                        </div>
+
+                        {!activityData.sectionRetention.measurementReady && (
+                          <div className="mt-4 flex items-start gap-3 border-l-2 border-amber-400 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                            <CircleHelp className="mt-0.5 h-4 w-4 shrink-0" />
+                            <p>
+                              Se necesitan cuentas activas y al menos dos días de medición para
+                              comparar el retorno por área.
+                            </p>
+                          </div>
+                        )}
+
+                        {sectionRetentionPriority && (
+                          <div className="mt-5 border-l-4 border-amber-400 bg-slate-50 px-4 py-4">
+                            <div className="flex flex-wrap items-center justify-between gap-4">
+                              <div className="max-w-3xl">
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-700">
+                                  Próxima acción recomendada
+                                </p>
+                                <h5 className="mt-1 text-base font-semibold text-slate-900">
+                                  Mejorar el regreso a {sectionRetentionPriority.section.label}
+                                </h5>
+                                <p className="mt-1 text-sm leading-6 text-slate-600">
+                                  {formatNumber(
+                                    sectionRetentionPriority.section.singleDayAccounts
+                                  )}{' '}
+                                  de{' '}
+                                  {formatNumber(sectionRetentionPriority.section.activeAccounts)}{' '}
+                                  cuentas activas usaron esta sección un solo día.{' '}
+                                  {sectionRetentionPriority.action.recommendation}
+                                </p>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    selectAdminTab(
+                                      sectionRetentionPriority.action.planKey,
+                                      'planes'
+                                    )
+                                  }
+                                  className="inline-flex min-h-10 items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-100"
+                                >
+                                  Abrir {sectionRetentionPriority.action.planLabel}
+                                  <ArrowRight className="h-4 w-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleSectionRetentionPlanCreate(
+                                      sectionRetentionPriority.section
+                                    )
+                                  }
+                                  disabled={
+                                    activityPlanCreatingKey ===
+                                      `activity-section-retention:${sectionRetentionPriority.section.key}` ||
+                                    roadmapLoading
+                                  }
+                                  className="inline-flex min-h-10 items-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  {sectionRetentionPriority.roadmapPlan ? (
+                                    <>
+                                      Abrir tarea
+                                      <ArrowRight className="h-4 w-4" />
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ClipboardList className="h-4 w-4" />
+                                      {activityPlanCreatingKey ===
+                                      `activity-section-retention:${sectionRetentionPriority.section.key}`
+                                        ? 'Creando...'
+                                        : 'Crear tarea'}
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="mt-5 divide-y divide-slate-200 border-y border-slate-200">
+                          {activityData.sectionRetention.sections.map((section) => {
+                            const isPriority =
+                              activityData.sectionRetention?.prioritySectionKey === section.key;
+                            const rateDelta = getDeltaLabel(
+                              section.returnRate,
+                              section.prevReturnRate
+                            );
+
+                            return (
+                              <article
+                                key={section.key}
+                                className="grid gap-4 py-4 md:grid-cols-[minmax(170px,1fr)_repeat(3,minmax(100px,0.55fr))_minmax(220px,1.4fr)] md:items-center"
+                              >
+                                <div>
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p className="text-sm font-semibold text-slate-900">
+                                      {section.label}
+                                    </p>
+                                    {isPriority && (
+                                      <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-800">
+                                        Prioridad sugerida
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="mt-1 text-xs text-slate-500">
+                                    {isPriority
+                                      ? 'Concentra la mayor cantidad de cuentas que todavía no regresan.'
+                                      : `${formatNumber(section.singleDayAccounts)} cuentas con uso de un solo día.`}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400">
+                                    Activas
+                                  </p>
+                                  <p className="mt-1 text-lg font-semibold text-slate-900">
+                                    {formatNumber(section.activeAccounts)}
+                                  </p>
+                                  <p
+                                    className={`mt-1 text-[11px] ${
+                                      getDeltaLabel(
+                                        section.activeAccounts,
+                                        section.prevActiveAccounts
+                                      ).tone
+                                    }`}
+                                  >
+                                    {
+                                      getDeltaLabel(
+                                        section.activeAccounts,
+                                        section.prevActiveAccounts
+                                      ).text
+                                    }
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400">
+                                    Retornaron
+                                  </p>
+                                  <p className="mt-1 text-lg font-semibold text-slate-900">
+                                    {formatNumber(section.returningAccounts)}
+                                  </p>
+                                  <p className="mt-1 text-[11px] text-slate-400">
+                                    Anterior: {formatNumber(section.prevReturningAccounts)}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400">
+                                    Un solo día
+                                  </p>
+                                  <p className="mt-1 text-lg font-semibold text-slate-900">
+                                    {formatNumber(section.singleDayAccounts)}
+                                  </p>
+                                </div>
+                                <div>
+                                  <div className="flex items-center justify-between gap-3 text-xs">
+                                    <span className="font-semibold text-slate-700">
+                                      Tasa de retorno
+                                    </span>
+                                    <span className="text-slate-500">
+                                      {section.returnRate.toFixed(1).replace('.', ',')}%
+                                    </span>
+                                  </div>
+                                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
+                                    <div
+                                      className={`h-full rounded-full transition-[width] ${
+                                        isPriority ? 'bg-amber-500' : 'bg-emerald-500'
+                                      }`}
+                                      style={{
+                                        width: `${Math.max(
+                                          0,
+                                          Math.min(100, section.returnRate)
+                                        )}%`,
+                                      }}
+                                    />
+                                  </div>
+                                  <p className={`mt-1 text-[11px] ${rateDelta.tone}`}>
+                                    {rateDelta.text}
+                                  </p>
+                                </div>
+                              </article>
+                            );
+                          })}
+                        </div>
+                      </section>
+                    )}
+
                   {activityData.funnel && (
                     <div className="mt-8 rounded-3xl border border-slate-200 bg-slate-50 p-5">
                       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -12289,6 +13178,170 @@ export default function AdminPage() {
                         ))}
                       </div>
 
+                      {activityOpportunities.length > 0 && (
+                        <section className="mt-6 border-t border-slate-200 pt-6">
+                          <div className="flex flex-wrap items-end justify-between gap-3">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <ClipboardList className="h-4 w-4 text-slate-700" />
+                                <h5 className="text-sm font-semibold text-slate-900">
+                                  Oportunidades para trabajar ahora
+                                </h5>
+                              </div>
+                              <p className="mt-1 text-xs text-slate-500">
+                                Priorizadas por abandono, conversión y estado del plan de acción.
+                              </p>
+                            </div>
+                            <div className="flex flex-wrap gap-2 text-[11px] font-semibold">
+                              <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-800">
+                                {activityOpportunities.filter((item) => !item.plan).length} sin plan
+                              </span>
+                              <span className="rounded-full bg-sky-100 px-3 py-1 text-sky-800">
+                                {
+                                  activityOpportunities.filter(
+                                    (item) => item.plan && item.plan.status !== 'done'
+                                  ).length
+                                }{' '}
+                                en seguimiento
+                              </span>
+                            </div>
+                          </div>
+
+                          {activityPlanMessage && (
+                            <div className="mt-4 flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-700">
+                              <CheckCircle2 className="h-4 w-4 shrink-0" />
+                              {activityPlanMessage}
+                            </div>
+                          )}
+                          {activityPlanError && (
+                            <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-700">
+                              {activityPlanError}
+                            </div>
+                          )}
+
+                          <div className="mt-4 divide-y divide-slate-200 border-y border-slate-200 bg-white">
+                            {activityOpportunities.map(({ journey, plan, impact }) => {
+                              const isCreatingPlan = activityPlanCreatingKey === journey.key;
+                              const isUpdatingPlan = Boolean(plan && roadmapUpdatingId === plan.id);
+                              const impactLabel =
+                                impact === 'critical'
+                                  ? 'Impacto crítico'
+                                  : impact === 'high'
+                                    ? 'Impacto alto'
+                                    : 'Impacto moderado';
+                              const impactClass =
+                                impact === 'critical'
+                                  ? 'bg-rose-100 text-rose-700'
+                                  : impact === 'high'
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : 'bg-slate-100 text-slate-700';
+
+                              return (
+                                <article
+                                  key={`opportunity-${journey.key}`}
+                                  className="grid gap-4 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_auto]"
+                                >
+                                  <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <p className="text-sm font-semibold text-slate-900">{journey.label}</p>
+                                      <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${impactClass}`}>
+                                        {impactLabel}
+                                      </span>
+                                      <span
+                                        className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${
+                                          plan
+                                            ? ROADMAP_STATUS_BADGE_CLASS[plan.status]
+                                            : 'border border-amber-200 bg-amber-50 text-amber-700'
+                                        }`}
+                                      >
+                                        {plan ? getRoadmapStatusLabel(plan.status) : 'Sin plan'}
+                                      </span>
+                                    </div>
+                                    <p className="mt-2 text-xs text-slate-600">
+                                      {journey.weakestStageLabel
+                                        ? `Punto más débil: ${journey.weakestStageLabel}. `
+                                        : ''}
+                                      {journey.recommendation}
+                                    </p>
+                                  </div>
+
+                                  <div className="flex flex-wrap items-center gap-4 lg:justify-end">
+                                    <div className="text-left lg:text-right">
+                                      <p className="text-lg font-semibold text-slate-900">
+                                        {journey.dropOffRate.toFixed(0)}% abandono
+                                      </p>
+                                      <p className="text-[11px] text-slate-500">
+                                        {journey.completionRate.toFixed(0)}% completa el recorrido
+                                      </p>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      {plan?.status === 'planned' && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleActivityPlanQuickAction(plan, 'start', journey.label)}
+                                          disabled={isUpdatingPlan}
+                                          className="inline-flex min-h-10 items-center rounded-full bg-sky-600 px-4 py-2 text-[11px] font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                          {isUpdatingPlan ? 'Guardando...' : 'Iniciar'}
+                                        </button>
+                                      )}
+                                      {plan?.status === 'blocked' && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleActivityPlanQuickAction(plan, 'unblock', journey.label)}
+                                          disabled={isUpdatingPlan}
+                                          className="inline-flex min-h-10 items-center rounded-full bg-sky-600 px-4 py-2 text-[11px] font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                          {isUpdatingPlan ? 'Guardando...' : 'Reanudar'}
+                                        </button>
+                                      )}
+                                      {plan?.status === 'in_progress' && (
+                                        <>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleActivityPlanQuickAction(plan, 'block', journey.label)}
+                                            disabled={isUpdatingPlan}
+                                            className="inline-flex min-h-10 items-center rounded-full border border-amber-300 bg-amber-50 px-4 py-2 text-[11px] font-semibold text-amber-800 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                          >
+                                            Bloquear
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleActivityPlanQuickAction(plan, 'resolve', journey.label)}
+                                            disabled={isUpdatingPlan}
+                                            className="inline-flex min-h-10 items-center rounded-full bg-emerald-600 px-4 py-2 text-[11px] font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                          >
+                                            {isUpdatingPlan ? 'Guardando...' : 'Resolver'}
+                                          </button>
+                                        </>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={() => handleActivityPlanCreate(journey)}
+                                        disabled={isCreatingPlan || roadmapLoading || isUpdatingPlan}
+                                        className="inline-flex min-h-10 items-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-[11px] font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                      >
+                                        {plan ? (
+                                          <>
+                                            Ver plan
+                                            <ArrowRight className="h-3.5 w-3.5" />
+                                          </>
+                                        ) : (
+                                          <>
+                                            <ClipboardList className="h-3.5 w-3.5" />
+                                            {isCreatingPlan ? 'Creando...' : 'Crear plan'}
+                                          </>
+                                        )}
+                                      </button>
+                                    </div>
+                                  </div>
+                                </article>
+                              );
+                            })}
+                          </div>
+                        </section>
+                      )}
+
                       <div className="mt-6 border-t border-slate-200 pt-6">
                         <div className="flex flex-wrap items-end justify-between gap-2">
                           <div>
@@ -12299,18 +13352,6 @@ export default function AdminPage() {
                           </div>
                           <span className="text-xs text-slate-400">Comparado con el período anterior</span>
                         </div>
-
-                        {activityPlanMessage && (
-                          <div className="mt-4 flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-700">
-                            <CheckCircle2 className="h-4 w-4 shrink-0" />
-                            {activityPlanMessage}
-                          </div>
-                        )}
-                        {activityPlanError && (
-                          <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-700">
-                            {activityPlanError}
-                          </div>
-                        )}
 
                         <div className="mt-4 divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
                           {(activityData.funnel.journeys || []).map((journey) => {

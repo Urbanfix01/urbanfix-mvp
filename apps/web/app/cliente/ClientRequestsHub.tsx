@@ -744,6 +744,7 @@ export default function ClientRequestsHub() {
   const authClientMetadataSyncedRef = useRef('');
   const welcomeWhatsAppNoticeInFlightRef = useRef(false);
   const requestDraftRestoredKeyRef = useRef('');
+  const registrationStartTrackedRef = useRef(false);
   const [session, setSession] = useState<Session | null>(null);
   const [, setLoadingSession] = useState(true);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
@@ -988,6 +989,14 @@ export default function ClientRequestsHub() {
       }
     }
   }, []);
+
+  useEffect(() => {
+    if (authMode !== 'register' || registrationStartTrackedRef.current) return;
+    registrationStartTrackedRef.current = true;
+    trackFunnelEvent('client_registration_started', {
+      create_request_intent: createRequestIntent,
+    });
+  }, [authMode, createRequestIntent]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !session?.user?.id || createRequestIntent) return;

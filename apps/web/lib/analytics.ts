@@ -6,11 +6,17 @@ export type AnalyticsFunnelEventDetail = {
   eventContext?: Record<string, unknown>;
 };
 
+type AnalyticsBrowserWindow = Window & {
+  __urbanfixAnalyticsFunnelReady?: boolean;
+  __urbanfixAnalyticsFunnelQueue?: AnalyticsFunnelEventDetail[];
+};
+
 const SESSION_ID_KEY = 'ux_session_id';
 const SESSION_LAST_ACTIVITY_KEY = 'ux_session_last_activity';
 const SESSION_CREATED_AT_KEY = 'ux_session_created_at';
 const SESSION_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 const SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+const MAX_QUEUED_FUNNEL_EVENTS = 50;
 
 const createAnalyticsSessionId = () => {
   try {
@@ -87,12 +93,37 @@ export const trackFunnelEvent = (
   const normalizedEventName = String(eventName || '').trim().slice(0, 80);
   if (!normalizedEventName) return;
 
+  const detail: AnalyticsFunnelEventDetail = {
+    eventName: normalizedEventName,
+    eventContext: eventContext || {},
+  };
+  const analyticsWindow = window as AnalyticsBrowserWindow;
+
+  if (!analyticsWindow.__urbanfixAnalyticsFunnelReady) {
+    const queuedEvents = analyticsWindow.__urbanfixAnalyticsFunnelQueue || [];
+    analyticsWindow.__urbanfixAnalyticsFunnelQueue = [...queuedEvents, detail].slice(
+      -MAX_QUEUED_FUNNEL_EVENTS
+    );
+    return;
+  }
+
   window.dispatchEvent(
     new CustomEvent<AnalyticsFunnelEventDetail>(ANALYTICS_FUNNEL_EVENT, {
-      detail: {
-        eventName: normalizedEventName,
-        eventContext: eventContext || {},
-      },
+      detail,
     })
   );
+};
+
+export const setAnalyticsFunnelReady = (ready: boolean) => {
+  if (typeof window === 'undefined') return;
+  (window as AnalyticsBrowserWindow).__urbanfixAnalyticsFunnelReady = ready;
+};
+
+export const drainQueuedAnalyticsFunnelEvents = () => {
+  if (typeof window === 'undefined') return [] as AnalyticsFunnelEventDetail[];
+
+  const analyticsWindow = window as AnalyticsBrowserWindow;
+  const queuedEvents = analyticsWindow.__urbanfixAnalyticsFunnelQueue || [];
+  analyticsWindow.__urbanfixAnalyticsFunnelQueue = [];
+  return queuedEvents;
 };

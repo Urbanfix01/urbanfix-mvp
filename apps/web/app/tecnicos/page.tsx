@@ -4643,6 +4643,8 @@ export default function TechniciansPage() {
   const [loadingSession, setLoadingSession] = useState(true);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const sessionUserIdRef = useRef<string | null>(null);
+  const registrationStartTrackedRef = useRef(false);
+  const profileOnboardingTrackedRef = useRef<Set<string>>(new Set());
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -5012,6 +5014,14 @@ export default function TechniciansPage() {
       setProfilePublicationFocus(true);
     }
   }, []);
+
+  useEffect(() => {
+    if (authMode !== 'register' || registrationStartTrackedRef.current) return;
+    registrationStartTrackedRef.current = true;
+    trackFunnelEvent('technical_registration_started', {
+      access_profile: selectedAccessProfile || 'tecnico',
+    });
+  }, [authMode, selectedAccessProfile]);
 
   useEffect(() => {
     if (!profilePublicationFocus || activeTab !== 'perfil' || profilePanelTab !== 'editor') return;
@@ -10583,6 +10593,71 @@ export default function TechniciansPage() {
     return Math.round((requiredProfileDoneCount / requiredProfileSteps.length) * 100);
   }, [requiredProfileDoneCount, requiredProfileSteps.length]);
   const firstIncompleteRequiredProfileStepKey = requiredProfileSteps.find((step) => !step.done)?.key;
+
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId || !profileHydrated || !profile) return;
+
+    const trackedEvents = profileOnboardingTrackedRef.current;
+    const startedEvent = 'technical_profile_onboarding_started';
+    const startedKey = `${userId}:${startedEvent}`;
+
+    if (profileRequiredMissing.length > 0 && !trackedEvents.has(startedKey)) {
+      trackFunnelEvent(startedEvent, {
+        access_profile: selectedAccessProfile || 'tecnico',
+        completed_steps: requiredProfileDoneCount,
+        progress: requiredProfileProgress,
+      });
+      trackedEvents.add(startedKey);
+    }
+
+    if (!trackedEvents.has(startedKey)) return;
+
+    const stageEvents = [
+      {
+        eventName: 'technical_profile_identity_completed',
+        stepKey: 'identity',
+        done: requiredProfileSteps[0]?.done === true,
+      },
+      {
+        eventName: 'technical_profile_contact_completed',
+        stepKey: 'contact',
+        done: requiredProfileSteps[1]?.done === true,
+      },
+      {
+        eventName: 'technical_profile_specialty_completed',
+        stepKey: 'specialty',
+        done: requiredProfileSteps[2]?.done === true,
+      },
+      {
+        eventName: 'technical_profile_location_completed',
+        stepKey: 'location',
+        done: requiredProfileSteps[3]?.done === true,
+      },
+    ];
+
+    for (const [index, stage] of stageEvents.entries()) {
+      if (!stage.done) break;
+      const eventKey = `${userId}:${stage.eventName}`;
+      if (trackedEvents.has(eventKey)) continue;
+      trackFunnelEvent(stage.eventName, {
+        access_profile: selectedAccessProfile || 'tecnico',
+        step: stage.stepKey,
+        completed_steps: index + 1,
+        progress: Math.round(((index + 1) / stageEvents.length) * 100),
+      });
+      trackedEvents.add(eventKey);
+    }
+  }, [
+    profile,
+    profileHydrated,
+    profileRequiredMissing.length,
+    requiredProfileDoneCount,
+    requiredProfileProgress,
+    requiredProfileSteps,
+    selectedAccessProfile,
+    session?.user?.id,
+  ]);
 
   useEffect(() => {
     if (requiredProfileOpenStep || profileRequiredMissing.length === 0) return;

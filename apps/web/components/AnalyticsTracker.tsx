@@ -7,7 +7,9 @@ import {
   ANALYTICS_ENDPOINT,
   ANALYTICS_FUNNEL_EVENT,
   type AnalyticsFunnelEventDetail,
+  drainQueuedAnalyticsFunnelEvents,
   getOrCreateAnalyticsSessionId,
+  setAnalyticsFunnelReady,
   startNewAnalyticsSessionId,
 } from '../lib/analytics';
 import { getStoredCountryPreference } from '../lib/country-preference';
@@ -158,7 +160,15 @@ export default function AnalyticsTracker() {
     };
 
     window.addEventListener(ANALYTICS_FUNNEL_EVENT, handleProgrammaticFunnelEvent);
+    setAnalyticsFunnelReady(true);
+    drainQueuedAnalyticsFunnelEvents().forEach((detail) => {
+      const eventName = String(detail?.eventName || '').trim().slice(0, 80);
+      if (!eventName) return;
+      sendFunnelEvent(eventName, detail?.eventContext || {});
+    });
+
     return () => {
+      setAnalyticsFunnelReady(false);
       window.removeEventListener(ANALYTICS_FUNNEL_EVENT, handleProgrammaticFunnelEvent);
     };
   }, [authReady, authEventVersion, pathname]);

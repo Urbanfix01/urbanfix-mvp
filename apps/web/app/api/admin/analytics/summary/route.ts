@@ -16,9 +16,109 @@ const endOfDay = (value: Date) => {
 const getProfileLabel = (profile: any, fallback?: string) =>
   profile?.business_name || profile?.full_name || profile?.email || fallback || 'Sin perfil';
 
+const DEFAULT_ANALYTICS_EXCLUDED_EMAILS = ['info@urbanfix.com', 'eliascastillo237@gmail.com'];
+const ANALYTICS_EXCLUDED_EMAILS_ENV = process.env.ADMIN_ANALYTICS_EXCLUDED_EMAILS || '';
+const getAnalyticsExcludedEmails = () =>
+  new Set(
+    [...DEFAULT_ANALYTICS_EXCLUDED_EMAILS, ...ANALYTICS_EXCLUDED_EMAILS_ENV.split(',')]
+      .map((value) => String(value || '').trim().toLowerCase())
+      .filter(Boolean)
+  );
+
+const chunk = <T,>(items: T[], size: number) => {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+};
+
+const technicalRoleEvents = new Set([
+  'technical_registration_started',
+  'technical_registration_completed',
+  'technical_profile_onboarding_started',
+  'technical_profile_identity_completed',
+  'technical_profile_contact_completed',
+  'technical_profile_specialty_completed',
+  'technical_profile_location_completed',
+  'technical_profile_completed',
+  'technical_profile_published',
+  'home_register_start',
+  'home_register_start_from_empresas',
+]);
+const clientRoleEvents = new Set([
+  'client_registration_started',
+  'client_registration_completed',
+  'client_request_published',
+]);
+
+const analyticsSectionDefinitions = [
+  {
+    key: 'home',
+    label: 'Inicio',
+    matches: (path: string) => path === '/',
+  },
+  {
+    key: 'technicians',
+    label: 'Panel técnico',
+    matches: (path: string) => path === '/tecnicos' || path.startsWith('/tecnicos/'),
+  },
+  {
+    key: 'clients',
+    label: 'Portal cliente',
+    matches: (path: string) => path === '/cliente' || path.startsWith('/cliente/'),
+  },
+  {
+    key: 'marketplace',
+    label: 'Mapa y perfiles',
+    matches: (path: string) =>
+      path === '/vidriera' || path.startsWith('/vidriera/') || path.startsWith('/tecnico/'),
+  },
+  {
+    key: 'community',
+    label: 'Comunidad',
+    matches: (path: string) => path === '/comunidad' || path.startsWith('/comunidad/'),
+  },
+  {
+    key: 'quotes',
+    label: 'Presupuestos',
+    matches: (path: string) => path.includes('presupuesto'),
+  },
+  {
+    key: 'news',
+    label: 'Novedades',
+    matches: (path: string) => path.startsWith('/newsletter') || path.startsWith('/novedades'),
+  },
+];
+
+const getAnalyticsSection = (pathValue: unknown) => {
+  const rawPath = String(pathValue || '').trim();
+  if (!rawPath) return null;
+  const normalizedPath = rawPath.split('?')[0].replace(/\/+$/, '') || '/';
+  if (
+    normalizedPath.startsWith('/admin') ||
+    normalizedPath.startsWith('/api') ||
+    normalizedPath.startsWith('/auth')
+  ) {
+    return null;
+  }
+
+  const definition = analyticsSectionDefinitions.find((item) => item.matches(normalizedPath));
+  return definition
+    ? { key: definition.key, label: definition.label }
+    : { key: 'other', label: 'Otras páginas' };
+};
+
 const funnelEventLabels: Record<string, string> = {
+  technical_registration_started: 'Inicios de registro técnico',
+  client_registration_started: 'Inicios de registro de clientes',
   technical_registration_completed: 'Registros técnicos',
   client_registration_completed: 'Registros de clientes',
+  technical_profile_onboarding_started: 'Inicios de datos clave',
+  technical_profile_identity_completed: 'Identidad técnica completada',
+  technical_profile_contact_completed: 'Contacto técnico completado',
+  technical_profile_specialty_completed: 'Rubro técnico completado',
+  technical_profile_location_completed: 'Ubicación técnica completada',
   technical_profile_completed: 'Perfiles técnicos completados',
   technical_profile_published: 'Perfiles visibles en el mapa',
   client_request_published: 'Solicitudes publicadas',
@@ -36,6 +136,8 @@ const funnelEventLabels: Record<string, string> = {
 };
 
 const funnelStepDefinitions = [
+  'technical_registration_started',
+  'client_registration_started',
   'technical_registration_completed',
   'client_registration_completed',
   'technical_profile_completed',
@@ -52,8 +154,15 @@ const funnelGroupDefinitions = [
     key: 'registrations',
     label: 'Registros y perfiles',
     events: [
+      'technical_registration_started',
+      'client_registration_started',
       'technical_registration_completed',
       'client_registration_completed',
+      'technical_profile_onboarding_started',
+      'technical_profile_identity_completed',
+      'technical_profile_contact_completed',
+      'technical_profile_specialty_completed',
+      'technical_profile_location_completed',
       'technical_profile_completed',
       'technical_profile_published',
     ],
@@ -76,6 +185,40 @@ const funnelGroupDefinitions = [
 ];
 
 const funnelJourneyDefinitions = [
+  {
+    key: 'technical_registration',
+    label: 'Registro técnico',
+    description: 'Desde que una persona abre el alta técnica hasta que crea su cuenta.',
+    recommendation: 'Simplificar el formulario y revisar los puntos de abandono del alta técnica.',
+    stages: [
+      { key: 'technical_registration_started', label: 'Inicio' },
+      { key: 'technical_registration_completed', label: 'Cuenta creada' },
+    ],
+  },
+  {
+    key: 'client_registration',
+    label: 'Registro de clientes',
+    description: 'Desde que una persona abre el alta de cliente hasta que crea su cuenta.',
+    recommendation: 'Reducir fricción y reforzar el beneficio de crear una cuenta de cliente.',
+    stages: [
+      { key: 'client_registration_started', label: 'Inicio' },
+      { key: 'client_registration_completed', label: 'Cuenta creada' },
+    ],
+  },
+  {
+    key: 'technical_profile_onboarding',
+    label: 'Datos clave del técnico',
+    description: 'Desde que abre su perfil hasta guardar identidad, contacto, rubro y ubicación.',
+    recommendation: 'Simplificar el primer paso con mayor caída y revisar su texto, validación y ayuda.',
+    stages: [
+      { key: 'technical_profile_onboarding_started', label: 'Inicio' },
+      { key: 'technical_profile_identity_completed', label: 'Identidad' },
+      { key: 'technical_profile_contact_completed', label: 'Contacto' },
+      { key: 'technical_profile_specialty_completed', label: 'Rubro' },
+      { key: 'technical_profile_location_completed', label: 'Ubicación' },
+      { key: 'technical_profile_completed', label: 'Guardado' },
+    ],
+  },
   {
     key: 'technical_activation',
     label: 'Activación técnica',
@@ -175,7 +318,7 @@ export async function GET(request: NextRequest) {
 
   let prevQuery = supabase
     .from('analytics_events')
-    .select('event_type, duration_ms, created_at, session_id, user_id')
+    .select('event_type, path, duration_ms, created_at, session_id, user_id')
     .in('event_type', ['page_view', 'page_duration'])
     .gte('created_at', prevStart.toISOString())
     .lte('created_at', prevEnd.toISOString())
@@ -239,8 +382,37 @@ export async function GET(request: NextRequest) {
   >();
   const sessions = new Set<string>();
   const users = new Set<string>();
+  const activityDaysByUser = new Map<string, Set<string>>();
+  const sectionActivityDays = new Map<
+    string,
+    { label: string; activityDaysByUser: Map<string, Set<string>> }
+  >();
+  const prevSectionActivityDays = new Map<
+    string,
+    { label: string; activityDaysByUser: Map<string, Set<string>> }
+  >();
   let totalViews = 0;
   let totalDurationMs = 0;
+
+  const recordSectionActivity = (
+    sectionMap: Map<string, { label: string; activityDaysByUser: Map<string, Set<string>> }>,
+    pathValue: unknown,
+    eventUserId: unknown,
+    dateKey: string
+  ) => {
+    const normalizedUserId = String(eventUserId || '').trim();
+    const section = getAnalyticsSection(pathValue);
+    if (!normalizedUserId || !section) return;
+
+    const sectionStats = sectionMap.get(section.key) || {
+      label: section.label,
+      activityDaysByUser: new Map<string, Set<string>>(),
+    };
+    const daysActive = sectionStats.activityDaysByUser.get(normalizedUserId) || new Set<string>();
+    daysActive.add(dateKey);
+    sectionStats.activityDaysByUser.set(normalizedUserId, daysActive);
+    sectionMap.set(section.key, sectionStats);
+  };
 
   for (let cursor = new Date(startDate); cursor <= endDate; cursor.setDate(cursor.getDate() + 1)) {
     seriesMap.set(formatDate(cursor), { views: 0, durationMs: 0 });
@@ -253,7 +425,13 @@ export async function GET(request: NextRequest) {
       series.views += 1;
       totalViews += 1;
       if (event.session_id) sessions.add(event.session_id);
-      if (event.user_id) users.add(event.user_id);
+      if (event.user_id) {
+        users.add(event.user_id);
+        const activityDays = activityDaysByUser.get(event.user_id) || new Set<string>();
+        activityDays.add(dateKey);
+        activityDaysByUser.set(event.user_id, activityDays);
+        recordSectionActivity(sectionActivityDays, event.path, event.user_id, dateKey);
+      }
       if (event.path) {
         const current = routeMap.get(event.path) || {
           views: 0,
@@ -376,12 +554,20 @@ export async function GET(request: NextRequest) {
   let prevDurationMs = 0;
   const prevSessions = new Set<string>();
   const prevUsers = new Set<string>();
+  const prevActivityDaysByUser = new Map<string, Set<string>>();
 
   (prevEvents || []).forEach((event: any) => {
     if (event.event_type === 'page_view') {
       prevViews += 1;
       if (event.session_id) prevSessions.add(event.session_id);
-      if (event.user_id) prevUsers.add(event.user_id);
+      if (event.user_id) {
+        prevUsers.add(event.user_id);
+        const dateKey = formatDate(new Date(event.created_at));
+        const activityDays = prevActivityDaysByUser.get(event.user_id) || new Set<string>();
+        activityDays.add(dateKey);
+        prevActivityDaysByUser.set(event.user_id, activityDays);
+        recordSectionActivity(prevSectionActivityDays, event.path, event.user_id, dateKey);
+      }
     }
     if (event.event_type === 'page_duration') {
       const duration = Number(event.duration_ms || 0);
@@ -390,6 +576,187 @@ export async function GET(request: NextRequest) {
       }
     }
   });
+
+  const retentionUserIds = Array.from(
+    new Set([...activityDaysByUser.keys(), ...prevActivityDaysByUser.keys()])
+  );
+  const retentionProfilesById: Record<string, any> = {};
+  for (const userIds of chunk(retentionUserIds, 200)) {
+    const { data: profileRows, error: profileError } = await supabase
+      .from('profiles')
+      .select(
+        'id, email, access_granted, profile_published, specialties, service_city, company_address'
+      )
+      .in('id', userIds);
+    if (profileError) {
+      return NextResponse.json({ error: profileError.message }, { status: 500 });
+    }
+    (profileRows || []).forEach((row: any) => {
+      retentionProfilesById[row.id] = row;
+    });
+  }
+
+  const { data: adminRows, error: adminRowsError } = await supabase
+    .from('beta_admins')
+    .select('user_id');
+  if (adminRowsError) {
+    return NextResponse.json({ error: adminRowsError.message }, { status: 500 });
+  }
+
+  const excludedEmails = getAnalyticsExcludedEmails();
+  const excludedRetentionUserIds = new Set(
+    (adminRows || []).map((row: any) => String(row.user_id || '').trim()).filter(Boolean)
+  );
+  retentionUserIds.forEach((retentionUserId) => {
+    const email = String(retentionProfilesById[retentionUserId]?.email || '')
+      .trim()
+      .toLowerCase();
+    if (email && excludedEmails.has(email)) {
+      excludedRetentionUserIds.add(retentionUserId);
+    }
+  });
+
+  const roleByUserId = new Map<string, 'technical' | 'client'>();
+  [...(funnelEvents || []), ...(prevFunnelEvents || [])].forEach((event: any) => {
+    const eventUserId = String(event.user_id || '').trim();
+    const eventName = String(event.event_name || '').trim();
+    if (!eventUserId || !eventName) return;
+    if (technicalRoleEvents.has(eventName)) {
+      roleByUserId.set(eventUserId, 'technical');
+    } else if (clientRoleEvents.has(eventName) && !roleByUserId.has(eventUserId)) {
+      roleByUserId.set(eventUserId, 'client');
+    }
+  });
+
+  const resolveRetentionRole = (retentionUserId: string) => {
+    const eventRole = roleByUserId.get(retentionUserId);
+    if (eventRole) return eventRole;
+    const profile = retentionProfilesById[retentionUserId];
+    const hasTechnicalProfile =
+      profile?.access_granted === true ||
+      profile?.profile_published === true ||
+      Boolean(profile?.specialties?.length || String(profile?.specialties || '').trim()) ||
+      Boolean(String(profile?.service_city || '').trim()) ||
+      Boolean(String(profile?.company_address || '').trim());
+    if (hasTechnicalProfile) return 'technical' as const;
+    if (profile) return 'client' as const;
+    return 'unknown' as const;
+  };
+
+  const summarizeRetention = (
+    activityDays: Map<string, Set<string>>,
+    role?: 'technical' | 'client' | 'unknown'
+  ) => {
+    const eligibleAccounts = Array.from(activityDays.entries()).filter(
+      ([retentionUserId]) =>
+        !excludedRetentionUserIds.has(retentionUserId) &&
+        (!role || resolveRetentionRole(retentionUserId) === role)
+    );
+    const returningAccounts = eligibleAccounts.filter(([, daysActive]) => daysActive.size >= 2).length;
+    return {
+      activeAccounts: eligibleAccounts.length,
+      returningAccounts,
+      singleDayAccounts: Math.max(0, eligibleAccounts.length - returningAccounts),
+      returnRate:
+        eligibleAccounts.length > 0
+          ? Math.min(100, (returningAccounts / eligibleAccounts.length) * 100)
+          : 0,
+    };
+  };
+
+  const currentRetention = summarizeRetention(activityDaysByUser);
+  const previousRetention = summarizeRetention(prevActivityDaysByUser);
+  const retentionRoleDefinitions = [
+    { key: 'technical' as const, label: 'Técnicos' },
+    { key: 'client' as const, label: 'Clientes' },
+    { key: 'unknown' as const, label: 'Sin tipo identificado' },
+  ];
+  const retention = {
+    ...currentRetention,
+    prevActiveAccounts: previousRetention.activeAccounts,
+    prevReturningAccounts: previousRetention.returningAccounts,
+    prevSingleDayAccounts: previousRetention.singleDayAccounts,
+    prevReturnRate: previousRetention.returnRate,
+    measurementReady: rangeDays >= 2 && currentRetention.activeAccounts > 0,
+    roles: retentionRoleDefinitions.map((definition) => {
+      const current = summarizeRetention(activityDaysByUser, definition.key);
+      const previous = summarizeRetention(prevActivityDaysByUser, definition.key);
+      return {
+        key: definition.key,
+        label: definition.label,
+        ...current,
+        prevActiveAccounts: previous.activeAccounts,
+        prevReturningAccounts: previous.returningAccounts,
+        prevReturnRate: previous.returnRate,
+      };
+    }),
+  };
+
+  const sectionKeys = Array.from(
+    new Set([...sectionActivityDays.keys(), ...prevSectionActivityDays.keys()])
+  );
+  const summarizeSectionRetention = (
+    sectionMap: Map<string, { label: string; activityDaysByUser: Map<string, Set<string>> }>,
+    sectionKey: string
+  ) => {
+    const sectionStats = sectionMap.get(sectionKey);
+    const eligibleAccounts = Array.from(sectionStats?.activityDaysByUser.entries() || []).filter(
+      ([sectionUserId]) => !excludedRetentionUserIds.has(sectionUserId)
+    );
+    const returningAccounts = eligibleAccounts.filter(([, daysActive]) => daysActive.size >= 2).length;
+    return {
+      label: sectionStats?.label || 'Otras páginas',
+      activeAccounts: eligibleAccounts.length,
+      returningAccounts,
+      singleDayAccounts: Math.max(0, eligibleAccounts.length - returningAccounts),
+      returnRate:
+        eligibleAccounts.length > 0
+          ? Math.min(100, (returningAccounts / eligibleAccounts.length) * 100)
+          : 0,
+    };
+  };
+
+  const sectionRetentionRows = sectionKeys
+    .map((sectionKey) => {
+      const current = summarizeSectionRetention(sectionActivityDays, sectionKey);
+      const previous = summarizeSectionRetention(prevSectionActivityDays, sectionKey);
+      return {
+        key: sectionKey,
+        label: current.label !== 'Otras páginas' ? current.label : previous.label,
+        activeAccounts: current.activeAccounts,
+        returningAccounts: current.returningAccounts,
+        singleDayAccounts: current.singleDayAccounts,
+        returnRate: current.returnRate,
+        prevActiveAccounts: previous.activeAccounts,
+        prevReturningAccounts: previous.returningAccounts,
+        prevReturnRate: previous.returnRate,
+      };
+    })
+    .filter((section) => section.activeAccounts > 0 || section.prevActiveAccounts > 0)
+    .sort(
+      (a, b) =>
+        b.activeAccounts - a.activeAccounts ||
+        b.returningAccounts - a.returningAccounts ||
+        a.label.localeCompare(b.label, 'es')
+    )
+    .slice(0, 8);
+
+  const prioritySection =
+    sectionRetentionRows
+      .filter((section) => section.activeAccounts >= 2 && section.singleDayAccounts > 0)
+      .sort(
+        (a, b) =>
+          b.singleDayAccounts - a.singleDayAccounts ||
+          a.returnRate - b.returnRate ||
+          b.activeAccounts - a.activeAccounts
+      )[0] || null;
+
+  const sectionRetention = {
+    measurementReady:
+      rangeDays >= 2 && sectionRetentionRows.some((section) => section.activeAccounts > 0),
+    prioritySectionKey: prioritySection?.key || null,
+    sections: sectionRetentionRows,
+  };
 
   const funnelCounts = new Map<string, { count: number; sessions: Set<string> }>();
   const prevFunnelCounts = new Map<string, { count: number; sessions: Set<string> }>();
@@ -431,10 +798,10 @@ export async function GET(request: NextRequest) {
     previousCounts: Map<string, { count: number; sessions: Set<string> }>
   ) => {
     const stages = definition.stages.map((stage, index) => {
-      const count = counts.get(stage.key)?.count || 0;
-      const prevCount = previousCounts.get(stage.key)?.count || 0;
+      const count = counts.get(stage.key)?.sessions.size || 0;
+      const prevCount = previousCounts.get(stage.key)?.sessions.size || 0;
       const previousStageCount =
-        index === 0 ? count : counts.get(definition.stages[index - 1].key)?.count || 0;
+        index === 0 ? count : counts.get(definition.stages[index - 1].key)?.sessions.size || 0;
       const stageRate =
         index === 0
           ? count > 0
@@ -516,6 +883,106 @@ export async function GET(request: NextRequest) {
       .slice(0, 12),
   };
 
+  const collectSessions = (
+    counts: Map<string, { count: number; sessions: Set<string> }>,
+    eventNames: string[]
+  ) => {
+    const result = new Set<string>();
+    eventNames.forEach((eventName) => {
+      counts.get(eventName)?.sessions.forEach((sessionId) => result.add(sessionId));
+    });
+    return result;
+  };
+
+  const buildRegistrationRole = (
+    key: 'technical' | 'client',
+    label: string,
+    startEvents: string[],
+    completedEvents: string[]
+  ) => {
+    const started = collectSessions(funnelCounts, startEvents).size;
+    const completed = collectSessions(funnelCounts, completedEvents).size;
+    const prevStarted = collectSessions(prevFunnelCounts, startEvents).size;
+    const prevCompleted = collectSessions(prevFunnelCounts, completedEvents).size;
+    const completionRate = started > 0 ? Math.min(100, (completed / started) * 100) : 0;
+    const prevCompletionRate =
+      prevStarted > 0 ? Math.min(100, (prevCompleted / prevStarted) * 100) : 0;
+
+    return {
+      key,
+      label,
+      started,
+      completed,
+      prevStarted,
+      prevCompleted,
+      completionRate,
+      prevCompletionRate,
+      dropOffRate: started > 0 ? Math.max(0, 100 - completionRate) : 0,
+    };
+  };
+
+  const registrationRoles = [
+    buildRegistrationRole(
+      'technical',
+      'Técnicos',
+      ['technical_registration_started', 'home_register_start', 'home_register_start_from_empresas'],
+      ['technical_registration_completed']
+    ),
+    buildRegistrationRole(
+      'client',
+      'Clientes',
+      ['client_registration_started'],
+      ['client_registration_completed']
+    ),
+  ];
+  const registrationStartedSessions = collectSessions(funnelCounts, [
+    'technical_registration_started',
+    'home_register_start',
+    'home_register_start_from_empresas',
+    'client_registration_started',
+  ]);
+  const prevRegistrationStartedSessions = collectSessions(prevFunnelCounts, [
+    'technical_registration_started',
+    'home_register_start',
+    'home_register_start_from_empresas',
+    'client_registration_started',
+  ]);
+  const registrationCompletedSessions = collectSessions(funnelCounts, [
+    'technical_registration_completed',
+    'client_registration_completed',
+  ]);
+  const prevRegistrationCompletedSessions = collectSessions(prevFunnelCounts, [
+    'technical_registration_completed',
+    'client_registration_completed',
+  ]);
+  const registrationStarted = registrationStartedSessions.size;
+  const registrationCompleted = registrationCompletedSessions.size;
+  const prevRegistrationStarted = prevRegistrationStartedSessions.size;
+  const prevRegistrationCompleted = prevRegistrationCompletedSessions.size;
+  const registrationConversion = {
+    visitorSessions: sessions.size,
+    prevVisitorSessions: prevSessions.size,
+    started: registrationStarted,
+    prevStarted: prevRegistrationStarted,
+    completed: registrationCompleted,
+    prevCompleted: prevRegistrationCompleted,
+    visitToStartRate: sessions.size > 0 ? Math.min(100, (registrationStarted / sessions.size) * 100) : 0,
+    prevVisitToStartRate:
+      prevSessions.size > 0 ? Math.min(100, (prevRegistrationStarted / prevSessions.size) * 100) : 0,
+    startToCompleteRate:
+      registrationStarted > 0 ? Math.min(100, (registrationCompleted / registrationStarted) * 100) : 0,
+    prevStartToCompleteRate:
+      prevRegistrationStarted > 0
+        ? Math.min(100, (prevRegistrationCompleted / prevRegistrationStarted) * 100)
+        : 0,
+    visitToCompleteRate:
+      sessions.size > 0 ? Math.min(100, (registrationCompleted / sessions.size) * 100) : 0,
+    prevVisitToCompleteRate:
+      prevSessions.size > 0 ? Math.min(100, (prevRegistrationCompleted / prevSessions.size) * 100) : 0,
+    measurementReady: registrationStarted > 0,
+    roles: registrationRoles,
+  };
+
   const totals = {
     views: totalViews,
     minutes: totalDurationMs / 1000 / 60,
@@ -538,6 +1005,9 @@ export async function GET(request: NextRequest) {
     topRoutes,
     topUsers,
     funnel,
+    registrationConversion,
+    retention,
+    sectionRetention,
     totals,
     prevTotals,
   });
