@@ -126,7 +126,8 @@ export default async function RubroPage({ params }: { params: Promise<{ rubro: s
                     <th className="pb-3 pr-4">
                       {laborCountry.laborPricingAvailable ? `Precio vigente ${laborCountry.currencyCode}` : 'Precio'}
                     </th>
-                    <th className="pb-3">Fuente</th>
+                    <th className="pb-3 pr-4">Fuente</th>
+                    <th className="pb-3 text-right">Presupuesto</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -145,12 +146,24 @@ export default async function RubroPage({ params }: { params: Promise<{ rubro: s
                       <td className="py-3 pr-4 text-sm font-semibold text-white">
                         {formatCountryLaborPrice(item.reference, selectedCountry)}
                       </td>
-                      <td className="py-3 text-xs text-white/70">{item.source}</td>
+                      <td className="py-3 pr-4 text-xs text-white/70">{item.source}</td>
+                      <td className="py-3 text-right">
+                        <a
+                          href={`/tecnicos?tab=precios&price_item=${encodeURIComponent(item.id)}`}
+                          data-analytics-event="labor_price_item_selected"
+                          data-analytics-label={item.label}
+                          data-analytics-location={`/rubros/${slug}`}
+                          data-analytics-target={item.id}
+                          className="inline-flex rounded-full bg-[#ff8f1f] px-3 py-2 text-[11px] font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
+                        >
+                          Usar en presupuesto
+                        </a>
+                      </td>
                     </tr>
                   ))}
                   {priceData.items.length === 0 && (
                     <tr>
-                      <td className="py-4 text-sm text-white/70" colSpan={4}>
+                      <td className="py-4 text-sm text-white/70" colSpan={5}>
                         {laborCountry.laborPricingAvailable
                           ? 'No hay precios cargados para este rubro.'
                           : `Todavia no hay precios cargados para ${rubro.label} en ${laborCountry.country}.`}

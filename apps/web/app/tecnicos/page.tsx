@@ -132,6 +132,28 @@ const COVERAGE_RADIUS_KM = 20;
 const APPROXIMATE_PROFILE_LOCATION_RADIUS_KM = 0.35;
 const POST_LOGIN_VIDEO_SEEN_STORAGE_KEY = 'urbanfix_post_login_video_seen';
 const POST_LOGIN_VIDEO_ENABLED = false;
+const PRICE_SELECTION_QUERY_PARAM = 'price_item';
+const PRICE_SELECTION_STORAGE_PREFIX = 'urbanfix_quote_master_selection';
+const MAX_PERSISTED_PRICE_SELECTIONS = 50;
+
+const normalizeMasterSelectionIds = (values: Array<string | null | undefined>) => {
+  const normalized: string[] = [];
+  const seen = new Set<string>();
+
+  values.forEach((value) => {
+    String(value || '')
+      .split(',')
+      .map((itemId) => itemId.trim())
+      .filter((itemId) => /^[a-zA-Z0-9_-]{1,128}$/.test(itemId))
+      .forEach((itemId) => {
+        if (seen.has(itemId) || normalized.length >= MAX_PERSISTED_PRICE_SELECTIONS) return;
+        seen.add(itemId);
+        normalized.push(itemId);
+      });
+  });
+
+  return normalized;
+};
 
 const buildApproximateProfileLocation = (lat: number, lng: number, seed: string) => {
   const normalizedSeed = seed || `${lat}:${lng}`;
@@ -4814,6 +4836,7 @@ export default function TechniciansPage() {
   const [masterSearch, setMasterSearch] = useState('');
   const [masterCategory, setMasterCategory] = useState('all');
   const [selectedMasterItemIds, setSelectedMasterItemIds] = useState<string[]>([]);
+  const [masterSelectionHydratedUserId, setMasterSelectionHydratedUserId] = useState('');
   const [quoteCatalogSearch, setQuoteCatalogSearch] = useState('');
   const [quoteCatalogCategory, setQuoteCatalogCategory] = useState('all');
   const [isDesktopNavExpanded, setIsDesktopNavExpanded] = useState(false);
@@ -5021,6 +5044,78 @@ export default function TechniciansPage() {
     laborPricesViewTrackedRef.current = true;
     trackFunnelEvent('labor_prices_viewed');
   }, [activeTab]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const userId = session?.user?.id;
+    if (!userId) {
+      setMasterSelectionHydratedUserId('');
+      setSelectedMasterItemIds([]);
+      return;
+    }
+
+    setMasterSelectionHydratedUserId('');
+    const storageKey = `${PRICE_SELECTION_STORAGE_PREFIX}:${userId}`;
+    let storedIds: string[] = [];
+    try {
+      const storedValue = window.sessionStorage.getItem(storageKey);
+      const parsedValue = storedValue ? JSON.parse(storedValue) : [];
+      storedIds = Array.isArray(parsedValue)
+        ? normalizeMasterSelectionIds(parsedValue.map((value) => String(value || '')))
+        : [];
+    } catch {
+      storedIds = [];
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const incomingIds = normalizeMasterSelectionIds(params.getAll(PRICE_SELECTION_QUERY_PARAM));
+    const nextIds = normalizeMasterSelectionIds([...storedIds, ...incomingIds]);
+    setSelectedMasterItemIds(nextIds);
+    setMasterSelectionHydratedUserId(userId);
+
+    if (incomingIds.length > 0) {
+      params.delete(PRICE_SELECTION_QUERY_PARAM);
+      const query = params.toString();
+      window.history.replaceState(
+        {},
+        document.title,
+        `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`
+      );
+      setInfoMessage(
+        `${incomingIds.length} valor${incomingIds.length === 1 ? '' : 'es'} preparado${
+          incomingIds.length === 1 ? '' : 's'
+        } para tu presupuesto.`
+      );
+    }
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    if (
+      typeof window === 'undefined' ||
+      !session?.user?.id ||
+      masterSelectionHydratedUserId !== session.user.id
+    )
+      return;
+    const storageKey = `${PRICE_SELECTION_STORAGE_PREFIX}:${session.user.id}`;
+    try {
+      if (selectedMasterItemIds.length > 0) {
+        window.sessionStorage.setItem(storageKey, JSON.stringify(selectedMasterItemIds));
+      } else {
+        window.sessionStorage.removeItem(storageKey);
+      }
+    } catch {
+      // Browsers with blocked storage still keep the selection in React state.
+    }
+  }, [masterSelectionHydratedUserId, selectedMasterItemIds, session?.user?.id]);
+
+  useEffect(() => {
+    if (!masterSelectionHydratedUserId || loadingMasterItems || masterItems.length === 0) return;
+    const validIds = new Set(masterItems.map((item) => item.id));
+    setSelectedMasterItemIds((previousIds) => {
+      const nextIds = previousIds.filter((itemId) => validIds.has(itemId));
+      return nextIds.length === previousIds.length ? previousIds : nextIds;
+    });
+  }, [loadingMasterItems, masterItems, masterSelectionHydratedUserId]);
 
   useEffect(() => {
     if (authMode !== 'register' || registrationStartTrackedRef.current) return;
@@ -6337,9 +6432,18 @@ export default function TechniciansPage() {
   };
 
   const toggleMasterComboItem = (item: MasterItemRow) => {
+    const isAdding = !selectedMasterItemIds.includes(item.id);
     setSelectedMasterItemIds((prev) =>
       prev.includes(item.id) ? prev.filter((itemId) => itemId !== item.id) : [...prev, item.id]
     );
+    if (isAdding) {
+      trackFunnelEvent('labor_price_item_selected', {
+        item_id: item.id,
+        item_name: item.name,
+        category: item.category || '',
+        source: 'technician_prices',
+      });
+    }
   };
 
   const clearMasterCombo = () => {
@@ -6360,6 +6464,10 @@ export default function TechniciansPage() {
     setEditingQuoteItemId(nextItems[0]?.id || '');
     setSelectedMasterItemIds([]);
     setInfoMessage(`${nextItems.length} item(s) agregados al presupuesto. Ajusta cantidades, precios y detalles antes de guardar.`);
+    trackFunnelEvent('labor_price_items_added_to_quote', {
+      item_count: nextItems.length,
+      source: 'technician_prices',
+    });
     focusQuoteItemsEditor();
   };
   const handleAddItem = (type: 'labor' | 'material' = 'labor') => {
@@ -19632,7 +19740,7 @@ export default function TechniciansPage() {
                                 disabled={selectedMasterItems.length === 0}
                                 className="inline-flex h-10 items-center gap-2 rounded-2xl bg-[#ff8f1f] px-4 text-xs font-black text-white shadow-sm transition hover:bg-[#ea7c10] disabled:cursor-not-allowed disabled:bg-slate-300"
                               >
-                                Editar
+                                Crear presupuesto
                                 <ArrowRight className="h-4 w-4" />
                               </button>
                             </div>
@@ -19642,6 +19750,37 @@ export default function TechniciansPage() {
                     </div>
                   </div>
                 </section>
+                {selectedMasterItems.length > 0 && (
+                  <section className="sticky top-3 z-30 rounded-[24px] border border-[#ff8f1f]/35 bg-slate-950 px-4 py-3 text-white shadow-[0_24px_60px_-34px_rgba(15,23,42,0.92)]">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ffb35e]">
+                          Seleccion conservada en esta sesion
+                        </p>
+                        <p className="mt-1 text-sm font-black text-white">
+                          {formatNumber(selectedMasterItems.length)} item(s) listos · Base {formatCurrency(selectedMasterItemsTotal)}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={clearMasterCombo}
+                          className="h-10 rounded-full border border-white/25 px-4 text-xs font-bold text-white/80 transition hover:border-white/45 hover:text-white"
+                        >
+                          Vaciar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={addMasterComboToQuote}
+                          className="inline-flex h-10 items-center gap-2 rounded-full bg-[#ff8f1f] px-4 text-xs font-black text-white transition hover:bg-[#ea7c10]"
+                        >
+                          Crear presupuesto con {formatNumber(selectedMasterItems.length)}
+                          <ArrowRight className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </section>
+                )}
                 <section className="space-y-4">
                   <div className="flex flex-wrap items-center justify-between gap-3 px-1">
                     <div>
@@ -19820,7 +19959,7 @@ export default function TechniciansPage() {
                                       : 'bg-[#ff8f1f] text-white hover:bg-[#ea7c10]'
                                   }`}
                                 >
-                                  {isSelected ? 'Quitar' : 'Seleccionar'}
+                                  {isSelected ? 'Quitar' : 'Sumar al presupuesto'}
                                 </button>
                               </div>
                             </article>
