@@ -25,6 +25,59 @@ const getAnalyticsExcludedEmails = () =>
       .filter(Boolean)
   );
 
+const ANALYTICS_PAGE_SIZE = 1000;
+const MAX_ANALYTICS_ROWS = 50000;
+
+type AnalyticsRangeQuery = {
+  select: string;
+  start: Date;
+  end: Date;
+  eventType?: string;
+  eventTypes?: string[];
+  path?: string;
+  userId?: string;
+};
+
+const fetchAnalyticsRange = async ({
+  select,
+  start,
+  end,
+  eventType,
+  eventTypes,
+  path,
+  userId,
+}: AnalyticsRangeQuery) => {
+  const rows: any[] = [];
+
+  for (let from = 0; from < MAX_ANALYTICS_ROWS; from += ANALYTICS_PAGE_SIZE) {
+    const to = Math.min(from + ANALYTICS_PAGE_SIZE - 1, MAX_ANALYTICS_ROWS - 1);
+    let query: any = supabase!
+      .from('analytics_events')
+      .select(select)
+      .gte('created_at', start.toISOString())
+      .lte('created_at', end.toISOString())
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, to);
+
+    if (eventTypes?.length) query = query.in('event_type', eventTypes);
+    else if (eventType) query = query.eq('event_type', eventType);
+    if (path) query = query.eq('path', path);
+    if (userId) query = query.eq('user_id', userId);
+
+    const { data, error } = await query;
+    if (error) return { data: [] as any[], error, truncated: false };
+
+    const batch = data || [];
+    rows.push(...batch);
+    if (batch.length < ANALYTICS_PAGE_SIZE) {
+      return { data: rows, error: null, truncated: false };
+    }
+  }
+
+  return { data: rows, error: null, truncated: true };
+};
+
 const chunk = <T,>(items: T[], size: number) => {
   const chunks: T[][] = [];
   for (let index = 0; index < items.length; index += size) {
@@ -541,58 +594,25 @@ export async function GET(request: NextRequest) {
   const prevEnd = endOfDay(new Date(startDate.getTime() - 86400000));
   const prevStart = startOfDay(new Date(prevEnd.getTime() - (rangeDays - 1) * 86400000));
 
-  const applyFilters = (query: any) => {
-    let next = query;
-    if (path) next = next.eq('path', path);
-    if (userId) next = next.eq('user_id', userId);
-    return next;
-  };
-
-  let query = supabase
-    .from('analytics_events')
-    .select('event_type, path, duration_ms, created_at, session_id, user_id')
-    .in('event_type', ['page_view', 'page_duration'])
-    .gte('created_at', startDate.toISOString())
-    .lte('created_at', endDate.toISOString())
-    .order('created_at', { ascending: true })
-    .limit(50000);
-
-  let prevQuery = supabase
-    .from('analytics_events')
-    .select('event_type, path, duration_ms, created_at, session_id, user_id')
-    .in('event_type', ['page_view', 'page_duration'])
-    .gte('created_at', prevStart.toISOString())
-    .lte('created_at', prevEnd.toISOString())
-    .order('created_at', { ascending: true })
-    .limit(50000);
-
-  let funnelQuery = supabase
-    .from('analytics_events')
-    .select('event_name, event_context, created_at, session_id, user_id, path')
-    .eq('event_type', 'funnel')
-    .gte('created_at', startDate.toISOString())
-    .lte('created_at', endDate.toISOString())
-    .order('created_at', { ascending: true })
-    .limit(50000);
-
-  let prevFunnelQuery = supabase
-    .from('analytics_events')
-    .select('event_name, event_context, created_at, session_id, user_id, path')
-    .eq('event_type', 'funnel')
-    .gte('created_at', prevStart.toISOString())
-    .lte('created_at', prevEnd.toISOString())
-    .order('created_at', { ascending: true })
-    .limit(50000);
-
-  query = applyFilters(query);
-  prevQuery = applyFilters(prevQuery);
-  funnelQuery = applyFilters(funnelQuery);
-  prevFunnelQuery = applyFilters(prevFunnelQuery);
-
-  const [{ data: events, error }, { data: prevEvents, error: prevError }] = await Promise.all([
-    query,
-    prevQuery,
+  const analyticsFilters = { path, userId };
+  const [currentPageResult, previousPageResult] = await Promise.all([
+    fetchAnalyticsRange({
+      select: 'id, event_type, path, duration_ms, created_at, session_id, user_id',
+      start: startDate,
+      end: endDate,
+      eventTypes: ['page_view', 'page_duration'],
+      ...analyticsFilters,
+    }),
+    fetchAnalyticsRange({
+      select: 'id, event_type, path, duration_ms, created_at, session_id, user_id',
+      start: prevStart,
+      end: prevEnd,
+      eventTypes: ['page_view', 'page_duration'],
+      ...analyticsFilters,
+    }),
   ]);
+  const { data: events, error } = currentPageResult;
+  const { data: prevEvents, error: prevError } = previousPageResult;
 
   if (error || prevError) {
     return NextResponse.json({ error: error?.message || prevError?.message }, { status: 500 });
@@ -600,8 +620,26 @@ export async function GET(request: NextRequest) {
 
   let funnelEvents: any[] = [];
   let prevFunnelEvents: any[] = [];
-  const [{ data: funnelData, error: funnelError }, { data: prevFunnelData, error: prevFunnelError }] =
-    await Promise.all([funnelQuery, prevFunnelQuery]);
+  let currentFunnelTruncated = false;
+  let previousFunnelTruncated = false;
+  const [currentFunnelResult, previousFunnelResult] = await Promise.all([
+    fetchAnalyticsRange({
+      select: 'id, event_name, event_context, created_at, session_id, user_id, path',
+      start: startDate,
+      end: endDate,
+      eventType: 'funnel',
+      ...analyticsFilters,
+    }),
+    fetchAnalyticsRange({
+      select: 'id, event_name, event_context, created_at, session_id, user_id, path',
+      start: prevStart,
+      end: prevEnd,
+      eventType: 'funnel',
+      ...analyticsFilters,
+    }),
+  ]);
+  const { data: funnelData, error: funnelError } = currentFunnelResult;
+  const { data: prevFunnelData, error: prevFunnelError } = previousFunnelResult;
 
   if (funnelError || prevFunnelError) {
     const funnelMessage = funnelError?.message || prevFunnelError?.message || '';
@@ -611,38 +649,48 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: funnelMessage }, { status: 500 });
     }
 
-    let fallbackFunnelQuery = supabase
-      .from('analytics_events')
-      .select('event_name, created_at, session_id, user_id, path')
-      .eq('event_type', 'funnel')
-      .gte('created_at', startDate.toISOString())
-      .lte('created_at', endDate.toISOString())
-      .order('created_at', { ascending: true })
-      .limit(50000);
-    let fallbackPrevFunnelQuery = supabase
-      .from('analytics_events')
-      .select('event_name, created_at, session_id, user_id, path')
-      .eq('event_type', 'funnel')
-      .gte('created_at', prevStart.toISOString())
-      .lte('created_at', prevEnd.toISOString())
-      .order('created_at', { ascending: true })
-      .limit(50000);
-
-    fallbackFunnelQuery = applyFilters(fallbackFunnelQuery);
-    fallbackPrevFunnelQuery = applyFilters(fallbackPrevFunnelQuery);
-
     const [fallbackCurrent, fallbackPrevious] = await Promise.all([
-      fallbackFunnelQuery,
-      fallbackPrevFunnelQuery,
+      fetchAnalyticsRange({
+        select: 'id, event_name, created_at, session_id, user_id, path',
+        start: startDate,
+        end: endDate,
+        eventType: 'funnel',
+        ...analyticsFilters,
+      }),
+      fetchAnalyticsRange({
+        select: 'id, event_name, created_at, session_id, user_id, path',
+        start: prevStart,
+        end: prevEnd,
+        eventType: 'funnel',
+        ...analyticsFilters,
+      }),
     ]);
     if (!fallbackCurrent.error && !fallbackPrevious.error) {
       funnelEvents = fallbackCurrent.data || [];
       prevFunnelEvents = fallbackPrevious.data || [];
+      currentFunnelTruncated = fallbackCurrent.truncated;
+      previousFunnelTruncated = fallbackPrevious.truncated;
     }
   } else {
     funnelEvents = funnelData || [];
     prevFunnelEvents = prevFunnelData || [];
+    currentFunnelTruncated = currentFunnelResult.truncated;
+    previousFunnelTruncated = previousFunnelResult.truncated;
   }
+
+  const dataCoverage = {
+    current: {
+      pageRows: events.length,
+      funnelRows: funnelEvents.length,
+      truncated: currentPageResult.truncated || currentFunnelTruncated,
+    },
+    previous: {
+      pageRows: prevEvents.length,
+      funnelRows: prevFunnelEvents.length,
+      truncated: previousPageResult.truncated || previousFunnelTruncated,
+    },
+    maxRowsPerQuery: MAX_ANALYTICS_ROWS,
+  };
 
   const seriesMap = new Map<string, { views: number; durationMs: number }>();
   const routeMap = new Map<string, { views: number; durationMs: number; durationCount: number }>();
@@ -886,6 +934,35 @@ export async function GET(request: NextRequest) {
     }
   });
 
+  let authUsersSnapshot: any[] = [];
+  let authUsersSnapshotError: string | null = null;
+  try {
+    authUsersSnapshot = await listAllAuthUsers();
+    authUsersSnapshot.forEach((authUser) => {
+      const authUserId = String(authUser?.id || '').trim();
+      const authEmail = String(authUser?.email || '').trim().toLowerCase();
+      if (authUserId && authEmail && excludedEmails.has(authEmail)) {
+        excludedRetentionUserIds.add(authUserId);
+      }
+    });
+  } catch (authError: any) {
+    authUsersSnapshotError = String(
+      authError?.message || 'No se pudo consultar Supabase Auth.'
+    ).slice(0, 180);
+  }
+
+  const authRoleByUserId = new Map<string, 'technical' | 'client'>();
+  authUsersSnapshot.forEach((authUser) => {
+    const authUserId = String(authUser?.id || '').trim();
+    const authProfile = getAuthAccountProfile(authUser);
+    if (!authUserId) return;
+    if (authProfile === 'tecnico' || authProfile === 'empresa') {
+      authRoleByUserId.set(authUserId, 'technical');
+    } else if (authProfile === 'cliente') {
+      authRoleByUserId.set(authUserId, 'client');
+    }
+  });
+
   const roleByUserId = new Map<string, 'technical' | 'client'>();
   [...(funnelEvents || []), ...(prevFunnelEvents || [])].forEach((event: any) => {
     const eventUserId = String(event.user_id || '').trim();
@@ -899,6 +976,8 @@ export async function GET(request: NextRequest) {
   });
 
   const resolveRetentionRole = (retentionUserId: string) => {
+    const authRole = authRoleByUserId.get(retentionUserId);
+    if (authRole) return authRole;
     const eventRole = roleByUserId.get(retentionUserId);
     if (eventRole) return eventRole;
     const profile = retentionProfilesById[retentionUserId];
@@ -941,13 +1020,133 @@ export async function GET(request: NextRequest) {
     { key: 'client' as const, label: 'Clientes' },
     { key: 'unknown' as const, label: 'Sin tipo identificado' },
   ];
+  const summarizeReturnReasons = (
+    rows: any[],
+    activityDays: Map<string, Set<string>>
+  ) => {
+    type ReturnReasonStats = {
+      key: string;
+      role: string;
+      target: string;
+      views: number;
+      selections: number;
+      reachedAccounts: Set<string>;
+      selectedAccounts: Set<string>;
+      returnedAccounts: Set<string>;
+    };
+    const viewedAccounts = new Set<string>();
+    const selectedAccounts = new Set<string>();
+    const returnedAccounts = new Set<string>();
+    const reasons = new Map<string, ReturnReasonStats>();
+    let views = 0;
+    let selections = 0;
+
+    rows.forEach((event) => {
+      const eventName = String(event?.event_name || '').trim();
+      const isView = eventName === 'account_return_reason_viewed';
+      const isSelection = eventName === 'account_return_reason_selected';
+      if (!isView && !isSelection) return;
+
+      const eventUserId = String(event?.user_id || '').trim();
+      if (!eventUserId || excludedRetentionUserIds.has(eventUserId)) return;
+      const context =
+        event?.event_context &&
+        typeof event.event_context === 'object' &&
+        !Array.isArray(event.event_context)
+          ? event.event_context
+          : {};
+      const reason = String(context.reason || 'unknown').trim().slice(0, 80) || 'unknown';
+      const contextRole = String(context.role || '').trim().toLowerCase();
+      const resolvedRole =
+        contextRole === 'technical' || contextRole === 'client'
+          ? contextRole
+          : resolveRetentionRole(eventUserId);
+      const target = String(context.target || 'unknown').trim().slice(0, 80) || 'unknown';
+      const reasonKey = `${resolvedRole}:${reason}:${target}`;
+      const stats = reasons.get(reasonKey) || {
+        key: reason,
+        role: resolvedRole,
+        target,
+        views: 0,
+        selections: 0,
+        reachedAccounts: new Set<string>(),
+        selectedAccounts: new Set<string>(),
+        returnedAccounts: new Set<string>(),
+      };
+
+      if (isView) {
+        views += 1;
+        stats.views += 1;
+        viewedAccounts.add(eventUserId);
+        stats.reachedAccounts.add(eventUserId);
+      } else {
+        selections += 1;
+        stats.selections += 1;
+        selectedAccounts.add(eventUserId);
+        stats.selectedAccounts.add(eventUserId);
+        const selectionDay = formatDate(new Date(event.created_at));
+        const returnedLater = Array.from(activityDays.get(eventUserId) || []).some(
+          (activityDay) => activityDay > selectionDay
+        );
+        if (returnedLater) {
+          returnedAccounts.add(eventUserId);
+          stats.returnedAccounts.add(eventUserId);
+        }
+      }
+      reasons.set(reasonKey, stats);
+    });
+
+    return {
+      views,
+      selections,
+      reachedAccounts: viewedAccounts.size,
+      selectedAccounts: selectedAccounts.size,
+      selectionRate:
+        viewedAccounts.size > 0
+          ? Math.min(100, (selectedAccounts.size / viewedAccounts.size) * 100)
+          : 0,
+      returnedAfterSelectionAccounts: returnedAccounts.size,
+      returnAfterSelectionRate:
+        selectedAccounts.size > 0
+          ? Math.min(100, (returnedAccounts.size / selectedAccounts.size) * 100)
+          : 0,
+      reasons: Array.from(reasons.values())
+        .map((stats) => ({
+          key: stats.key,
+          role: stats.role,
+          target: stats.target,
+          views: stats.views,
+          selections: stats.selections,
+          reachedAccounts: stats.reachedAccounts.size,
+          selectedAccounts: stats.selectedAccounts.size,
+          returnedAfterSelectionAccounts: stats.returnedAccounts.size,
+        }))
+        .sort(
+          (left, right) =>
+            right.selectedAccounts - left.selectedAccounts ||
+            right.reachedAccounts - left.reachedAccounts ||
+            left.key.localeCompare(right.key, 'es')
+        ),
+    };
+  };
+
+  const currentReturnReasons = summarizeReturnReasons(funnelEvents || [], activityDaysByUser);
+  const previousReturnReasons = summarizeReturnReasons(
+    prevFunnelEvents || [],
+    prevActivityDaysByUser
+  );
+
   const retention = {
     ...currentRetention,
     prevActiveAccounts: previousRetention.activeAccounts,
     prevReturningAccounts: previousRetention.returningAccounts,
     prevSingleDayAccounts: previousRetention.singleDayAccounts,
     prevReturnRate: previousRetention.returnRate,
-    measurementReady: rangeDays >= 2 && currentRetention.activeAccounts > 0,
+    measurementReady:
+      rangeDays >= 2 && currentRetention.activeAccounts > 0 && !dataCoverage.current.truncated,
+    dataComplete: !dataCoverage.current.truncated,
+    returnReasons: currentReturnReasons,
+    prevReturnReasons: previousReturnReasons,
     roles: retentionRoleDefinitions.map((definition) => {
       const current = summarizeRetention(activityDaysByUser, definition.key);
       const previous = summarizeRetention(prevActivityDaysByUser, definition.key);
@@ -1083,6 +1282,7 @@ export async function GET(request: NextRequest) {
   const currentTechnicalRegistrationAttempts = summarizeTechnicalRegistrationAttempts(
     funnelEvents || []
   );
+
   const previousTechnicalRegistrationAttempts = summarizeTechnicalRegistrationAttempts(
     prevFunnelEvents || []
   );
@@ -1593,16 +1793,16 @@ export async function GET(request: NextRequest) {
   };
 
   try {
-    const authUsers = await listAllAuthUsers();
+    if (authUsersSnapshotError) throw new Error(authUsersSnapshotError);
     const current = summarizeTechnicalAuthAccounts(
-      authUsers,
+      authUsersSnapshot,
       startDate,
       endDate,
       excludedRetentionUserIds,
       excludedEmails
     );
     const previous = summarizeTechnicalAuthAccounts(
-      authUsers,
+      authUsersSnapshot,
       prevStart,
       prevEnd,
       excludedRetentionUserIds,
@@ -1757,6 +1957,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     range: { start: startDate.toISOString(), end: endDate.toISOString(), days: rangeDays },
     previousRange: { start: prevStart.toISOString(), end: prevEnd.toISOString() },
+    dataCoverage,
     series,
     topScreens,
     topRoutes,

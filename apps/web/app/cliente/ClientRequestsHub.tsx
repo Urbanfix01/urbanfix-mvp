@@ -745,6 +745,7 @@ export default function ClientRequestsHub() {
   const welcomeWhatsAppNoticeInFlightRef = useRef(false);
   const requestDraftRestoredKeyRef = useRef('');
   const registrationStartTrackedRef = useRef(false);
+  const accountReturnReasonTrackedRef = useRef('');
   const [session, setSession] = useState<Session | null>(null);
   const [, setLoadingSession] = useState(true);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
@@ -769,6 +770,7 @@ export default function ClientRequestsHub() {
   const [requestNotice, setRequestNotice] = useState('');
   const [requests, setRequests] = useState<ClientRequestRow[]>([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
+  const [requestsLoaded, setRequestsLoaded] = useState(false);
   const [requestsLoadError, setRequestsLoadError] = useState('');
   const [clientLaborItems, setClientLaborItems] = useState<ClientLaborItem[]>([]);
   const [loadingClientLaborItems, setLoadingClientLaborItems] = useState(false);
@@ -795,6 +797,7 @@ export default function ClientRequestsHub() {
   const [addressValidationError, setAddressValidationError] = useState('');
   const [clientProfileForm, setClientProfileForm] = useState<ClientProfileForm>(defaultClientProfileForm);
   const [loadingClientProfile, setLoadingClientProfile] = useState(false);
+  const [clientProfileLoaded, setClientProfileLoaded] = useState(false);
   const [savingClientProfile, setSavingClientProfile] = useState(false);
   const [uploadingClientAvatar, setUploadingClientAvatar] = useState(false);
   const [clientProfileError, setClientProfileError] = useState('');
@@ -1316,6 +1319,7 @@ export default function ClientRequestsHub() {
   const fetchRequests = async () => {
     if (!session?.access_token) return;
     setLoadingRequests(true);
+    setRequestsLoaded(false);
     setRequestsLoadError('');
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), 10000);
@@ -1341,12 +1345,14 @@ export default function ClientRequestsHub() {
     } finally {
       window.clearTimeout(timeoutId);
       setLoadingRequests(false);
+      setRequestsLoaded(true);
     }
   };
 
   const fetchClientProfile = async (userId?: string) => {
     if (!userId) return;
     setLoadingClientProfile(true);
+    setClientProfileLoaded(false);
     setClientProfileError('');
     try {
       const seed = getClientAuthProfileSeed(session);
@@ -1411,6 +1417,7 @@ export default function ClientRequestsHub() {
       setClientProfileError(error?.message || 'No se pudo cargar tu perfil.');
     } finally {
       setLoadingClientProfile(false);
+      setClientProfileLoaded(true);
     }
   };
 
@@ -2132,6 +2139,99 @@ export default function ClientRequestsHub() {
       ),
     [requests]
   );
+  const clientReturnReason = useMemo(() => {
+    if (!isClientProfileComplete) {
+      return {
+        key: 'complete_profile',
+        eyebrow: 'Tu cuenta necesita un dato',
+        title: 'Completa tu WhatsApp para poder publicar',
+        description: 'Lo usamos para conectar tus solicitudes con técnicos cuando decidas avanzar.',
+        action: 'Completar perfil',
+        target: 'profile',
+        itemCount: clientProfileMissingFields.length,
+      };
+    }
+    if (requests.length === 0) {
+      return {
+        key: 'publish_first_request',
+        eyebrow: 'Tu cuenta ya está lista',
+        title: 'Publica tu primera solicitud',
+        description: 'Describe el trabajo y la zona para recibir propuestas de técnicos reales.',
+        action: 'Crear solicitud',
+        target: 'request',
+        itemCount: 0,
+      };
+    }
+    if (clientSubmittedResponseTotal > 0) {
+      return {
+        key: 'review_responses',
+        eyebrow: 'Tienes propuestas para revisar',
+        title: `${clientSubmittedResponseTotal} ${clientSubmittedResponseTotal === 1 ? 'presupuesto espera' : 'presupuestos esperan'} tu decisión`,
+        description: 'Compara cada respuesta y elige cómo continuar desde tus mensajes.',
+        action: 'Revisar propuestas',
+        target: 'messages',
+        itemCount: clientSubmittedResponseTotal,
+      };
+    }
+    if (clientVisibleResponseTotal === 0) {
+      return {
+        key: 'explore_technicians',
+        eyebrow: 'Tus solicitudes siguen activas',
+        title: 'Explora técnicos disponibles en tu zona',
+        description: 'La vidriera de tu cuenta usa la ubicación de tus solicitudes para acercarte opciones.',
+        action: 'Ver técnicos cercanos',
+        target: 'showcase',
+        itemCount: requests.length,
+      };
+    }
+    return {
+      key: clientAcceptedResponseTotal > 0 ? 'follow_active_request' : 'review_messages',
+      eyebrow: clientAcceptedResponseTotal > 0 ? 'Tienes un trabajo en seguimiento' : 'Hay actividad en tus solicitudes',
+      title: clientAcceptedResponseTotal > 0 ? 'Revisa el estado de tus solicitudes' : 'Vuelve a tus conversaciones',
+      description: 'Todo el historial real de solicitudes y respuestas queda disponible en tu cuenta.',
+      action: clientAcceptedResponseTotal > 0 ? 'Ver solicitudes' : 'Abrir mensajes',
+      target: clientAcceptedResponseTotal > 0 ? 'map' : 'messages',
+      itemCount: clientAcceptedResponseTotal || clientVisibleResponseTotal,
+    };
+  }, [
+    clientAcceptedResponseTotal,
+    clientProfileMissingFields.length,
+    clientSubmittedResponseTotal,
+    clientVisibleResponseTotal,
+    isClientProfileComplete,
+    requests.length,
+  ]);
+
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId || !requestsLoaded || !clientProfileLoaded) return;
+    const trackingKey = `${userId}:${clientReturnReason.key}`;
+    if (accountReturnReasonTrackedRef.current === trackingKey) return;
+    accountReturnReasonTrackedRef.current = trackingKey;
+    trackFunnelEvent('account_return_reason_viewed', {
+      origin: 'client_portal',
+      role: 'client',
+      reason: clientReturnReason.key,
+      target: clientReturnReason.target,
+      item_count: clientReturnReason.itemCount,
+    });
+  }, [clientProfileLoaded, clientReturnReason, requestsLoaded, session?.user?.id]);
+
+  const handleClientReturnReason = () => {
+    trackFunnelEvent('account_return_reason_selected', {
+      origin: 'client_portal',
+      role: 'client',
+      reason: clientReturnReason.key,
+      target: clientReturnReason.target,
+      item_count: clientReturnReason.itemCount,
+    });
+
+    if (clientReturnReason.target === 'profile') openClientProfileSection(true);
+    else if (clientReturnReason.target === 'request') openRequestSection();
+    else if (clientReturnReason.target === 'showcase') void openClientShowcase();
+    else if (clientReturnReason.target === 'map') openClientRequestsMap();
+    else openClientMessages();
+  };
   const clientRequestsWithoutMapCount = requests.length - requestsWithMap.length;
   const selectedMapRequest = useMemo(
     () =>
@@ -3191,6 +3291,29 @@ export default function ClientRequestsHub() {
             ))}
           </div>
         </section>
+
+        {activeClientView === 'request' && (
+          <section className="overflow-hidden rounded-2xl border border-[#e4d8eb] bg-[linear-gradient(135deg,#2a0338_0%,#4a145d_62%,#66206f_100%)] p-4 text-white shadow-[0_24px_60px_-38px_rgba(42,3,56,0.9)] sm:p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0 max-w-2xl">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#ffc074]">
+                  {clientReturnReason.eyebrow}
+                </p>
+                <h2 className="mt-1.5 text-lg font-semibold sm:text-xl">{clientReturnReason.title}</h2>
+                <p className="mt-1.5 text-sm leading-6 text-white/75">{clientReturnReason.description}</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleClientReturnReason}
+                disabled={loadingRequests || loadingClientProfile}
+                className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#ff9c1a] px-4 py-2.5 text-sm font-bold text-[#2a0338] transition hover:bg-[#ffad42] disabled:cursor-wait disabled:opacity-60"
+              >
+                {clientReturnReason.action}
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+          </section>
+        )}
 
         <article
           id="valores-mano-obra-cliente"

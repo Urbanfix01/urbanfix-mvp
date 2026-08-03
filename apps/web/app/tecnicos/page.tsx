@@ -4893,6 +4893,7 @@ export default function TechniciansPage() {
     | 'notificaciones'
   >('lobby');
   const laborPricesViewTrackedRef = useRef(false);
+  const accountReturnReasonTrackedRef = useRef('');
   const [profilePanelTab, setProfilePanelTab] = useState<'editor' | 'preview'>('preview');
   const [profilePublicationFocus, setProfilePublicationFocus] = useState(false);
   const profilePublicationDetailsRef = useRef<HTMLDetailsElement | null>(null);
@@ -11288,6 +11289,161 @@ export default function TechniciansPage() {
     };
   }, [profileCompletionPercent, quoteStats.approved, quoteStats.pending, quotes]);
 
+  const technicianReturnReason = useMemo(() => {
+    if (unreadNotifications > 0) {
+      return {
+        key: 'unread_notifications',
+        title: `${unreadNotifications} ${unreadNotifications === 1 ? 'novedad necesita' : 'novedades necesitan'} tu atención`,
+        description: 'Revisa movimientos de presupuestos, agenda y actividad de tu cuenta.',
+        action: 'Ver novedades',
+        target: 'notifications',
+        itemCount: unreadNotifications,
+      };
+    }
+    if (quoteStats.pending > 0) {
+      return {
+        key: 'pending_quotes',
+        title: `${quoteStats.pending} ${quoteStats.pending === 1 ? 'presupuesto está pendiente' : 'presupuestos están pendientes'}`,
+        description: 'Retoma las cotizaciones que todavía necesitan una decisión o seguimiento.',
+        action: 'Revisar pendientes',
+        target: 'quotes_pending',
+        itemCount: quoteStats.pending,
+      };
+    }
+    if (quoteStats.approved > 0) {
+      return {
+        key: 'approved_jobs',
+        title: `${quoteStats.approved} ${quoteStats.approved === 1 ? 'trabajo aprobado espera' : 'trabajos aprobados esperan'} coordinación`,
+        description: 'Organiza el siguiente paso con cada cliente desde tus presupuestos.',
+        action: 'Ver aprobados',
+        target: 'quotes_approved',
+        itemCount: quoteStats.approved,
+      };
+    }
+    if (profileCompletionPercent < 100) {
+      return {
+        key: 'complete_technical_profile',
+        title: `Tu perfil está al ${profileCompletionPercent}%`,
+        description: 'Completa los datos pendientes para mejorar tu presencia y operar sin fricción.',
+        action: 'Completar perfil',
+        target: 'profile',
+        itemCount: profileChecklistPending.length,
+      };
+    }
+    if (quotes.length === 0) {
+      return {
+        key: 'create_first_quote',
+        title: 'Crea tu primer presupuesto',
+        description: 'Guarda trabajos, importes y seguimiento dentro de tu cuenta.',
+        action: 'Nuevo presupuesto',
+        target: 'new_quote',
+        itemCount: 0,
+      };
+    }
+    if (billingOpenQuotes.length > 0) {
+      return {
+        key: 'follow_open_quotes',
+        title: `${billingOpenQuotes.length} ${billingOpenQuotes.length === 1 ? 'presupuesto sigue abierto' : 'presupuestos siguen abiertos'}`,
+        description: 'Consulta el estado real de tus trabajos y actualiza lo que corresponda.',
+        action: 'Abrir historial',
+        target: 'history',
+        itemCount: billingOpenQuotes.length,
+      };
+    }
+    if (nearbyRequests.length > 0) {
+      return {
+        key: 'review_nearby_requests',
+        title: `${nearbyRequests.length} ${nearbyRequests.length === 1 ? 'solicitud cercana está disponible' : 'solicitudes cercanas están disponibles'}`,
+        description: 'Revisa oportunidades reales dentro de tu zona de cobertura.',
+        action: 'Ver mapa operativo',
+        target: 'operations',
+        itemCount: nearbyRequests.length,
+      };
+    }
+    return {
+      key: profileForm.profilePublished ? 'create_next_quote' : 'publish_showcase',
+      title: profileForm.profilePublished ? 'Tu operación está al día' : 'Publica tu perfil en la vidriera',
+      description: profileForm.profilePublished
+        ? 'Puedes iniciar un nuevo presupuesto cuando llegue el próximo trabajo.'
+        : 'Haz visible tu experiencia para que nuevos clientes puedan encontrarte.',
+      action: profileForm.profilePublished ? 'Nuevo presupuesto' : 'Preparar vidriera',
+      target: profileForm.profilePublished ? 'new_quote' : 'profile',
+      itemCount: 0,
+    };
+  }, [
+    billingOpenQuotes.length,
+    nearbyRequests.length,
+    profileChecklistPending.length,
+    profileCompletionPercent,
+    profileForm.profilePublished,
+    quoteStats.approved,
+    quoteStats.pending,
+    quotes.length,
+    unreadNotifications,
+  ]);
+
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (
+      !userId ||
+      !profileHydrated ||
+      loadingProfile ||
+      loadingNotifications ||
+      adminGateStatus !== 'done' ||
+      isBetaAdmin
+    ) {
+      return;
+    }
+    const trackingKey = `${userId}:${technicianReturnReason.key}`;
+    if (accountReturnReasonTrackedRef.current === trackingKey) return;
+    accountReturnReasonTrackedRef.current = trackingKey;
+    trackFunnelEvent('account_return_reason_viewed', {
+      origin: 'technical_panel',
+      role: 'technical',
+      reason: technicianReturnReason.key,
+      target: technicianReturnReason.target,
+      item_count: technicianReturnReason.itemCount,
+    });
+  }, [
+    adminGateStatus,
+    isBetaAdmin,
+    loadingNotifications,
+    loadingProfile,
+    profileHydrated,
+    session?.user?.id,
+    technicianReturnReason,
+  ]);
+
+  const handleTechnicianReturnReason = () => {
+    trackFunnelEvent('account_return_reason_selected', {
+      origin: 'technical_panel',
+      role: 'technical',
+      reason: technicianReturnReason.key,
+      target: technicianReturnReason.target,
+      item_count: technicianReturnReason.itemCount,
+    });
+
+    if (technicianReturnReason.target === 'notifications') {
+      setNotificationFilter('unread');
+      setActiveTab('notificaciones');
+    } else if (technicianReturnReason.target === 'quotes_pending') {
+      setQuoteFilter('pending');
+      setActiveTab('presupuestos');
+    } else if (technicianReturnReason.target === 'quotes_approved') {
+      setQuoteFilter('approved');
+      setActiveTab('presupuestos');
+    } else if (technicianReturnReason.target === 'history') {
+      setActiveTab('historial');
+    } else if (technicianReturnReason.target === 'operations') {
+      setActiveTab('operativo');
+    } else if (technicianReturnReason.target === 'profile') {
+      setProfilePanelTab('editor');
+      setActiveTab('perfil');
+    } else {
+      startNewQuote();
+    }
+  };
+
   const handleSpecialtyToggle = (specialty: string) => {
     setProfileForm((prev) => ({
       ...prev,
@@ -13252,6 +13408,31 @@ export default function TechniciansPage() {
                         </p>
                       </div>
                     </div>
+
+                    <section className="overflow-hidden rounded-[28px] border border-[#5d2c6d] bg-[linear-gradient(135deg,#2a0338_0%,#4c145f_58%,#692373_100%)] p-5 text-white shadow-[0_28px_66px_-38px_rgba(42,3,56,0.9)] sm:p-6">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0 max-w-3xl">
+                          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#ffc074]">
+                            Tu motivo para volver
+                          </p>
+                          <h2 className={`${spaceGrotesk.className} mt-2 text-xl font-bold sm:text-2xl`}>
+                            {technicianReturnReason.title}
+                          </h2>
+                          <p className="mt-1.5 text-sm leading-6 text-white/72">
+                            {technicianReturnReason.description}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleTechnicianReturnReason}
+                          disabled={loadingProfile || loadingNotifications}
+                          className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-[#ff9c1a] px-5 py-2.5 text-sm font-bold text-[#2a0338] shadow-[0_18px_38px_-24px_rgba(255,156,26,0.92)] transition hover:-translate-y-0.5 hover:bg-[#ffad42] disabled:cursor-wait disabled:opacity-60"
+                        >
+                          {technicianReturnReason.action}
+                          <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                      </div>
+                    </section>
 
                     <section className="overflow-hidden rounded-[32px] border border-white/80 bg-white/96 p-5 shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)] sm:p-6">
                       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">

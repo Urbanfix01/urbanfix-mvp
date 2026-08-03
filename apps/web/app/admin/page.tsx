@@ -2963,6 +2963,24 @@ const toDateKey = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
+const accountReturnReasonLabels: Record<string, string> = {
+  unread_notifications: 'Novedades sin leer',
+  pending_quotes: 'Presupuestos pendientes',
+  approved_jobs: 'Trabajos aprobados',
+  complete_technical_profile: 'Completar perfil técnico',
+  create_first_quote: 'Crear primer presupuesto',
+  follow_open_quotes: 'Seguimiento de presupuestos',
+  review_nearby_requests: 'Solicitudes cercanas',
+  create_next_quote: 'Crear nuevo presupuesto',
+  publish_showcase: 'Publicar vidriera',
+  complete_profile: 'Completar perfil cliente',
+  publish_first_request: 'Publicar primera solicitud',
+  review_responses: 'Revisar propuestas',
+  explore_technicians: 'Explorar técnicos',
+  follow_active_request: 'Seguir solicitud activa',
+  review_messages: 'Revisar mensajes',
+};
+
 export default function AdminPage() {
   const [session, setSession] = useState<any>(null);
   const [loadingSession, setLoadingSession] = useState(true);
@@ -3034,6 +3052,11 @@ export default function AdminPage() {
     series: { date: string; views: number; minutes: number }[];
     totals: { views: number; minutes: number; uniqueSessions: number; uniqueUsers: number };
     prevTotals: { views: number; minutes: number; uniqueSessions: number; uniqueUsers: number };
+    dataCoverage?: {
+      current: { pageRows: number; funnelRows: number; truncated: boolean };
+      previous: { pageRows: number; funnelRows: number; truncated: boolean };
+      maxRowsPerQuery: number;
+    };
     registrationConversion?: {
       visitorSessions: number;
       prevVisitorSessions: number;
@@ -3096,6 +3119,45 @@ export default function AdminPage() {
       returnRate: number;
       prevReturnRate: number;
       measurementReady: boolean;
+      dataComplete: boolean;
+      returnReasons: {
+        views: number;
+        selections: number;
+        reachedAccounts: number;
+        selectedAccounts: number;
+        selectionRate: number;
+        returnedAfterSelectionAccounts: number;
+        returnAfterSelectionRate: number;
+        reasons: {
+          key: string;
+          role: string;
+          target: string;
+          views: number;
+          selections: number;
+          reachedAccounts: number;
+          selectedAccounts: number;
+          returnedAfterSelectionAccounts: number;
+        }[];
+      };
+      prevReturnReasons: {
+        views: number;
+        selections: number;
+        reachedAccounts: number;
+        selectedAccounts: number;
+        selectionRate: number;
+        returnedAfterSelectionAccounts: number;
+        returnAfterSelectionRate: number;
+        reasons: {
+          key: string;
+          role: string;
+          target: string;
+          views: number;
+          selections: number;
+          reachedAccounts: number;
+          selectedAccounts: number;
+          returnedAfterSelectionAccounts: number;
+        }[];
+      };
       roles: {
         key: 'technical' | 'client' | 'unknown';
         label: string;
@@ -13861,7 +13923,89 @@ export default function AdminPage() {
                         </div>
                       </div>
 
-                      {!activityData.retention.measurementReady && (
+                      <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                              Motivos de regreso instrumentados
+                            </p>
+                            <h5 className="mt-1 text-base font-semibold text-slate-900">
+                              Exposición → selección → regreso posterior
+                            </h5>
+                            <p className="mt-1 text-xs leading-5 text-slate-500">
+                              Sólo cuenta usuarios autenticados no administrativos y un regreso en un día posterior a la selección.
+                            </p>
+                          </div>
+                          <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600">
+                            {formatNumber(activityData.retention.returnReasons.views)} vistas del motivo
+                          </span>
+                        </div>
+
+                        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                            <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400">Cuentas alcanzadas</p>
+                            <p className="mt-1 text-xl font-semibold text-slate-900">
+                              {formatNumber(activityData.retention.returnReasons.reachedAccounts)}
+                            </p>
+                          </div>
+                          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                            <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400">Eligieron la acción</p>
+                            <p className="mt-1 text-xl font-semibold text-slate-900">
+                              {formatNumber(activityData.retention.returnReasons.selectedAccounts)}
+                            </p>
+                            <p className="mt-1 text-[11px] text-slate-500">
+                              {activityData.retention.returnReasons.selectionRate.toFixed(1).replace('.', ',')}% de selección
+                            </p>
+                          </div>
+                          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                            <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400">Volvieron después</p>
+                            <p className="mt-1 text-xl font-semibold text-slate-900">
+                              {formatNumber(activityData.retention.returnReasons.returnedAfterSelectionAccounts)}
+                            </p>
+                            <p className="mt-1 text-[11px] text-slate-500">
+                              {activityData.retention.returnReasons.returnAfterSelectionRate.toFixed(1).replace('.', ',')}% de quienes eligieron
+                            </p>
+                          </div>
+                        </div>
+
+                        {activityData.retention.returnReasons.reasons.length > 0 ? (
+                          <div className="mt-4 divide-y divide-slate-200 border-y border-slate-200">
+                            {activityData.retention.returnReasons.reasons.map((reason) => (
+                              <div
+                                key={`${reason.role}:${reason.key}:${reason.target}`}
+                                className="grid gap-2 py-3 text-xs sm:grid-cols-[minmax(0,1fr)_repeat(3,minmax(90px,auto))] sm:items-center"
+                              >
+                                <div>
+                                  <p className="font-semibold text-slate-800">
+                                    {accountReturnReasonLabels[reason.key] || reason.key.replaceAll('_', ' ')}
+                                  </p>
+                                  <p className="mt-0.5 text-[11px] text-slate-400">
+                                    {reason.role === 'technical' ? 'Técnico/empresa' : 'Cliente'} · destino {reason.target}
+                                  </p>
+                                </div>
+                                <p className="text-slate-600">Alcanzadas {formatNumber(reason.reachedAccounts)}</p>
+                                <p className="text-slate-600">Selecciones {formatNumber(reason.selectedAccounts)}</p>
+                                <p className="text-slate-600">Regresos {formatNumber(reason.returnedAfterSelectionAccounts)}</p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="mt-4 border-l-2 border-sky-400 bg-sky-50 px-4 py-3 text-xs leading-5 text-sky-900">
+                            La instrumentación de motivos comienza con este despliegue; todavía no hay exposiciones reales registradas.
+                          </p>
+                        )}
+                      </div>
+
+                      {!activityData.retention.dataComplete && (
+                        <div className="mt-4 flex items-start gap-3 border-l-2 border-rose-400 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+                          <CircleHelp className="mt-0.5 h-4 w-4 shrink-0" />
+                          <p>
+                            La consulta alcanzó el tope de {formatNumber(activityData.dataCoverage?.maxRowsPerQuery || 50000)} filas. Este período se muestra como incompleto y no debe usarse para cerrar el plan.
+                          </p>
+                        </div>
+                      )}
+
+                      {!activityData.retention.measurementReady && activityData.retention.dataComplete && (
                         <div className="mt-4 flex items-start gap-3 border-l-2 border-amber-400 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                           <CircleHelp className="mt-0.5 h-4 w-4 shrink-0" />
                           <p>
