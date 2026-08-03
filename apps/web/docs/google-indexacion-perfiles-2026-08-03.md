@@ -6,6 +6,17 @@ Estado real: **9/10 perfiles públicos completos**. La tarjeta permanece abierta
 
 La comprobación pública del 3 de agosto de 2026 no devolvió resultados individuales para estas URLs en búsquedas `site:`. Esto es una comprobación de visibilidad pública, no sustituye el informe de cobertura de Google Search Console.
 
+## Verificación en Google Search Console
+
+Comprobación realizada el 3 de agosto de 2026 sobre la propiedad de dominio `urbanfix.com.ar`:
+
+- El sitemap `https://www.urbanfix.com.ar/sitemap.xml` figura como **Correcto** y fue reenviado correctamente ese día. Antes del reenvío informaba última lectura el 30 de julio de 2026 y 620 páginas descubiertas.
+- Ya estaban indexados: OBRAS CASTILLO, Elayon Electricidad, Obras Castillo, UrbanFix y OFICIOS TELIO.
+- Figuraban como **Descubierta: actualmente sin indexar**: DJEAmoblamientos, QUISPLO, JRcarpinteria y LeMoVa.
+- Google aceptó una solicitud de indexación para cada una de las nueve URLs y las añadió a la cola de rastreo prioritaria.
+
+Una solicitud aceptada no garantiza indexación inmediata ni una posición determinada. La tarjeta debe continuar abierta hasta verificar nuevamente las cuatro URLs pendientes y disponer de un décimo perfil real completo.
+
 ## URLs canónicas elegibles
 
 1. [OBRAS CASTILLO](https://www.urbanfix.com.ar/tecnico/obras-castillo-579e9fff-a877-4767-953e-b823cd04968c)
