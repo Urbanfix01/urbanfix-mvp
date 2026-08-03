@@ -4,6 +4,7 @@ import { ciudadSlugs, guiaSlugs } from "../lib/seo/urbanfix-data";
 import { buildTechnicianPath } from "../lib/seo/technician-profile";
 import { createAnonClient } from "../lib/supabase/server";
 import { technicianSeoStaticParams } from "../lib/seo/technician-market-data";
+import { isPublicProfileVisible } from "../lib/public-profile-validity";
 
 export const dynamic = "force-dynamic";
 
@@ -13,23 +14,50 @@ type ProfileSitemapRow = {
   profile_published: boolean | null;
   full_name: string | null;
   business_name: string | null;
+  phone: string | null;
+  country: string | null;
   city: string | null;
   address: string | null;
+  company_address: string | null;
   coverage_area: string | null;
+  service_city: string | null;
+  service_province: string | null;
+  service_district: string | null;
+  service_lat: number | string | null;
+  service_lng: number | string | null;
+  specialties: string | null;
+  updated_at: string | null;
+  created_at: string | null;
 };
 
-const hasMeaningfulCoverageArea = (value: string | null | undefined) => {
-  const normalized = String(value || "").trim().toLowerCase();
-  if (!normalized) return false;
-  return !normalized.includes("tu ciudad base");
-};
+const PROFILE_SITEMAP_SELECT = [
+  "id",
+  "access_granted",
+  "profile_published",
+  "full_name",
+  "business_name",
+  "phone",
+  "country",
+  "city",
+  "address",
+  "company_address",
+  "coverage_area",
+  "service_city",
+  "service_province",
+  "service_district",
+  "service_lat",
+  "service_lng",
+  "specialties",
+  "updated_at",
+  "created_at",
+].join(",");
 
-const hasWorkZoneConfigured = (profile: ProfileSitemapRow) =>
-  Boolean(
-    String(profile.city || "").trim() ||
-      String(profile.address || "").trim() ||
-      hasMeaningfulCoverageArea(profile.coverage_area)
-  );
+const toLastModified = (row: ProfileSitemapRow) => {
+  const value = String(row.updated_at || row.created_at || "").trim();
+  if (!value) return undefined;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+};
 
 const getTechnicianEntries = async (baseUrl: string): Promise<MetadataRoute.Sitemap> => {
   let supabase: ReturnType<typeof createAnonClient>;
@@ -41,22 +69,25 @@ const getTechnicianEntries = async (baseUrl: string): Promise<MetadataRoute.Site
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id,access_granted,profile_published,full_name,business_name,city,address,coverage_area")
+    .select(PROFILE_SITEMAP_SELECT)
     .eq("access_granted", true)
-    .eq("profile_published", true)
+    .or("profile_published.is.null,profile_published.eq.true")
     .limit(2400);
 
   if (error || !data) return [];
 
-  const rows = (data || []) as ProfileSitemapRow[];
-  const validRows = rows.filter((row) => row.access_granted && row.profile_published && hasWorkZoneConfigured(row));
+  const rows = (data || []) as unknown as ProfileSitemapRow[];
+  const validRows = rows.filter((row) => isPublicProfileVisible(row));
 
-  return validRows.map((row) => ({
-    url: `${baseUrl}${buildTechnicianPath(row.id, row.business_name || row.full_name || "Tecnico UrbanFix")}`,
-    lastModified: new Date(),
-    changeFrequency: "weekly",
-    priority: 0.8,
-  }));
+  return validRows.map((row) => {
+    const lastModified = toLastModified(row);
+    return {
+      url: `${baseUrl}${buildTechnicianPath(row.id, row.business_name || row.full_name || "Tecnico UrbanFix")}`,
+      ...(lastModified ? { lastModified } : {}),
+      changeFrequency: "weekly",
+      priority: 0.8,
+    };
+  });
 };
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -64,45 +95,38 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const technicianEntries = await getTechnicianEntries(baseUrl);
   const ciudadesEntries: MetadataRoute.Sitemap = ciudadSlugs.map((slug) => ({
     url: `${baseUrl}/ciudades/${slug}`,
-    lastModified: new Date(),
     changeFrequency: "monthly",
     priority: 0.6,
   }));
   const vidrieraZonaEntries: MetadataRoute.Sitemap = ciudadSlugs.map((slug) => ({
     url: `${baseUrl}/vidriera/${slug}`,
-    lastModified: new Date(),
     changeFrequency: "weekly",
     priority: 0.7,
   }));
   const vidrieraGremioEntries: MetadataRoute.Sitemap = gremioSlugs.map((slug) => ({
     url: `${baseUrl}/vidriera/gremio/${slug}`,
-    lastModified: new Date(),
     changeFrequency: "weekly",
     priority: 0.72,
   }));
   const vidrieraZonaGremioEntries: MetadataRoute.Sitemap = ciudadSlugs.flatMap((zona) =>
     gremioSlugs.map((gremio) => ({
       url: `${baseUrl}/vidriera/${zona}/${gremio}`,
-      lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 0.68,
     }))
   );
   const technicianMarketEntries: MetadataRoute.Sitemap = technicianSeoStaticParams.map(({ gremio, pais }) => ({
     url: `${baseUrl}/tecnicos/${gremio}/${pais}`,
-    lastModified: new Date(),
     changeFrequency: "weekly",
     priority: 0.74,
   }));
   const guiasEntries: MetadataRoute.Sitemap = guiaSlugs.map((slug) => ({
     url: `${baseUrl}/guias-precios/${slug}`,
-    lastModified: new Date(),
     changeFrequency: "monthly",
     priority: 0.6,
   }));
   const gremiosEntries: MetadataRoute.Sitemap = gremioSlugs.map((slug) => ({
     url: `${baseUrl}/gremios/${slug}`,
-    lastModified: new Date(),
     changeFrequency: "monthly",
     priority: 0.65,
   }));
@@ -110,40 +134,34 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   return [
     {
       url: baseUrl,
-      lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 1,
     },
     {
       url: `${baseUrl}/ciudades`,
-      lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 0.7,
     },
     ...ciudadesEntries,
     {
       url: `${baseUrl}/guias-precios`,
-      lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 0.7,
     },
     ...guiasEntries,
     {
       url: `${baseUrl}/urbanfix`,
-      lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.7,
     },
     {
       url: `${baseUrl}/gremios`,
-      lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.7,
     },
     ...gremiosEntries,
     {
       url: `${baseUrl}/vidriera`,
-      lastModified: new Date(),
       changeFrequency: "daily",
       priority: 0.8,
     },
@@ -154,37 +172,31 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...technicianEntries,
     {
       url: `${baseUrl}/soporte`,
-      lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.6,
     },
     {
       url: `${baseUrl}/politicas`,
-      lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.5,
     },
     {
       url: `${baseUrl}/contacto`,
-      lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.6,
     },
     {
       url: `${baseUrl}/nueva`,
-      lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.6,
     },
     {
       url: `${baseUrl}/privacidad`,
-      lastModified: new Date(),
       changeFrequency: "yearly",
       priority: 0.4,
     },
     {
       url: `${baseUrl}/terminos`,
-      lastModified: new Date(),
       changeFrequency: "yearly",
       priority: 0.4,
     },

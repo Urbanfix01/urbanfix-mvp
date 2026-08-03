@@ -21,7 +21,7 @@ import {
   isMissingPublicProfileFieldError,
 } from '../../../lib/public-profile-select';
 import { isPublicProfileVisible } from '../../../lib/public-profile-validity';
-import { buildPublicWhatsappHref } from '../../../lib/public-phone';
+import { buildPublicWhatsappHref, normalizePublicWhatsappPhone } from '../../../lib/public-phone';
 import {
   ARGENTINA_TIMEZONE,
   formatWorkingHoursLabel,
@@ -51,10 +51,14 @@ type PublicTechnicianProfile = {
   phone: string | null;
   country?: string | null;
   city: string | null;
+  address?: string | null;
+  company_address?: string | null;
   coverage_area: string | null;
   service_city?: string | null;
   service_province?: string | null;
   service_district?: string | null;
+  service_lat?: number | string | null;
+  service_lng?: number | string | null;
   working_hours?: string | null;
   specialties: string | null;
   avatar_url?: string | null;
@@ -106,6 +110,28 @@ const parseDelimitedValues = (value: string | null | undefined) =>
     .split(/[\n,;|/]+/)
     .map((item) => item.trim())
     .filter(Boolean);
+
+const truncateSeoDescription = (value: string, maxLength = 160) => {
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  if (normalized.length <= maxLength) return normalized;
+  const shortened = normalized.slice(0, maxLength - 1).replace(/\s+\S*$/, '').trimEnd();
+  return `${shortened || normalized.slice(0, maxLength - 1).trimEnd()}…`;
+};
+
+const getSeoLocality = (profile: PublicTechnicianProfile) => {
+  const candidates = [profile.service_city, profile.service_district, profile.service_province, profile.city];
+  for (const candidate of candidates) {
+    const value = String(candidate || '').trim();
+    if (!value) continue;
+    const segments = value
+      .split('·')
+      .map((part) => part.trim())
+      .filter(Boolean);
+    const segmentedLocality = segments.length > 1 ? segments[segments.length - 1] : value;
+    if (segmentedLocality && !/\d/.test(segmentedLocality)) return segmentedLocality;
+  }
+  return String(profile.country || '').trim();
+};
 
 const parseBadgeArray = (value: string[] | null | undefined) => {
   if (!Array.isArray(value)) return [];
@@ -513,26 +539,38 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   }
 
   const displayName = String(profile.business_name || profile.full_name || 'Tecnico UrbanFix').trim();
-  const city = String(profile.service_city || profile.city || profile.service_province || profile.country || '').trim();
+  const city = getSeoLocality(profile);
   const specialties = parseDelimitedValues(profile.specialties).slice(0, 3);
-  const titleParts = [displayName, city ? `Tecnico en ${city}` : '', 'UrbanFix'].filter(Boolean);
-  const descriptionParts = [
-    `${displayName}${city ? ` (${city})` : ''}.`,
-    specialties.length > 0 ? `Rubros: ${specialties.join(', ')}.` : '',
-    'Perfil profesional publico en UrbanFix.',
-  ].filter(Boolean);
+  const primarySpecialty = specialties[0] || '';
+  const serviceLabel = primarySpecialty
+    ? `${primarySpecialty}${city ? ` en ${city}` : ''}`
+    : city
+      ? `Tecnico en ${city}`
+      : 'Tecnico';
+  const metadataTitle = `${displayName} | ${serviceLabel}`;
+  const presentationText = String(profile.references_summary || '').trim();
+  const fallbackDescription = [
+    `${displayName}${city ? ` en ${city}` : ''}.`,
+    specialties.length > 0 ? `Servicios: ${specialties.join(', ')}.` : '',
+    'Consulta su perfil profesional en UrbanFix.',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const description = truncateSeoDescription(
+    presentationText ? `${displayName}: ${presentationText}` : fallbackDescription
+  );
   const canonicalUrl = buildTechnicianUrl(profile.id, displayName);
   const imageUrl = toAbsoluteUrl(profile.avatar_url || profile.company_logo_url || '/icon-48.png');
 
   return {
-    title: titleParts.join(' | '),
-    description: descriptionParts.join(' '),
+    title: metadataTitle,
+    description,
     alternates: { canonical: canonicalUrl },
     robots: { index: true, follow: true },
     openGraph: {
       type: 'profile',
-      title: titleParts.join(' | '),
-      description: descriptionParts.join(' '),
+      title: `${metadataTitle} | UrbanFix`,
+      description,
       url: canonicalUrl,
       images: [{ url: imageUrl }],
       locale: 'es_AR',
@@ -540,8 +578,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     },
     twitter: {
       card: 'summary_large_image',
-      title: titleParts.join(' | '),
-      description: descriptionParts.join(' '),
+      title: `${metadataTitle} | UrbanFix`,
+      description,
       images: [imageUrl],
     },
   };
@@ -666,6 +704,15 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
   const facebookFeedEmbedUrl = buildFacebookTimelineEmbedUrl(profile.facebook_url);
   const instagramPostEmbedUrl = buildInstagramEmbedUrl(profile.instagram_url);
   const sameAs = socialLinks.map((entry) => String(entry.href || '').trim()).filter(Boolean);
+  const primarySpecialty = specialties[0] || 'Técnico';
+  const addressCountry = profile.country || '';
+  const seoLocality = getSeoLocality(profile);
+  const addressRegion = profile.service_province || '';
+  const addressLocality =
+    seoLocality && seoLocality !== addressCountry && seoLocality !== addressRegion ? seoLocality : '';
+  const areaServed =
+    profile.coverage_area || seoLocality || profile.service_province || profile.country || '';
+  const publicPhone = normalizePublicWhatsappPhone(profile.phone, profile.country);
   const metricCards = [
     {
       label: 'Reputaci\u00f3n',
@@ -692,18 +739,21 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
   const personJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Person',
+    '@id': `${canonicalUrl}#profile`,
     name: displayName,
     url: canonicalUrl,
-    jobTitle: 'Técnico',
-    address: profile.city
+    image: avatarImageUrl || undefined,
+    jobTitle: primarySpecialty,
+    address: addressLocality || addressRegion || addressCountry
       ? {
           '@type': 'PostalAddress',
-          addressLocality: profile.city,
-          addressCountry: 'AR',
+          addressLocality: addressLocality || undefined,
+          addressRegion: addressRegion || undefined,
+          addressCountry: addressCountry || undefined,
         }
       : undefined,
-    areaServed: profile.coverage_area || profile.city || 'Argentina',
-    telephone: profile.phone || undefined,
+    areaServed: areaServed || undefined,
+    telephone: publicPhone ? `+${publicPhone}` : undefined,
     knowsAbout: specialties.length > 0 ? specialties : undefined,
     sameAs: sameAs.length > 0 ? sameAs : undefined,
     description: presentationText || `${displayName} en UrbanFix.`,
