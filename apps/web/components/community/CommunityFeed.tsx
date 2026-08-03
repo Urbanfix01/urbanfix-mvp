@@ -15,6 +15,7 @@ import {
   Send,
   Share2,
   Sparkles,
+  UserRound,
   X,
 } from 'lucide-react';
 
@@ -26,6 +27,7 @@ import { TECH_SPECIALTY_OPTIONS, TECH_SPECIALTY_SEARCH_ALIASES } from '../../lib
 
 type PostType = 'post' | 'publicidad' | 'trabajo' | 'pedido' | 'aviso' | 'consulta' | 'antes_despues';
 type AuthorRole = 'tecnico' | 'empresa' | 'cliente' | 'admin';
+type CommunityPostAction = 'comentar' | 'like';
 
 type CommunityMedia = {
   url: string;
@@ -56,7 +58,6 @@ type CommunityPost = {
   location: string | null;
   coordinates: CommunityCoordinates | null;
   contact_url: string | null;
-  whatsapp_url: string | null;
   author_location: string | null;
   author_specialties: string[];
   tags: string[];
@@ -81,11 +82,9 @@ type CommunityProfile = {
   name: string;
   role: AuthorRole | null;
   avatarUrl: string | null;
-  phone: string | null;
   location: string | null;
   specialties: string[];
   profileHref: string;
-  whatsappHref: string;
 };
 
 type CommunityAuthorPublicProfile = {
@@ -93,7 +92,6 @@ type CommunityAuthorPublicProfile = {
   name: string;
   avatarUrl: string | null;
   profileHref: string;
-  whatsappHref: string;
   location: string | null;
   specialties: string[];
 };
@@ -223,11 +221,9 @@ const buildAdminCommunityProfile = (userId: string, draft: AdminCommunityProfile
   name: draft.name,
   role: 'admin',
   avatarUrl: draft.logoUrl,
-  phone: null,
   location: 'UrbanFix',
   specialties: [],
   profileHref: '/urbanfix',
-  whatsappHref: '',
 });
 
 const normalizeCoordinates = (value: any): CommunityCoordinates | null => {
@@ -239,23 +235,6 @@ const normalizeCoordinates = (value: any): CommunityCoordinates | null => {
     lat: Number(lat.toFixed(6)),
     lng: Number(lng.toFixed(6)),
   };
-};
-
-const buildWhatsappLink = (phone: string | null | undefined) => {
-  const raw = String(phone || '').replace(/\D/g, '');
-  if (!raw) return '';
-
-  let normalized = raw;
-  if (normalized.startsWith('00')) normalized = normalized.slice(2);
-  if (!normalized.startsWith('54')) {
-    if (normalized.startsWith('0')) normalized = normalized.slice(1);
-    if (normalized.length === 11 && normalized.slice(2, 4) === '15') {
-      normalized = `${normalized.slice(0, 2)}${normalized.slice(4)}`;
-    }
-    normalized = `54${normalized}`;
-  }
-
-  return `https://wa.me/${normalized}`;
 };
 
 const buildProfileLocation = (row: any) =>
@@ -278,7 +257,6 @@ const normalizeAuthorProfile = (row: any): CommunityAuthorPublicProfile => {
     name,
     avatarUrl: String(row?.company_logo_url || row?.avatar_url || '').trim() || null,
     profileHref: buildTechnicianPath(String(row.id), name),
-    whatsappHref: buildWhatsappLink(row?.phone),
     location: buildProfileLocation(row),
     specialties: parseGremioSpecialties(row?.specialties).slice(0, 6),
   };
@@ -289,7 +267,6 @@ const profileToAuthorProfile = (profile: CommunityProfile): CommunityAuthorPubli
   name: profile.name,
   avatarUrl: profile.avatarUrl,
   profileHref: profile.profileHref,
-  whatsappHref: profile.whatsappHref,
   location: profile.location,
   specialties: profile.specialties,
 });
@@ -338,8 +315,7 @@ const normalizePost = (
     category: row.category ? String(row.category) : authorSpecialties[0] || null,
     location: row.location ? String(row.location) : publicProfile?.location || null,
     coordinates: normalizeCoordinates(row.coordinates),
-    contact_url: row.contact_url ? String(row.contact_url) : profileContactUrl,
-    whatsapp_url: authorRole === 'cliente' || authorRole === 'admin' ? null : publicProfile?.whatsappHref || null,
+    contact_url: profileContactUrl,
     author_location: publicProfile?.location || null,
     author_specialties: authorSpecialties,
     tags: Array.isArray(row.tags) ? row.tags.map((tag: unknown) => String(tag)).filter(Boolean) : [],
@@ -402,6 +378,26 @@ const getCommunityPostShareUrl = (postId: string) => {
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://www.urbanfix.com.ar';
   return `${baseUrl}/comunidad?post=${encodeURIComponent(postId)}`;
 };
+
+const buildCommunityPath = ({
+  createType,
+  postId,
+  action,
+}: {
+  createType?: PostType;
+  postId?: string;
+  action?: CommunityPostAction;
+}) => {
+  const params = new URLSearchParams();
+  if (createType) params.set('crear', createType);
+  if (postId) params.set('post', postId);
+  if (action) params.set('accion', action);
+  const query = params.toString();
+  return `/comunidad${query ? `?${query}` : ''}`;
+};
+
+const buildCommunityAuthHref = (nextPath: string) =>
+  `/tecnicos?mode=login&next=${encodeURIComponent(nextPath)}`;
 
 const buildCommunityPostShareText = (post: CommunityPost) => {
   const parts = [
@@ -555,6 +551,11 @@ const verifyAdminSession = async (accessToken: string | null | undefined) => {
 
 export default function CommunityFeed() {
   const mediaInputRef = useRef<HTMLInputElement | null>(null);
+  const bodyInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const postRefs = useRef<Record<string, HTMLElement | null>>({});
+  const commentInputRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+  const likeButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const handledPostIntentRef = useRef('');
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [profile, setProfile] = useState<CommunityProfile | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -576,6 +577,11 @@ export default function CommunityFeed() {
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
   const [commentFeedback, setCommentFeedback] = useState<Record<string, string>>({});
   const [commentSubmitting, setCommentSubmitting] = useState<Record<string, boolean>>({});
+  const [postActionFeedback, setPostActionFeedback] = useState<Record<string, string>>({});
+  const [authIntentByPost, setAuthIntentByPost] = useState<Record<string, CommunityPostAction | undefined>>({});
+  const [targetPostId, setTargetPostId] = useState('');
+  const [targetPostAction, setTargetPostAction] = useState<CommunityPostAction | null>(null);
+  const [highlightedPostId, setHighlightedPostId] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
   const [specialtyFilter, setSpecialtyFilter] = useState('');
   const [authorFilter, setAuthorFilter] = useState('');
@@ -629,7 +635,7 @@ export default function CommunityFeed() {
         const { data } = await supabase
           .from('profiles')
           .select(
-            'id, full_name, business_name, avatar_url, company_logo_url, phone, country, city, service_city, service_district, service_province, specialties'
+            'id, full_name, business_name, avatar_url, company_logo_url, country, city, service_city, service_district, service_province, specialties'
           )
           .eq('id', user.id)
           .maybeSingle();
@@ -646,11 +652,9 @@ export default function CommunityFeed() {
           name: profileName,
           role,
           avatarUrl: String(data?.company_logo_url || data?.avatar_url || metadata.avatar_url || '').trim() || null,
-          phone: String(data?.phone || metadata.phone || metadata.whatsapp || '').trim() || null,
           location: buildProfileLocation(data),
           specialties: profileSpecialties,
           profileHref: role === 'cliente' ? '/cliente' : buildTechnicianPath(user.id, profileName),
-          whatsappHref: role === 'cliente' ? '' : buildWhatsappLink(data?.phone || metadata.phone || metadata.whatsapp),
         });
         setAuthLoading(false);
       };
@@ -680,7 +684,11 @@ export default function CommunityFeed() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    setAuthorFilter(new URLSearchParams(window.location.search).get('autor') || '');
+    const params = new URLSearchParams(window.location.search);
+    const action = params.get('accion');
+    setAuthorFilter((params.get('autor') || '').slice(0, 80));
+    setTargetPostId((params.get('post') || '').slice(0, 80));
+    setTargetPostAction(action === 'comentar' || action === 'like' ? action : null);
   }, []);
 
   useEffect(() => {
@@ -728,7 +736,7 @@ export default function CommunityFeed() {
           const { data: profileRows } = await supabase
             .from('profiles')
             .select(
-              'id, email, full_name, business_name, avatar_url, company_logo_url, phone, country, city, service_city, service_district, service_province, specialties'
+              'id, email, full_name, business_name, avatar_url, company_logo_url, country, city, service_city, service_district, service_province, specialties'
             )
             .in('id', authorIds);
 
@@ -794,7 +802,6 @@ export default function CommunityFeed() {
   const isAdminProfile = profile?.role === 'admin';
   const displayName = profile?.name || 'Comunidad UrbanFix';
   const firstName = profile?.name?.trim().split(/\s+/)[0] || 'UrbanFix';
-  const loginHref = `/tecnicos?mode=login&next=${encodeURIComponent('/comunidad')}`;
   const availableComposerPostTypes = getComposerPostTypes(profile?.role);
   const defaultPostType = getDefaultPostType(profile?.role);
   const selectedPostType = postTypeMeta[postType];
@@ -826,10 +833,38 @@ export default function CommunityFeed() {
     return matchesLocation && matchesSpecialty && matchesAuthor;
   });
 
+  const getPostAnalyticsContext = (postId: string, origin = 'community_feed') => {
+    const targetPost = posts.find((post) => post.id === postId);
+    return {
+      origin,
+      post_id: postId,
+      post_type: targetPost?.post_type || 'unknown',
+      author_role: targetPost?.author_role || 'unknown',
+    };
+  };
+
   const openComposer = (nextPostType: PostType = defaultPostType) => {
     setFeedback('');
-    setPostType(availableComposerPostTypes.includes(nextPostType) ? nextPostType : defaultPostType);
+    const safePostType = availableComposerPostTypes.includes(nextPostType) ? nextPostType : defaultPostType;
+
+    if (!canPublish) {
+      trackFunnelEvent('community_auth_requested', {
+        origin: 'community_composer',
+        action: 'publish',
+        post_type: safePostType,
+      });
+      window.location.href = buildCommunityAuthHref(buildCommunityPath({ createType: safePostType }));
+      return;
+    }
+
+    setPostType(safePostType);
     setIsComposerOpen(true);
+    trackFunnelEvent('community_post_started', {
+      origin: 'community_composer',
+      post_type: safePostType,
+      author_role: profile?.role || 'unknown',
+    });
+    window.setTimeout(() => bodyInputRef.current?.focus(), 0);
   };
 
   const saveAdminProfile = () => {
@@ -854,11 +889,19 @@ export default function CommunityFeed() {
     if (authLoading || !canPublish || isComposerOpen || typeof window === 'undefined') return;
 
     const requestedType = new URLSearchParams(window.location.search).get('crear') as PostType | null;
-    if (requestedType && availableComposerPostTypes.includes(requestedType)) {
-      setPostType(requestedType);
+    if (requestedType && Object.prototype.hasOwnProperty.call(postTypeMeta, requestedType)) {
+      const safePostType = availableComposerPostTypes.includes(requestedType) ? requestedType : defaultPostType;
+      setPostType(safePostType);
       setIsComposerOpen(true);
+      trackFunnelEvent('community_post_started', {
+        origin: 'post_auth_return',
+        post_type: safePostType,
+        requested_post_type: requestedType,
+        author_role: profile?.role || 'unknown',
+      });
+      window.setTimeout(() => bodyInputRef.current?.focus(), 0);
     }
-  }, [authLoading, availableComposerPostTypes, canPublish, isComposerOpen]);
+  }, [authLoading, availableComposerPostTypes, canPublish, defaultPostType, isComposerOpen, profile?.role]);
 
   useEffect(() => {
     if (!availableComposerPostTypes.includes(postType)) {
@@ -987,6 +1030,8 @@ export default function CommunityFeed() {
 
       setPosts((current) => [normalizePost(data, { [authorProfile.id]: authorProfile }), ...current]);
       trackFunnelEvent('community_post_published', {
+        origin: 'community_inline_composer',
+        post_id: String(data.id),
         post_type: postType,
         author_role: profile.role,
       });
@@ -1017,20 +1062,35 @@ export default function CommunityFeed() {
   };
 
   const handleLike = async (postId: string) => {
+    const analyticsContext = getPostAnalyticsContext(postId);
+    trackFunnelEvent('community_post_like_requested', analyticsContext);
+
     if (!profile?.id) {
-      setFeedback('Ingresa con tu cuenta UrbanFix para dar Me gusta.');
+      setAuthIntentByPost((current) => ({ ...current, [postId]: 'like' }));
+      setPostActionFeedback((current) => ({
+        ...current,
+        [postId]: 'Ingresa con tu cuenta UrbanFix para confirmar tu Me gusta.',
+      }));
+      trackFunnelEvent('community_auth_requested', {
+        ...analyticsContext,
+        action: 'like',
+      });
       return;
     }
 
     if (!hasSupabaseConfig) {
-      setFeedback('No se puede guardar el Me gusta porque Supabase no esta conectado.');
+      setPostActionFeedback((current) => ({
+        ...current,
+        [postId]: 'No se puede guardar el Me gusta porque Supabase no esta conectado.',
+      }));
       return;
     }
 
     if (likesLoading[postId]) return;
 
     const wasLiked = Boolean(likedPosts[postId]);
-    setFeedback('');
+    setAuthIntentByPost((current) => ({ ...current, [postId]: undefined }));
+    setPostActionFeedback((current) => ({ ...current, [postId]: '' }));
     setLikesLoading((current) => ({ ...current, [postId]: true }));
     setLikedPosts((current) => ({ ...current, [postId]: !wasLiked }));
     setPosts((current) =>
@@ -1057,7 +1117,7 @@ export default function CommunityFeed() {
         });
 
         if (error && String(error.code || '') !== '23505') throw error;
-        trackFunnelEvent('community_post_liked', { post_id: postId });
+        trackFunnelEvent('community_post_liked', analyticsContext);
       }
 
       await refreshPostLikeCount(postId);
@@ -1070,7 +1130,10 @@ export default function CommunityFeed() {
             : post
         )
       );
-      setFeedback(getCommunityLikesErrorMessage(error));
+      setPostActionFeedback((current) => ({
+        ...current,
+        [postId]: getCommunityLikesErrorMessage(error),
+      }));
     } finally {
       setLikesLoading((current) => ({ ...current, [postId]: false }));
     }
@@ -1129,10 +1192,54 @@ export default function CommunityFeed() {
     setCommentsLoading((current) => ({ ...current, [postId]: false }));
   };
 
-  const toggleComments = (postId: string) => {
-    setOpenCommentsPostId((current) => (current === postId ? null : postId));
-    if (!commentsByPost[postId]) void loadComments(postId);
+  const toggleComments = (post: CommunityPost) => {
+    const isOpening = openCommentsPostId !== post.id;
+    setOpenCommentsPostId(isOpening ? post.id : null);
+    if (!isOpening) return;
+
+    trackFunnelEvent('community_comment_started', getPostAnalyticsContext(post.id));
+    if (!commentsByPost[post.id]) void loadComments(post.id);
+    if (profile?.id) {
+      window.setTimeout(() => commentInputRefs.current[post.id]?.focus(), 0);
+    }
   };
+
+  useEffect(() => {
+    if (authLoading || postsLoading || !targetPostId || typeof window === 'undefined') return;
+
+    const targetPost = posts.find((post) => post.id === targetPostId);
+    if (!targetPost) return;
+
+    const intentKey = `${targetPostId}:${targetPostAction || 'view'}:${profile?.id ? 'auth' : 'anon'}`;
+    if (handledPostIntentRef.current === intentKey) return;
+    handledPostIntentRef.current = intentKey;
+    setHighlightedPostId(targetPostId);
+
+    if (targetPostAction === 'comentar') {
+      setOpenCommentsPostId(targetPostId);
+      if (!commentsByPost[targetPostId]) void loadComments(targetPostId);
+      if (profile?.id) {
+        trackFunnelEvent(
+          'community_comment_started',
+          getPostAnalyticsContext(targetPostId, 'post_auth_return')
+        );
+      }
+    }
+
+    window.setTimeout(() => {
+      postRefs.current[targetPostId]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (targetPostAction === 'comentar' && profile?.id) {
+        commentInputRefs.current[targetPostId]?.focus();
+      }
+      if (targetPostAction === 'like') {
+        likeButtonRefs.current[targetPostId]?.focus();
+      }
+    }, 80);
+
+    window.setTimeout(() => {
+      setHighlightedPostId((current) => (current === targetPostId ? '' : current));
+    }, 5000);
+  }, [authLoading, commentsByPost, posts, postsLoading, profile?.id, targetPostAction, targetPostId]);
 
   const handleCommentSubmit = async (event: FormEvent<HTMLFormElement>, postId: string) => {
     event.preventDefault();
@@ -1196,7 +1303,7 @@ export default function CommunityFeed() {
           post.id === postId ? { ...post, comments_count: post.comments_count + 1 } : post
         )
       );
-      trackFunnelEvent('community_comment_published', { post_id: postId });
+      trackFunnelEvent('community_comment_published', getPostAnalyticsContext(postId));
     }
 
     setCommentSubmitting((current) => ({ ...current, [postId]: false }));
@@ -1229,7 +1336,7 @@ export default function CommunityFeed() {
               {[
                 { label: 'Publica', text: 'Pedidos, trabajos, avisos o consultas reales.' },
                 { label: 'Filtra', text: 'Busca por ciudad, barrio o rubro.' },
-                { label: 'Conecta', text: 'Deriva al perfil, WhatsApp o comentarios.' },
+                { label: 'Conecta', text: 'Abre el perfil o conversa en los comentarios.' },
               ].map((item) => (
                 <div key={item.label} className="rounded-2xl bg-slate-50 p-3">
                   <p className="text-sm font-black text-[#2a0338]">{item.label}</p>
@@ -1240,48 +1347,196 @@ export default function CommunityFeed() {
           </div>
         ) : null}
 
-        <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => openComposer(defaultPostType)}
-              className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#2a0338] text-sm font-black text-white"
-              aria-label="Abrir perfil para publicar"
-            >
-              {profile?.avatarUrl ? (
-                <img src={profile.avatarUrl} alt={profile.name} className="h-full w-full object-cover" />
-              ) : (
-                getInitials(profile?.name || 'UF')
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => openComposer(defaultPostType)}
-              className="min-w-0 flex-1 rounded-full bg-slate-100 px-4 py-3 text-left text-sm font-semibold text-slate-500 transition hover:bg-slate-200"
-            >
-              {canPublish ? `Que queres compartir, ${firstName}?` : 'Ingresa con tu cuenta UrbanFix para publicar'}
-            </button>
-          </div>
-
-          <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 sm:grid-cols-4">
-            {quickComposerActions.map((action) => {
-              const Icon = action.icon;
-              return (
+        <div data-community-composer className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+          {!isComposerOpen ? (
+            <>
+              <div className="flex items-center gap-3">
                 <button
-                  key={action.type}
                   type="button"
-                  onClick={() => openComposer(action.type)}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl px-3 py-2 text-xs font-black text-slate-600 transition hover:bg-slate-100"
+                  onClick={() => openComposer(defaultPostType)}
+                  className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#2a0338] text-sm font-black text-white"
+                  aria-label="Comenzar una publicacion"
                 >
-                  <Icon className={`h-4 w-4 ${action.iconClass}`} />
-                  {action.label}
+                  {profile?.avatarUrl ? (
+                    <img src={profile.avatarUrl} alt={profile.name} className="h-full w-full object-cover" />
+                  ) : (
+                    getInitials(profile?.name || 'UF')
+                  )}
                 </button>
-              );
-            })}
-          </div>
 
-          {feedback && <p className="mt-3 text-sm font-semibold text-slate-500">{feedback}</p>}
+                <button
+                  type="button"
+                  onClick={() => openComposer(defaultPostType)}
+                  className="min-w-0 flex-1 rounded-full bg-slate-100 px-4 py-3 text-left text-sm font-semibold text-slate-500 transition hover:bg-slate-200"
+                >
+                  {canPublish ? `Que queres compartir, ${firstName}?` : 'Ingresa con tu cuenta UrbanFix para publicar'}
+                </button>
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 sm:grid-cols-4">
+                {quickComposerActions.map((action) => {
+                  const Icon = action.icon;
+                  return (
+                    <button
+                      key={action.type}
+                      type="button"
+                      onClick={() => openComposer(action.type)}
+                      className="inline-flex items-center justify-center gap-2 rounded-2xl px-3 py-2 text-xs font-black text-slate-600 transition hover:bg-slate-100"
+                    >
+                      <Icon className={`h-4 w-4 ${action.iconClass}`} />
+                      {action.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4" aria-label="Crear publicacion en Comunidad">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#2a0338] text-sm font-black text-white">
+                  {profile?.avatarUrl ? (
+                    <img src={profile.avatarUrl} alt={displayName} className="h-full w-full object-cover" />
+                  ) : (
+                    getInitials(displayName)
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-black text-slate-950">{displayName}</p>
+                  <p className="mt-0.5 text-xs font-semibold text-slate-500">Publicacion visible en el muro</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetComposer();
+                    setFeedback('');
+                    setIsComposerOpen(false);
+                  }}
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-950"
+                  aria-label="Cerrar editor"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {availableComposerPostTypes.map((type) => {
+                  const meta = postTypeMeta[type];
+                  const isSelected = type === postType;
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setPostType(type)}
+                      disabled={submitting}
+                      className={`rounded-2xl border px-3 py-2 text-left text-xs font-black transition disabled:opacity-50 ${
+                        isSelected
+                          ? 'border-[#ff8f1f] bg-[#fff4e8] text-[#2a0338]'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      {meta.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <textarea
+                ref={bodyInputRef}
+                value={body}
+                onChange={(event) => setBody(event.target.value)}
+                placeholder={selectedPostType.bodyPlaceholder || `Que queres compartir, ${firstName}?`}
+                rows={4}
+                maxLength={3000}
+                disabled={submitting}
+                className="min-h-[128px] w-full resize-y rounded-2xl border border-slate-200 px-4 py-3 text-base leading-7 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#ff8f1f] disabled:opacity-50"
+              />
+
+              <input
+                ref={mediaInputRef}
+                type="file"
+                accept="image/*,video/*"
+                multiple
+                className="hidden"
+                onChange={(event) => handleMediaSelect(event.target.files)}
+              />
+
+              {pendingMedia.length > 0 ? (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {pendingMedia.map((item) => (
+                    <div key={item.id} className="relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+                      {item.type === 'image' ? (
+                        <img src={item.url} alt={item.name || 'Imagen adjunta'} className="h-40 w-full object-cover" />
+                      ) : (
+                        <video src={item.url} className="h-40 w-full object-cover" controls />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removePendingMedia(item.id)}
+                        className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-black/65 text-white transition hover:bg-black"
+                        aria-label="Quitar adjunto"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => mediaInputRef.current?.click()}
+                  disabled={submitting || pendingMedia.length >= 4}
+                  className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-sm font-black text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <ImageIcon className="h-4 w-4 text-emerald-600" />
+                  Foto o video{pendingMedia.length ? ` (${pendingMedia.length}/4)` : ''}
+                </button>
+
+                <details className="min-w-[210px] flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-2">
+                  <summary className="cursor-pointer text-sm font-black text-slate-600">Opciones avanzadas</summary>
+                  <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
+                    <input
+                      value={title}
+                      onChange={(event) => setTitle(event.target.value)}
+                      placeholder="Titulo opcional"
+                      maxLength={180}
+                      disabled={submitting}
+                      className="h-11 w-full rounded-2xl border border-slate-200 px-4 text-sm font-bold outline-none transition focus:border-[#ff8f1f] disabled:opacity-50"
+                    />
+                    <input
+                      value={tagInput}
+                      onChange={(event) => setTagInput(event.target.value)}
+                      placeholder="Etiquetas: pintura, sanitarios, obra..."
+                      disabled={submitting}
+                      className="h-11 w-full rounded-2xl border border-slate-200 px-4 text-sm font-semibold outline-none transition focus:border-[#ff8f1f] disabled:opacity-50"
+                    />
+                  </div>
+                </details>
+
+                <button
+                  type="submit"
+                  disabled={submitting || body.trim().length < 12}
+                  className="inline-flex min-h-11 min-w-[138px] items-center justify-center gap-2 rounded-2xl bg-[#ff8f1f] px-5 py-2 text-sm font-black text-[#2a0338] transition hover:bg-[#ffa748] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+                >
+                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  {submitting ? 'Publicando...' : 'Publicar'}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {feedback ? (
+            <p
+              className={`mt-3 rounded-2xl border px-3 py-2 text-sm font-bold ${
+                feedback === 'Publicado.'
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                  : 'border-orange-200 bg-orange-50 text-orange-800'
+              }`}
+            >
+              {feedback}
+            </p>
+          ) : null}
         </div>
 
         <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
@@ -1388,14 +1643,35 @@ export default function CommunityFeed() {
             const commentValue = commentInputs[post.id] || '';
             const isCommentSubmitting = Boolean(commentSubmitting[post.id]);
             const postCommentFeedback = commentFeedback[post.id] || '';
+            const postActionMessage = postActionFeedback[post.id] || '';
+            const authIntent = authIntentByPost[post.id];
+            const isHighlighted = highlightedPostId === post.id;
 
             return (
-              <article key={post.id} className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+              <article
+                key={post.id}
+                id={`community-post-${post.id}`}
+                data-community-post-id={post.id}
+                ref={(element) => {
+                  postRefs.current[post.id] = element;
+                }}
+                className={`overflow-hidden rounded-3xl border bg-white shadow-sm transition duration-300 ${
+                  isHighlighted
+                    ? 'border-[#ff8f1f] ring-4 ring-[#ff8f1f]/20'
+                    : 'border-slate-200'
+                }`}
+              >
                 <div className="p-4 sm:p-5">
                   <div className="flex gap-3">
                     {hasProfileLink ? (
                       <Link
                         href={profileHref}
+                        onClick={() =>
+                          trackFunnelEvent('community_profile_opened', {
+                            ...getPostAnalyticsContext(post.id, 'community_author_avatar'),
+                            profile_id: post.author_id || 'unknown',
+                          })
+                        }
                         className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-950 text-sm font-black text-white"
                       >
                         {post.author_avatar_url ? (
@@ -1417,7 +1693,16 @@ export default function CommunityFeed() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         {hasProfileLink ? (
-                          <Link href={profileHref} className="truncate text-base font-black text-slate-950 hover:text-[#b65b00]">
+                          <Link
+                            href={profileHref}
+                            onClick={() =>
+                              trackFunnelEvent('community_profile_opened', {
+                                ...getPostAnalyticsContext(post.id, 'community_author_name'),
+                                profile_id: post.author_id || 'unknown',
+                              })
+                            }
+                            className="truncate text-base font-black text-slate-950 hover:text-[#b65b00]"
+                          >
                             {post.author_name}
                           </Link>
                         ) : (
@@ -1497,11 +1782,18 @@ export default function CommunityFeed() {
 
                   <div className="flex flex-wrap gap-2 pt-2">
                     <button
+                      ref={(element) => {
+                        likeButtonRefs.current[post.id] = element;
+                      }}
                       type="button"
                       onClick={() => void handleLike(post.id)}
                       disabled={isLikeLoading}
                       className={`inline-flex min-w-[128px] flex-1 items-center justify-center gap-2 rounded-2xl px-3 py-2 text-sm font-black transition disabled:cursor-wait disabled:opacity-70 ${
-                        isLiked ? 'bg-rose-50 text-rose-700' : 'text-slate-600 hover:bg-slate-100'
+                        isLiked
+                          ? 'bg-rose-50 text-rose-700'
+                          : isHighlighted && targetPostAction === 'like'
+                            ? 'bg-[#fff4e8] text-[#9a4b00] ring-2 ring-[#ff8f1f]/30'
+                            : 'text-slate-600 hover:bg-slate-100'
                       }`}
                     >
                       {isLikeLoading ? (
@@ -1513,7 +1805,7 @@ export default function CommunityFeed() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => toggleComments(post.id)}
+                      onClick={() => toggleComments(post)}
                       className="inline-flex min-w-[128px] flex-1 items-center justify-center gap-2 rounded-2xl px-3 py-2 text-sm font-black text-slate-600 transition hover:bg-slate-100"
                     >
                       <MessageCircle className="h-4 w-4" />
@@ -1527,18 +1819,38 @@ export default function CommunityFeed() {
                       <Share2 className="h-4 w-4" />
                       Compartir
                     </button>
-                    {post.whatsapp_url ? (
+                    {hasProfileLink && (post.author_role === 'tecnico' || post.author_role === 'empresa') ? (
                       <Link
-                        href={post.whatsapp_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex min-w-[128px] flex-1 items-center justify-center gap-2 rounded-2xl bg-emerald-50 px-3 py-2 text-sm font-black text-emerald-700 transition hover:bg-emerald-100"
+                        href={profileHref}
+                        onClick={() =>
+                          trackFunnelEvent('community_profile_opened', {
+                            ...getPostAnalyticsContext(post.id, 'community_post_actions'),
+                            profile_id: post.author_id || 'unknown',
+                          })
+                        }
+                        className="inline-flex min-w-[128px] flex-1 items-center justify-center gap-2 rounded-2xl bg-[#fff4e8] px-3 py-2 text-sm font-black text-[#8b4300] transition hover:bg-[#ffe5c8]"
                       >
-                        <Send className="h-4 w-4" />
-                        WhatsApp
+                        <UserRound className="h-4 w-4" />
+                        Ver perfil
                       </Link>
                     ) : null}
                   </div>
+
+                  {postActionMessage ? (
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-slate-50 px-3 py-2 text-sm font-bold text-slate-600">
+                      <span>{postActionMessage}</span>
+                      {authIntent ? (
+                        <Link
+                          href={buildCommunityAuthHref(
+                            buildCommunityPath({ postId: post.id, action: authIntent })
+                          )}
+                          className="inline-flex rounded-full bg-[#2a0338] px-4 py-2 text-xs font-black text-white transition hover:bg-[#401354]"
+                        >
+                          Ingresar
+                        </Link>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
 
                 {commentsOpen ? (
@@ -1593,6 +1905,9 @@ export default function CommunityFeed() {
                           </div>
                           <div className="min-w-0 flex-1">
                             <textarea
+                              ref={(element) => {
+                                commentInputRefs.current[post.id] = element;
+                              }}
                               value={commentValue}
                               onChange={(event) =>
                                 setCommentInputs((current) => ({ ...current, [post.id]: event.target.value }))
@@ -1619,7 +1934,15 @@ export default function CommunityFeed() {
                         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm">
                           <p className="text-sm font-bold text-slate-500">Ingresa con tu cuenta UrbanFix para comentar.</p>
                           <Link
-                            href={loginHref}
+                            href={buildCommunityAuthHref(
+                              buildCommunityPath({ postId: post.id, action: 'comentar' })
+                            )}
+                            onClick={() =>
+                              trackFunnelEvent('community_auth_requested', {
+                                ...getPostAnalyticsContext(post.id),
+                                action: 'comment',
+                              })
+                            }
                             className="inline-flex rounded-full bg-[#2a0338] px-4 py-2 text-sm font-black text-white transition hover:bg-[#401354]"
                           >
                             Ingresar
@@ -1706,168 +2029,6 @@ export default function CommunityFeed() {
         </aside>
       ) : null}
 
-      {isComposerOpen && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 px-4 py-6">
-          <form
-            onSubmit={handleSubmit}
-            className="max-h-[92vh] w-full max-w-xl overflow-hidden rounded-3xl bg-white text-slate-950 shadow-2xl"
-          >
-            <div className="relative border-b border-slate-100 px-5 py-4 text-center">
-              <h2 className="text-xl font-black">Crear publicacion</h2>
-              <button
-                type="button"
-                onClick={() => setIsComposerOpen(false)}
-                className="absolute right-4 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-950"
-                aria-label="Cerrar"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="max-h-[calc(92vh-70px)] overflow-y-auto p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#2a0338] text-sm font-black text-white">
-                  {profile?.avatarUrl ? (
-                    <img src={profile.avatarUrl} alt={displayName} className="h-full w-full object-cover" />
-                  ) : (
-                    getInitials(displayName)
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-black">{authLoading ? 'Cargando...' : displayName}</p>
-                  <span className="mt-1 inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-xs font-black text-slate-600">
-                    <Globe2 className="h-3.5 w-3.5" />
-                    {selectedPostType.shortLabel}
-                  </span>
-                </div>
-              </div>
-
-              {!canPublish && !authLoading ? (
-                <div className="mt-4 rounded-2xl border border-orange-200 bg-orange-50 px-3 py-3 text-sm font-semibold text-orange-800">
-                  Para publicar, ingresa con una cuenta UrbanFix.
-                  <Link href={loginHref} className="ml-2 font-black underline">
-                    Ingresar
-                  </Link>
-                </div>
-              ) : null}
-
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                {availableComposerPostTypes.map((type) => {
-                  const meta = postTypeMeta[type];
-                  const isSelected = type === postType;
-
-                  return (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => setPostType(type)}
-                      disabled={!canPublish || submitting}
-                      className={`rounded-2xl border px-3 py-3 text-left transition disabled:opacity-50 ${
-                        isSelected
-                          ? 'border-[#ff8f1f] bg-[#fff4e8] text-[#2a0338]'
-                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
-                      }`}
-                    >
-                      <span className="block text-sm font-black">{meta.label}</span>
-                      <span className="mt-1 block text-xs font-semibold leading-5 text-slate-500">{meta.helper}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <input
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                placeholder={`Titulo opcional para ${selectedPostType.shortLabel.toLowerCase()}`}
-                disabled={!canPublish || submitting}
-                className="mt-4 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none transition focus:border-[#ff8f1f] disabled:opacity-50"
-              />
-
-              <textarea
-                value={body}
-                onChange={(event) => setBody(event.target.value)}
-                placeholder={selectedPostType.bodyPlaceholder || `Que queres compartir, ${firstName}?`}
-                rows={7}
-                autoFocus
-                disabled={!canPublish || submitting}
-                className="mt-3 min-h-[180px] w-full resize-none rounded-2xl border border-slate-200 px-4 py-3 text-lg leading-8 outline-none transition placeholder:text-slate-400 focus:border-[#ff8f1f] disabled:opacity-50"
-              />
-
-              <input
-                value={tagInput}
-                onChange={(event) => setTagInput(event.target.value)}
-                placeholder="Etiquetas: pintura, sanitarios, obra..."
-                disabled={!canPublish || submitting}
-                className="mt-3 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold outline-none transition focus:border-[#ff8f1f] disabled:opacity-50"
-              />
-
-              <input
-                ref={mediaInputRef}
-                type="file"
-                accept="image/*,video/*"
-                multiple
-                className="hidden"
-                onChange={(event) => handleMediaSelect(event.target.files)}
-              />
-
-              {pendingMedia.length > 0 && (
-                <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                  {pendingMedia.map((item) => (
-                    <div key={item.id} className="relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
-                      {item.type === 'image' ? (
-                        <img src={item.url} alt={item.name || 'Imagen adjunta'} className="h-44 w-full object-cover" />
-                      ) : (
-                        <video src={item.url} className="h-44 w-full object-cover" controls />
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => removePendingMedia(item.id)}
-                        className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-black/65 text-white transition hover:bg-black"
-                        aria-label="Quitar adjunto"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-	              <div className="mt-4 flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-3">
-	                <p className="text-sm font-black text-slate-700">Agregar a tu publicacion</p>
-	                <button
-	                  type="button"
-	                  onClick={() => mediaInputRef.current?.click()}
-                  className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 transition hover:bg-slate-200"
-                >
-                  <ImageIcon className="h-4 w-4 text-emerald-600" />
-	                  Foto o video
-	                </button>
-	              </div>
-
-	              {feedback ? (
-	                <p
-	                  className={`mt-4 rounded-2xl border px-4 py-3 text-sm font-bold ${
-	                    feedback === 'Publicado.'
-	                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-	                      : 'border-orange-200 bg-orange-50 text-orange-800'
-	                  }`}
-	                >
-	                  {feedback}
-	                </p>
-	              ) : null}
-
-	              <button
-	                type="submit"
-	                disabled={!canPublish || submitting || body.trim().length < 12}
-                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#ff8f1f] px-4 py-3 text-sm font-black text-[#2a0338] transition hover:bg-[#ffa748] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
-              >
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                {submitting ? 'Publicando...' : 'Publicar'}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
     </section>
   );
 }

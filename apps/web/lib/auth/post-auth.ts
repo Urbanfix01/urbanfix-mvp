@@ -6,7 +6,14 @@ export const AUTH_ACCESS_PROFILE_INTENT_KEY = 'urbanfix_auth_access_profile_inte
 export type AuthAccessProfile = 'tecnico' | 'empresa' | 'cliente';
 
 const PRICE_ACCESS_PATH_PREFIXES = ['/precios-mano-de-obra', '/rubros'];
-const POST_AUTH_ALLOWED_PATH_PREFIXES = ['/tecnicos', '/tecnico-panel', '/cliente', '/admin', ...PRICE_ACCESS_PATH_PREFIXES];
+const POST_AUTH_ALLOWED_PATH_PREFIXES = [
+  '/tecnicos',
+  '/tecnico-panel',
+  '/cliente',
+  '/admin',
+  '/comunidad',
+  ...PRICE_ACCESS_PATH_PREFIXES,
+];
 const AUTH_ACCESS_PROFILE_INTENT_TTL_MS = 30 * 60 * 1000;
 
 const decodePathForValidation = (value: string) => {

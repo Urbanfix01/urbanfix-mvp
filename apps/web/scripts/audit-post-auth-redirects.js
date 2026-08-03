@@ -17,6 +17,7 @@ const technicians = read(techniciansPath);
 [
   'POST_AUTH_ALLOWED_PATH_PREFIXES',
   "'/admin'",
+  "'/comunidad'",
   'decodeURIComponent',
   'normalized.startsWith',
   'decoded.startsWith',

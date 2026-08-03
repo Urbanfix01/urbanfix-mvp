@@ -11,6 +11,7 @@
     "api-routes:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-api-routes.js",
     "auth-session:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-auth-session-cookie.js",
     "cookies:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-cookie-policy.js",
+    "community-flow:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-community-flow.js",
     "env-template:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-env-template.js",
     "image-config:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-next-image-config.js",
     "json-body:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-json-body-limits.js",
