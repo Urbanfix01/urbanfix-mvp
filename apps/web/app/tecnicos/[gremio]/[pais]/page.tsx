@@ -11,6 +11,7 @@ import {
 type MarketPageSearchParams = {
   zona?: string | string[] | undefined;
   especialidad?: string | string[] | undefined;
+  disponibilidad?: string | string[] | undefined;
 };
 
 export const revalidate = 300;
@@ -66,6 +67,9 @@ export default async function TechnicianMarketPage({
   const especialidad = Array.isArray(resolvedSearchParams.especialidad)
     ? resolvedSearchParams.especialidad[0] || ''
     : resolvedSearchParams.especialidad || '';
+  const disponibilidad = Array.isArray(resolvedSearchParams.disponibilidad)
+    ? resolvedSearchParams.disponibilidad[0] || ''
+    : resolvedSearchParams.disponibilidad || '';
 
   return (
     <VidrieraPage
@@ -74,6 +78,7 @@ export default async function TechnicianMarketPage({
         gremio: trade.gremioSlug,
         zona: String(zona || '').trim(),
         especialidad: String(especialidad || '').trim(),
+        disponibilidad: String(disponibilidad || '').trim(),
         mercado: `${trade.label} en ${country.name}`,
         ruta_mercado: `/tecnicos/${trade.slug}/${country.slug}`,
       })}

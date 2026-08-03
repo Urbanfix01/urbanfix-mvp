@@ -7,6 +7,7 @@ import { ciudades, ciudadSlugs, type CiudadKey } from '../../../../lib/seo/urban
 
 type ZonaGremioVidrieraSearchParams = {
   especialidad?: string | string[] | undefined;
+  disponibilidad?: string | string[] | undefined;
 };
 
 export const dynamicParams = false;
@@ -58,6 +59,9 @@ export default async function VidrieraZonaGremioSeoPage({
   const especialidadRaw = Array.isArray(resolvedSearchParams.especialidad)
     ? resolvedSearchParams.especialidad[0] || ''
     : resolvedSearchParams.especialidad || '';
+  const disponibilidadRaw = Array.isArray(resolvedSearchParams.disponibilidad)
+    ? resolvedSearchParams.disponibilidad[0] || ''
+    : resolvedSearchParams.disponibilidad || '';
 
   return (
     <VidrieraZonaPage
@@ -65,6 +69,7 @@ export default async function VidrieraZonaGremioSeoPage({
       searchParams={Promise.resolve({
         gremio: gremio.slug,
         especialidad: String(especialidadRaw || '').trim(),
+        disponibilidad: String(disponibilidadRaw || '').trim(),
       })}
     />
   );

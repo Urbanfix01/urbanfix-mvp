@@ -138,6 +138,10 @@ const funnelEventLabels: Record<string, string> = {
   home_register_start_from_empresas: 'Inicios de registro de empresa',
   home_download_android_click: 'Intentos de descarga Android',
   marketplace_search_performed: 'Búsquedas filtradas en el mapa',
+  marketplace_technician_selected: 'Técnicos seleccionados en el mapa',
+  marketplace_profile_opened: 'Perfiles abiertos desde la vidriera',
+  marketplace_location_requested: 'Solicitudes de ubicación en el mapa',
+  marketplace_location_resolved: 'Resultados de ubicación en el mapa',
 };
 
 const funnelStepDefinitions = [
@@ -187,6 +191,17 @@ const funnelGroupDefinitions = [
     key: 'contacts',
     label: 'Contacto con técnicos',
     events: ['technician_whatsapp_contact'],
+  },
+  {
+    key: 'marketplace',
+    label: 'Mapa y perfiles',
+    events: [
+      'marketplace_search_performed',
+      'marketplace_technician_selected',
+      'marketplace_profile_opened',
+      'marketplace_location_requested',
+      'marketplace_location_resolved',
+    ],
   },
   {
     key: 'community',
@@ -328,11 +343,19 @@ const sectionConversionDefinitions: SectionConversionDefinition[] = [
       {
         key: 'marketplace_visited',
         label: 'Visita mapa',
-        pathMatcher: (rawPath) => parseAnalyticsPath(rawPath).pathname === '/vidriera',
+        pathMatcher: (rawPath) => {
+          const pathname = parseAnalyticsPath(rawPath).pathname;
+          return (
+            pathname === '/vidriera' ||
+            pathname.startsWith('/vidriera/') ||
+            /^\/tecnicos\/[^/]+\/[^/]+\/?$/.test(pathname)
+          );
+        },
       },
       {
         key: 'technical_profile_visited',
         label: 'Abre perfil',
+        eventNames: ['marketplace_profile_opened'],
         pathMatcher: (rawPath) => parseAnalyticsPath(rawPath).pathname.startsWith('/tecnico/'),
       },
       {

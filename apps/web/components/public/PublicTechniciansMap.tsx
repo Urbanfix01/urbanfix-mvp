@@ -11,13 +11,13 @@ import { DEFAULT_COUNTRY_NAME } from '../../lib/location-catalog';
 import { getCountryMapFocus } from '../../lib/map-country-focus';
 import { addMalvinasArgentinaLabel } from '../../lib/map-overlays';
 import { hasSupabaseConfig, supabase } from '../../lib/supabase/supabase';
+import { trackFunnelEvent } from '../../lib/analytics';
 
 export type PublicTechnicianMapPoint = {
   id: string;
   name: string;
   ownerName?: string;
   profileHref: string;
-  whatsappHref: string;
   city: string;
   coverageArea: string;
   profileSummary?: string;
@@ -53,6 +53,7 @@ export type PublicTechniciansMapSearchConfig = {
   rubroOptions?: Array<{ label: string; value: string }>;
   rubroPlaceholder?: string;
   rubroFieldName?: string;
+  availabilityValue?: string;
   hiddenFields?: Array<{ name: string; value: string }>;
   resultLabel: string;
   listAnchorId?: string;
@@ -63,7 +64,6 @@ export type PublicTechniciansMapSearchConfig = {
 
 type Props = {
   points: PublicTechnicianMapPoint[];
-  preferUserLocation?: boolean;
   eyebrow?: string;
   title?: string;
   description?: string;
@@ -75,6 +75,10 @@ type Props = {
 type DisplayPoint = PublicTechnicianMapPoint & {
   mapLat: number;
   mapLng: number;
+};
+
+type NearbyDisplayPoint = DisplayPoint & {
+  distanceKm: number;
 };
 
 const ARGENTINA_CENTER: [number, number] = [-38.4, -63.6];
@@ -168,6 +172,20 @@ const getUserLocationFocusZoom = (accuracyMeters: number | null) => {
   return USER_LOCATION_COARSE_ZOOM;
 };
 
+const haversineKm = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+  const toRadians = (value: number) => (value * Math.PI) / 180;
+  const earthRadiusKm = 6371;
+  const latitudeDelta = toRadians(lat2 - lat1);
+  const longitudeDelta = toRadians(lng2 - lng1);
+  const value =
+    Math.sin(latitudeDelta / 2) ** 2 +
+    Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.sin(longitudeDelta / 2) ** 2;
+  return earthRadiusKm * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value));
+};
+
+const formatDistance = (distanceKm: number) =>
+  distanceKm < 10 ? `${distanceKm.toFixed(1)} km` : `${Math.round(distanceKm)} km`;
+
 type UserLocationState =
   | { status: 'idle' | 'requesting' | 'unsupported' | 'denied' | 'error'; lat: null; lng: null; accuracyMeters: null }
   | { status: 'ready'; lat: number; lng: number; accuracyMeters: number | null };
@@ -187,7 +205,6 @@ const hasEnabledMapProfile = (profile: CurrentProfileMapStatus | null | undefine
 
 export default function PublicTechniciansMap({
   points,
-  preferUserLocation = true,
   eyebrow: _eyebrow,
   title: _title,
   description: _description,
@@ -207,11 +224,11 @@ export default function PublicTechniciansMap({
   const shouldPreserveViewportRef = useRef(false);
   const [mapReady, setMapReady] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [hasRequestedUserFocus, setHasRequestedUserFocus] = useState(preferUserLocation);
+  const [hasRequestedUserFocus, setHasRequestedUserFocus] = useState(false);
   const [showMapSignupCta, setShowMapSignupCta] = useState(!hasSupabaseConfig);
   const [activeCountry, setActiveCountry] = useState(selectedCountry || DEFAULT_COUNTRY_NAME);
   const [userLocation, setUserLocation] = useState<UserLocationState>({
-    status: preferUserLocation ? 'requesting' : 'idle',
+    status: 'idle',
     lat: null,
     lng: null,
     accuracyMeters: null,
@@ -221,13 +238,28 @@ export default function PublicTechniciansMap({
   const displayPoints = useMemo(() => spreadOverlappingPoints(points), [points]);
   const countryFocus = useMemo(() => getCountryMapFocus(activeCountry), [activeCountry]);
   const hasSearchFilters = Boolean(
-    searchConfig?.query || searchConfig?.rubroValue || searchConfig?.hiddenFields?.some((field) => field.value)
+    searchConfig?.query ||
+      searchConfig?.rubroValue ||
+      searchConfig?.availabilityValue ||
+      searchConfig?.hiddenFields?.some((field) => field.value)
   );
   const selectedPoint = useMemo(
     () => displayPoints.find((point) => point.id === selectedId) || null,
     [displayPoints, selectedId]
   );
-  const shouldFocusUserLocation = preferUserLocation || hasRequestedUserFocus;
+  const shouldFocusUserLocation = hasRequestedUserFocus;
+  const nearbyPoints = useMemo<NearbyDisplayPoint[]>(() => {
+    if (userLocation.status !== 'ready') return [];
+    return displayPoints
+      .map((point) => ({
+        ...point,
+        distanceKm: haversineKm(userLocation.lat, userLocation.lng, point.lat, point.lng),
+      }))
+      .sort((a, b) => a.distanceKm - b.distanceKm || a.name.localeCompare(b.name, 'es'));
+  }, [displayPoints, userLocation]);
+  const selectedDistanceKm = selectedPoint
+    ? nearbyPoints.find((point) => point.id === selectedPoint.id)?.distanceKm ?? null
+    : null;
 
   const focusMapOnUserLocation = (lat: number, lng: number, accuracyMeters: number | null, animate = true) => {
     const map = mapRef.current;
@@ -301,12 +333,20 @@ export default function PublicTechniciansMap({
   }, [selectedCountry]);
 
   const requestUserLocation = () => {
+    trackFunnelEvent('marketplace_location_requested', {
+      location: 'public_marketplace_map',
+    });
+
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
       setUserLocation({
         status: 'unsupported',
         lat: null,
         lng: null,
         accuracyMeters: null,
+      });
+      trackFunnelEvent('marketplace_location_resolved', {
+        location: 'public_marketplace_map',
+        status: 'unsupported',
       });
       return;
     }
@@ -333,6 +373,10 @@ export default function PublicTechniciansMap({
           status: 'ready',
           ...nextLocation,
         });
+        trackFunnelEvent('marketplace_location_resolved', {
+          location: 'public_marketplace_map',
+          status: 'granted',
+        });
       },
       (error) => {
         if (!isMountedRef.current) return;
@@ -343,6 +387,10 @@ export default function PublicTechniciansMap({
           lng: null,
           accuracyMeters: null,
         });
+        trackFunnelEvent('marketplace_location_resolved', {
+          location: 'public_marketplace_map',
+          status: error.code === 1 ? 'denied' : 'error',
+        });
       },
       {
         enableHighAccuracy: true,
@@ -352,9 +400,13 @@ export default function PublicTechniciansMap({
     );
   };
 
-  const selectPoint = (pointId: string) => {
+  const selectPoint = (pointId: string, location = 'marketplace_map_marker') => {
     shouldRecenterSelectionRef.current = true;
     setSelectedId(pointId);
+    trackFunnelEvent('marketplace_technician_selected', {
+      location,
+      target: pointId,
+    });
   };
 
   const closeSelectedPoint = () => {
@@ -376,15 +428,6 @@ export default function PublicTechniciansMap({
       isMountedRef.current = false;
     };
   }, []);
-
-  useEffect(() => {
-    if (!preferUserLocation) {
-      setUserLocation((current) => (current.status === 'idle' ? current : { status: 'idle', lat: null, lng: null, accuracyMeters: null }));
-      return;
-    }
-
-    requestUserLocation();
-  }, [preferUserLocation]);
 
   useEffect(() => {
     let cancelled = false;
@@ -484,7 +527,7 @@ export default function PublicTechniciansMap({
       });
 
       marker.on('click', () => {
-        selectPoint(point.id);
+        selectPoint(point.id, 'marketplace_map_marker');
       });
 
       marker.addTo(layer);
@@ -648,7 +691,7 @@ export default function PublicTechniciansMap({
             <form
               method="get"
               action={searchConfig.actionHref}
-              className="grid grid-cols-2 gap-1.5 sm:gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(170px,260px)_auto_auto_auto] xl:grid-cols-[minmax(0,1fr)_minmax(190px,280px)_auto_auto_auto]"
+              className="grid grid-cols-2 gap-1.5 sm:gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(160px,240px)_minmax(150px,190px)_auto_auto_auto]"
             >
               {searchConfig.hiddenFields?.map((field) => (
                 <input key={`${field.name}-${field.value}`} type="hidden" name={field.name} value={field.value} />
@@ -692,6 +735,23 @@ export default function PublicTechniciansMap({
                 </div>
               ) : null}
 
+              <div className="col-span-2 min-w-0 sm:col-span-1 lg:col-span-1">
+                <select
+                  name="disponibilidad"
+                  defaultValue={searchConfig.availabilityValue || ''}
+                  onChange={(event) => event.currentTarget.form?.requestSubmit()}
+                  aria-label="Filtrar por disponibilidad"
+                  className="h-10 w-full rounded-[18px] border border-white/18 bg-black/25 px-3 text-xs font-semibold text-white outline-none transition focus:border-[#ff8f1f] focus:bg-black/34 sm:h-12 sm:rounded-[20px] sm:px-4 sm:text-sm"
+                >
+                  <option value="" className="bg-[#190426] text-white">
+                    Toda disponibilidad
+                  </option>
+                  <option value="ahora" className="bg-[#190426] text-white">
+                    Disponible ahora
+                  </option>
+                </select>
+              </div>
+
               <button
                 type="button"
                 onClick={() => {
@@ -734,8 +794,68 @@ export default function PublicTechniciansMap({
         <div ref={mapHostRef} className={fullBleed ? 'ufx-public-map h-[calc(100dvh-57px)] min-h-[calc(100dvh-57px)] w-full' : 'ufx-public-map h-full w-full'} />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,143,31,0.12),transparent_22%),linear-gradient(180deg,rgba(19,2,31,0.12)_0%,rgba(19,2,31,0.02)_26%,rgba(19,2,31,0.14)_82%,rgba(19,2,31,0.76)_100%)]" />
 
+        {!searchConfig ? (
+          <div className="pointer-events-none absolute left-3 top-3 z-[470] sm:left-5 sm:top-5">
+            <button
+              type="button"
+              onClick={() => {
+                setHasRequestedUserFocus(true);
+                requestUserLocation();
+              }}
+              className="pointer-events-auto inline-flex h-11 items-center justify-center rounded-full border border-[#5eead4]/42 bg-[#190426]/92 px-4 text-sm font-black text-[#d6fffb] shadow-[0_18px_45px_-24px_rgba(0,0,0,0.95)] backdrop-blur-xl transition hover:border-[#8ffdf0] hover:text-white"
+            >
+              {userLocation.status === 'requesting' ? 'Buscando...' : 'Mi ubicación'}
+            </button>
+          </div>
+        ) : null}
+
+        {userLocation.status === 'denied' || userLocation.status === 'unsupported' || userLocation.status === 'error' ? (
+          <div className="pointer-events-none absolute left-3 top-16 z-[469] max-w-[min(360px,calc(100%-1.5rem))] rounded-2xl border border-amber-200/25 bg-[#190426]/92 px-3 py-2 text-xs font-semibold text-amber-50 shadow-xl backdrop-blur-xl sm:left-5 sm:top-20">
+            {userLocation.status === 'denied'
+              ? 'Permiso de ubicación rechazado. Puedes seguir buscando por zona y oficio.'
+              : userLocation.status === 'unsupported'
+                ? 'Este navegador no permite obtener tu ubicación. Puedes seguir buscando por zona.'
+                : 'No pudimos obtener tu ubicación. El mapa y los filtros siguen disponibles.'}
+          </div>
+        ) : null}
+
+        {nearbyPoints.length > 0 ? (
+          <div className="pointer-events-none absolute left-2 right-2 top-3 z-[468] sm:left-5 sm:right-5 sm:top-5">
+            <div className="pointer-events-auto mx-auto flex max-w-[980px] gap-2 overflow-x-auto rounded-[22px] border border-white/16 bg-[#190426]/92 p-2 shadow-[0_18px_55px_-30px_rgba(0,0,0,0.98)] backdrop-blur-xl">
+              {nearbyPoints.map((point, index) => {
+                const availabilityLabel =
+                  point.availabilityStatus === 'open'
+                    ? 'Disponible'
+                    : point.availabilityStatus === 'closed'
+                      ? 'Fuera de horario'
+                      : 'A coordinar';
+                return (
+                  <button
+                    key={`nearby-${point.id}`}
+                    type="button"
+                    onClick={() => selectPoint(point.id, 'marketplace_nearby_strip')}
+                    className={`min-w-[170px] rounded-[17px] border px-3 py-2 text-left transition ${
+                      point.id === selectedId
+                        ? 'border-[#ffae55] bg-[#ff8f1f]/18'
+                        : 'border-white/10 bg-white/[0.045] hover:border-white/28 hover:bg-white/[0.08]'
+                    }`}
+                  >
+                    <span className="block text-[9px] font-black uppercase tracking-[0.14em] text-[#ffbf7a]">
+                      #{index + 1} · {formatDistance(point.distanceKm)}
+                    </span>
+                    <span className="mt-1 block truncate text-xs font-black text-white">{point.name}</span>
+                    <span className="mt-0.5 block truncate text-[10px] font-semibold text-white/62">
+                      {availabilityLabel}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+
         {showMapSignupCta ? (
-          <div className="pointer-events-none absolute right-3 top-3 z-[470] sm:right-5 sm:top-5">
+          <div className={`pointer-events-none absolute right-3 z-[470] sm:right-5 ${nearbyPoints.length > 0 ? 'top-24 sm:top-28' : 'top-3 sm:top-5'}`}>
             <Link
               href={MAP_PROFILE_SETUP_AUTH_HREF}
               className="pointer-events-auto inline-flex h-11 items-center justify-center rounded-full border border-[#ffb35c]/45 bg-[#ff8f1f] px-4 text-sm font-black text-[#25002f] shadow-[0_18px_45px_-24px_rgba(0,0,0,0.95)] transition hover:border-[#ffd29a] hover:bg-[#ffa43d] sm:h-12 sm:px-5"
@@ -866,19 +986,17 @@ export default function PublicTechniciansMap({
               <div className="mt-2 flex flex-wrap items-center gap-2 sm:mt-4 sm:justify-end">
                 <Link
                   href={selectedPoint.profileHref}
-                    className="inline-flex h-10 flex-1 items-center justify-center rounded-full bg-[#ff8f1f] px-4 text-sm font-black text-[#2a0338] transition hover:bg-[#ffa748] sm:h-11 sm:flex-none sm:px-5"
+                  data-analytics-event="marketplace_profile_opened"
+                  data-analytics-location="marketplace_map_card"
+                  data-analytics-target={selectedPoint.id}
+                  className="inline-flex h-10 flex-1 items-center justify-center rounded-full bg-[#ff8f1f] px-4 text-sm font-black text-[#2a0338] transition hover:bg-[#ffa748] sm:h-11 sm:flex-none sm:px-5"
                 >
                   Ver perfil
                 </Link>
-                {selectedPoint.whatsappHref ? (
-                  <a
-                    href={selectedPoint.whatsappHref}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                      className="inline-flex h-10 flex-1 items-center justify-center rounded-full border border-[#25d366]/45 bg-[#25d366]/12 px-4 text-sm font-black text-[#d9ffe8] transition hover:border-[#25d366] hover:text-white sm:h-11 sm:flex-none sm:px-5"
-                  >
-                    WhatsApp
-                  </a>
+                {selectedDistanceKm !== null ? (
+                  <span className="inline-flex h-10 items-center justify-center rounded-full border border-[#5eead4]/28 bg-[#5eead4]/10 px-4 text-xs font-black text-[#d6fffb] sm:h-11">
+                    A {formatDistance(selectedDistanceKm)}
+                  </span>
                 ) : null}
               </div>
             </article>

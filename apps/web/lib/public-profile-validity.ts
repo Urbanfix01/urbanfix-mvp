@@ -1,3 +1,5 @@
+import { normalizePublicWhatsappPhone } from './public-phone';
+
 export type PublicProfileVisibilityInput = {
   access_granted?: boolean | null;
   profile_published?: boolean | null;
@@ -49,7 +51,7 @@ export const hasPublicName = (profile: PublicProfileVisibilityInput) =>
   Boolean(toText(profile.business_name) || toText(profile.full_name));
 
 export const hasPublicContact = (profile: PublicProfileVisibilityInput) =>
-  toText(profile.phone).replace(/\D/g, '').length >= 8;
+  Boolean(normalizePublicWhatsappPhone(profile.phone, profile.country));
 
 export const hasPublicExactLocation = (profile: PublicProfileVisibilityInput) =>
   toFiniteLocationNumber(profile.service_lat) !== null && toFiniteLocationNumber(profile.service_lng) !== null;

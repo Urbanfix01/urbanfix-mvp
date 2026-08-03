@@ -7,6 +7,7 @@ type VidrieraSearchAnalyticsProps = {
   zone: string;
   guild: string;
   specialty: string;
+  availability: string;
   resultCount: number;
   zoneResultCount: number;
 };
@@ -19,6 +20,7 @@ export default function VidrieraSearchAnalytics({
   zone,
   guild,
   specialty,
+  availability,
   resultCount,
   zoneResultCount,
 }: VidrieraSearchAnalyticsProps) {
@@ -26,7 +28,8 @@ export default function VidrieraSearchAnalytics({
     const normalizedZone = cleanValue(zone);
     const normalizedGuild = cleanValue(guild);
     const normalizedSpecialty = cleanValue(specialty);
-    if (!normalizedZone && !normalizedGuild && !normalizedSpecialty) return;
+    const normalizedAvailability = cleanValue(availability);
+    if (!normalizedZone && !normalizedGuild && !normalizedSpecialty && !normalizedAvailability) return;
 
     const safeResultCount = Number.isFinite(resultCount) ? Math.max(0, resultCount) : 0;
     const safeZoneResultCount = Number.isFinite(zoneResultCount)
@@ -36,6 +39,7 @@ export default function VidrieraSearchAnalytics({
       normalizedZone.toLocaleLowerCase('es'),
       normalizedGuild.toLocaleLowerCase('es'),
       normalizedSpecialty.toLocaleLowerCase('es'),
+      normalizedAvailability.toLocaleLowerCase('es'),
       safeResultCount,
       safeZoneResultCount,
     ].join('|');
@@ -47,11 +51,12 @@ export default function VidrieraSearchAnalytics({
       zone: normalizedZone,
       guild: normalizedGuild,
       specialty: normalizedSpecialty,
+      availability: normalizedAvailability,
       result_count: safeResultCount,
       zone_result_count: safeZoneResultCount,
       has_results: safeResultCount > 0,
     });
-  }, [guild, resultCount, specialty, zone, zoneResultCount]);
+  }, [availability, guild, resultCount, specialty, zone, zoneResultCount]);
 
   return null;
 }

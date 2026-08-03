@@ -15,6 +15,11 @@ import {
 import { getStoredCountryPreference } from '../lib/country-preference';
 const HEARTBEAT_MS = 60000;
 
+const isLocalAnalyticsRuntime = () => {
+  if (typeof window === 'undefined') return false;
+  return ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+};
+
 const getCurrentPath = (fallbackPathname: string | null) => {
   if (typeof window === 'undefined') return fallbackPathname || '/';
   const currentPathname = window.location.pathname || fallbackPathname || '/';
@@ -75,6 +80,7 @@ export default function AnalyticsTracker() {
 
   const sendEvent = (payload: any) => {
     if (typeof window === 'undefined') return;
+    if (isLocalAnalyticsRuntime()) return;
     sessionIdRef.current = getOrCreateAnalyticsSessionId();
     const body = {
       session_id: sessionIdRef.current,

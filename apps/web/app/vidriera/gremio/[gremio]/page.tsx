@@ -6,6 +6,7 @@ import { getGremioBySlug, gremioSlugs } from '../../../../lib/seo/gremios-data';
 
 type GremioVidrieraSearchParams = {
   especialidad?: string | string[] | undefined;
+  disponibilidad?: string | string[] | undefined;
 };
 
 export const dynamicParams = false;
@@ -55,12 +56,16 @@ export default async function VidrieraGremioSeoPage({
   const especialidadRaw = Array.isArray(resolvedSearchParams.especialidad)
     ? resolvedSearchParams.especialidad[0] || ''
     : resolvedSearchParams.especialidad || '';
+  const disponibilidadRaw = Array.isArray(resolvedSearchParams.disponibilidad)
+    ? resolvedSearchParams.disponibilidad[0] || ''
+    : resolvedSearchParams.disponibilidad || '';
 
   return (
     <VidrieraPage
       searchParams={Promise.resolve({
         gremio: gremio.slug,
         especialidad: String(especialidadRaw || '').trim(),
+        disponibilidad: String(disponibilidadRaw || '').trim(),
       })}
     />
   );

@@ -5,12 +5,14 @@ import { Sora } from 'next/font/google';
 import PublicTechniciansMap, { type PublicTechnicianMapPoint } from '../../../components/public/PublicTechniciansMap';
 import ProfileLikeButton from '../../../components/profile/ProfileLikeButton';
 import PublicTopNav from '../../../components/PublicTopNav';
+import VidrieraSearchAnalytics from '../../../components/vidriera/VidrieraSearchAnalytics';
 import { createAnonClient, getServiceRoleClient } from '../../../lib/supabase/server';
 import {
   DEFAULT_MATCH_RADIUS_KM,
   formatWorkingHoursLabel,
   isNowWithinWorkingHours,
   parseWorkingHoursConfig,
+  resolveWorkingHoursTimeZone,
 } from '../../api/_shared/marketplace';
 import {
   getArgentinaZoneSearchOptions,
@@ -25,6 +27,7 @@ import {
   PUBLISHED_TECHNICIANS_SELECT_RICH,
   isMissingPublicProfileFieldError,
 } from '../../../lib/public-profile-select';
+import { isPublicDirectoryProfileVisible } from '../../../lib/public-profile-validity';
 import {
   getGremioBySlug,
   profileMatchesGremioQuery,
@@ -36,6 +39,7 @@ import { ciudades, ciudadSlugs, type CiudadKey } from '../../../lib/seo/urbanfix
 type VidrieraZonaSearchParams = {
   gremio?: string | string[] | undefined;
   especialidad?: string | string[] | undefined;
+  disponibilidad?: string | string[] | undefined;
 };
 
 const sora = Sora({
@@ -79,10 +83,14 @@ type PublishedProfileRow = {
   full_name: string | null;
   business_name: string | null;
   phone: string | null;
+  country?: string | null;
   address: string | null;
   company_address?: string | null;
   city: string | null;
   coverage_area: string | null;
+  service_city?: string | null;
+  service_province?: string | null;
+  service_district?: string | null;
   working_hours?: string | null;
   service_lat: number | null;
   service_lng: number | null;
@@ -107,33 +115,18 @@ const parseDelimitedValues = (value: string | null | undefined) =>
     .map((item) => item.trim())
     .filter(Boolean);
 
-const hasMeaningfulCoverageArea = (value: string | null | undefined) => {
-  const normalized = String(value || '').trim().toLowerCase();
-  if (!normalized) return false;
-  return !normalized.includes('tu ciudad base');
-};
-
-const hasWorkZoneConfigured = (profile: PublishedProfileRow) =>
-  Boolean(
-    String(profile.city || '').trim() ||
-      String(profile.address || '').trim() ||
-      String(profile.company_address || '').trim() ||
-      hasMeaningfulCoverageArea(profile.coverage_area)
-  );
-
-const buildWhatsappLink = (phone: string | null | undefined) => {
-  const raw = String(phone || '').replace(/\D/g, '');
-  if (!raw) return '';
-  let normalized = raw;
-  if (normalized.startsWith('00')) normalized = normalized.slice(2);
-  if (!normalized.startsWith('54')) {
-    if (normalized.startsWith('0')) normalized = normalized.slice(1);
-    if (normalized.length === 11 && normalized.slice(2, 4) === '15') {
-      normalized = `${normalized.slice(0, 2)}${normalized.slice(4)}`;
-    }
-    normalized = `54${normalized}`;
-  }
-  return `https://wa.me/${normalized}`;
+const getProfileAvailability = (profile: PublishedProfileRow) => {
+  const configured = Boolean(String(profile.working_hours || '').trim());
+  const config = parseWorkingHoursConfig(profile.working_hours || '');
+  const timeZone = resolveWorkingHoursTimeZone(profile.country, 'Argentina');
+  const openNow = configured ? isNowWithinWorkingHours(config, new Date(), timeZone) : false;
+  return {
+    configured,
+    openNow,
+    status: configured ? (openNow ? ('open' as const) : ('closed' as const)) : ('unspecified' as const),
+    label: configured ? (openNow ? 'Disponible ahora' : 'Fuera de horario') : 'A coordinar',
+    hoursLabel: configured ? formatWorkingHoursLabel(config) : 'Horario a coordinar',
+  };
 };
 
 const getPublicSupabaseClient = () => {
@@ -187,8 +180,12 @@ export default async function VidrieraZonaPage({
   const specialtyQueryRaw = Array.isArray(resolvedSearchParams?.especialidad)
     ? resolvedSearchParams.especialidad[0] || ''
     : resolvedSearchParams?.especialidad || '';
+  const availabilityQueryRaw = Array.isArray(resolvedSearchParams?.disponibilidad)
+    ? resolvedSearchParams.disponibilidad[0] || ''
+    : resolvedSearchParams?.disponibilidad || '';
   const gremioQuery = String(gremioQueryRaw || '').trim();
   const specialtyQuery = String(specialtyQueryRaw || '').trim();
+  const availabilityQuery = String(availabilityQueryRaw || '').trim().toLowerCase() === 'ahora' ? 'ahora' : '';
   const activeGremio = gremioQuery ? getGremioBySlug(gremioQuery) : null;
 
   const supabase = getPublicSupabaseClient();
@@ -211,20 +208,25 @@ export default async function VidrieraZonaPage({
   }
 
   const { data: profiles, error } = await fetchPublishedProfiles(supabase);
-  const safeProfiles = profiles.filter((row) => row.access_granted && row.profile_published && hasWorkZoneConfigured(row));
+  const safeProfiles = profiles.filter(isPublicDirectoryProfileVisible);
   const zoneFilteredProfiles = safeProfiles.filter((profile) =>
     matchesArgentinaZoneQuery(zoneQuery, profile.city, profile.coverage_area, profile.address, profile.company_address)
   );
-  const filteredProfiles = zoneFilteredProfiles.filter((profile) => {
+  const specialtyFilteredProfiles = zoneFilteredProfiles.filter((profile) => {
     if (activeGremio && !profileMatchesGremioQuery(profile.specialties, activeGremio)) return false;
     if (specialtyQuery && !profileMatchesSpecialtyQuery(profile.specialties, specialtyQuery)) return false;
     return true;
   });
+  const filteredProfiles = availabilityQuery === 'ahora'
+    ? specialtyFilteredProfiles.filter((profile) => getProfileAvailability(profile).openNow)
+    : specialtyFilteredProfiles;
   const reviewStatsByProfile = await fetchPublicReviewStatsByProfileIds(
     getServiceRoleClient() || supabase,
     filteredProfiles.map((profile) => profile.id)
   );
-  const whatsappEnabledCount = filteredProfiles.filter((profile) => Boolean(buildWhatsappLink(profile.phone))).length;
+  const workingHoursConfiguredCount = filteredProfiles.filter(
+    (profile) => getProfileAvailability(profile).configured
+  ).length;
   const zonaOptions = getArgentinaZoneSearchOptions();
   const rubroOptions = TECH_SPECIALTY_OPTIONS.slice().sort((a, b) => a.localeCompare(b, 'es')).map((specialty) => ({
     label: specialty,
@@ -245,9 +247,7 @@ export default async function VidrieraZonaPage({
       const displayName = profile.business_name || profile.full_name || 'Tecnico UrbanFix';
       const specialties = parseDelimitedValues(profile.specialties).slice(0, 6);
       const hasExactLocation = exactLat !== null && exactLng !== null;
-      const workingHoursConfigured = Boolean(String(profile.working_hours || '').trim());
-      const workingHoursConfig = parseWorkingHoursConfig(profile.working_hours || '');
-      const openNow = workingHoursConfigured ? isNowWithinWorkingHours(workingHoursConfig) : false;
+      const availability = getProfileAvailability(profile);
       const socialLabels = [
         profile.facebook_url ? 'Facebook' : '',
         profile.instagram_url ? 'Instagram' : '',
@@ -259,7 +259,6 @@ export default async function VidrieraZonaPage({
         name: displayName,
         ownerName: String(profile.full_name || '').trim(),
         profileHref: buildTechnicianPath(profile.id, displayName),
-        whatsappHref: buildWhatsappLink(profile.phone),
         city: String(profile.city || fallbackCoords?.label || '').trim(),
         coverageArea: String(profile.coverage_area || '').trim(),
         profileSummary: String(profile.references_summary || '').trim(),
@@ -269,9 +268,9 @@ export default async function VidrieraZonaPage({
         lng,
         radiusKm: Math.max(1, Math.round(Number(profile.service_radius_km || DEFAULT_MATCH_RADIUS_KM))),
         precision: hasExactLocation ? 'exact' : 'approx',
-        openNow,
-        availabilityStatus: workingHoursConfigured ? (openNow ? 'open' : 'closed') : 'unspecified',
-        workingHoursLabel: workingHoursConfigured ? formatWorkingHoursLabel(workingHoursConfig) : 'Horario a coordinar',
+        openNow: availability.openNow,
+        availabilityStatus: availability.status,
+        workingHoursLabel: availability.hoursLabel,
         likesCount: Math.max(0, Number(profile.public_likes_count || 0)),
         rating: reviewStats?.rating ?? (Number.isFinite(Number(profile.public_rating)) ? Number(profile.public_rating) : null),
         reviewsCount: Math.max(0, Number(reviewStats?.reviewsCount || profile.public_reviews_count || 0)),
@@ -341,6 +340,14 @@ export default async function VidrieraZonaPage({
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionJsonLd) }} />
         <PublicTopNav activeHref="/vidriera" sticky showNavigationLinks />
+        <VidrieraSearchAnalytics
+          zone={city.name}
+          guild={activeGremio?.title || ''}
+          specialty={specialtyQuery}
+          availability={availabilityQuery}
+          resultCount={filteredProfiles.length}
+          zoneResultCount={zoneFilteredProfiles.length}
+        />
 
         <div className="px-3 pb-4 pt-3 sm:px-4 lg:px-6">
           {error && (
@@ -352,7 +359,6 @@ export default async function VidrieraZonaPage({
           {mapPoints.length > 0 && (
             <PublicTechniciansMap
               points={mapPoints}
-              preferUserLocation={false}
               eyebrow={city.region}
               title={`Tecnicos disponibles en ${city.name}`}
               description={`Mapa full screen y listado flotante para explorar tecnicos publicados en ${city.name}. Esta entrada combina descubrimiento rapido, acceso directo al perfil y una ruta estable para Google.`}
@@ -365,6 +371,7 @@ export default async function VidrieraZonaPage({
                 rubroValue: specialtyQuery,
                 rubroOptions,
                 rubroPlaceholder: 'Todos los rubros',
+                availabilityValue: availabilityQuery,
                 hiddenFields: [
                   ...(activeGremio ? [{ name: 'gremio', value: activeGremio.slug }] : []),
                 ],
@@ -379,7 +386,7 @@ export default async function VidrieraZonaPage({
         </div>
 
         <div className="mx-auto w-full max-w-7xl px-4 pb-10 pt-4 sm:px-6 lg:px-8">
-          {(activeGremio || specialtyQuery) && (
+          {(activeGremio || specialtyQuery || availabilityQuery) && (
             <section className="mt-6 rounded-3xl border border-white/15 bg-white/[0.03] p-6">
               <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
@@ -404,6 +411,11 @@ export default async function VidrieraZonaPage({
                     {specialtyQuery}
                   </span>
                 ) : null}
+                {availabilityQuery ? (
+                  <span className="rounded-full border border-emerald-300/40 bg-emerald-400/15 px-3 py-2 text-xs font-semibold text-emerald-100">
+                    Disponible ahora
+                  </span>
+                ) : null}
               </div>
             </section>
           )}
@@ -411,13 +423,13 @@ export default async function VidrieraZonaPage({
           {filteredProfiles.length === 0 ? (
             <section className="mt-6 rounded-3xl border border-white/15 bg-white/[0.03] p-8 text-center">
               <p className="text-lg font-semibold text-white">
-                {activeGremio || specialtyQuery
+                {activeGremio || specialtyQuery || availabilityQuery
                   ? `No encontramos tecnicos visibles para esta segmentacion en ${city.name}.`
                   : `Aun no encontramos tecnicos visibles para ${city.name}.`}
               </p>
               <p className="mt-2 text-sm text-white/70">
-                {activeGremio || specialtyQuery
-                  ? 'Prueba otra especialidad, otro gremio o vuelve a la vidriera general de la zona.'
+                {activeGremio || specialtyQuery || availabilityQuery
+                  ? 'Prueba otra especialidad, otro gremio o limpia la disponibilidad para ver toda la zona.'
                   : 'La zona ya quedo lista como ruta indexable. Cuando haya perfiles publicados, esta pagina los mostrara.'}
               </p>
             </section>
@@ -439,7 +451,7 @@ export default async function VidrieraZonaPage({
                     Con ubicacion en mapa: {mapPoints.length}
                   </span>
                   <span className="rounded-full border border-white/15 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/90">
-                    Con WhatsApp: {whatsappEnabledCount}
+                    Con horario: {workingHoursConfiguredCount}
                   </span>
                 </div>
               </div>
@@ -449,10 +461,10 @@ export default async function VidrieraZonaPage({
                 const displayName = profile.business_name || profile.full_name || 'Tecnico UrbanFix';
                 const specialties = parseDelimitedValues(profile.specialties).slice(0, 5);
                 const likesCount = Math.max(0, Number(profile.public_likes_count || 0));
-                const whatsappLink = buildWhatsappLink(profile.phone);
                 const profileHref = buildTechnicianPath(profile.id, displayName);
                 const profileCode = profile.id.slice(0, 8).toUpperCase();
                 const hasExactLocation = Number.isFinite(Number(profile.service_lat)) && Number.isFinite(Number(profile.service_lng));
+                const availability = getProfileAvailability(profile);
 
                 return (
                   <article
@@ -484,6 +496,17 @@ export default async function VidrieraZonaPage({
                           <span className="rounded-full border border-white/15 bg-white/[0.06] px-2.5 py-1 text-white/80">
                             Perfil: {profileCode}
                           </span>
+                          <span
+                            className={`rounded-full border px-2.5 py-1 ${
+                              availability.status === 'open'
+                                ? 'border-emerald-300/35 bg-emerald-400/12 text-emerald-100'
+                                : availability.status === 'closed'
+                                  ? 'border-violet-300/35 bg-violet-400/12 text-violet-100'
+                                  : 'border-white/15 bg-white/[0.06] text-white/80'
+                            }`}
+                          >
+                            {availability.label}
+                          </span>
                           <span className="rounded-full border border-white/15 bg-white/[0.06] px-2.5 py-1 text-white/90">
                             {hasExactLocation ? 'Ubicacion verificada' : 'Zona estimada'}
                           </span>
@@ -496,6 +519,8 @@ export default async function VidrieraZonaPage({
                         Cobertura: {profile.coverage_area}
                       </p>
                     )}
+
+                    <p className="mt-3 text-xs font-semibold text-white/62">{availability.hoursLabel}</p>
 
                     <div className="mt-3 flex flex-wrap gap-2">
                       {specialties.length > 0 ? (
@@ -517,21 +542,14 @@ export default async function VidrieraZonaPage({
                     <div className="mt-4 flex flex-wrap items-center gap-2">
                       <Link
                         href={profileHref}
+                        data-analytics-event="marketplace_profile_opened"
+                        data-analytics-location="marketplace_list"
+                        data-analytics-target={profile.id}
                         className="rounded-full bg-[#ff8f1f] px-3 py-1.5 text-xs font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
                       >
                         Ir al perfil
                       </Link>
                       <ProfileLikeButton profileId={profile.id} initialCount={likesCount} compact />
-                      {whatsappLink && (
-                        <a
-                          href={whatsappLink}
-                          target="_blank"
-                          rel="noreferrer noopener"
-                          className="rounded-full border border-white/35 px-3 py-1.5 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
-                        >
-                          WhatsApp
-                        </a>
-                      )}
                     </div>
                   </article>
                 );

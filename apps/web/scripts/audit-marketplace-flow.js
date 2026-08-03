@@ -17,6 +17,15 @@ const requireMarkers = (label, source, markers) => {
   ok.push(`${label}: contrato conectado`);
 };
 
+const forbidMarkers = (label, source, markers) => {
+  const present = markers.filter((marker) => source.includes(marker));
+  if (present.length) {
+    failures.push(`${label}: no debe contener ${present.join(', ')}`);
+    return;
+  }
+  ok.push(`${label}: sin atajos de contacto`);
+};
+
 const walk = (directory) => {
   if (!fs.existsSync(directory)) return [];
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -49,6 +58,13 @@ const technicianOfferRoute = read('app/api/tecnico/requests/[id]/offer/route.ts'
 const technicianDashboardRoute = read('app/api/tecnico/dashboard/route.ts');
 const clientHub = read('app/cliente/ClientRequestsHub.tsx');
 const technicianPage = read('app/tecnicos/page.tsx');
+const publicMarketplacePage = read('app/vidriera/page.tsx');
+const publicMarketplaceZonePage = read('app/vidriera/[zona]/page.tsx');
+const publicTechniciansMap = read('components/public/PublicTechniciansMap.tsx');
+const publicTechnicianProfile = read('app/tecnico/[id]/page.tsx');
+const publicPhone = read('lib/public-phone.ts');
+const analyticsSummaryRoute = read('app/api/admin/analytics/summary/route.ts');
+const analyticsTracker = read('components/AnalyticsTracker.tsx');
 const baseMigration = read('supabase/migrations/20260315_client_requests_marketplace.sql');
 const alignmentMigration = read('supabase/migrations/20260323110000_client_requests_contract_alignment.sql');
 
@@ -118,6 +134,58 @@ requireMarkers('UI tecnico usa endpoints marketplace', technicianPage, [
   '/api/tecnico/requests/${request.id}/offer',
   'nearbyRequests',
   'dashboardRequestPoints',
+]);
+
+requireMarkers('Mapa público ordena cercanía y exige perfil', publicTechniciansMap, [
+  'haversineKm',
+  'marketplace_location_requested',
+  'marketplace_location_resolved',
+  'marketplace_technician_selected',
+  'marketplace_profile_opened',
+  'marketplace_nearby_strip',
+  'availabilityValue',
+]);
+
+forbidMarkers('Mapa público', publicTechniciansMap, ['whatsappHref', '>WhatsApp<']);
+
+requireMarkers('Vidriera pública filtra disponibilidad', publicMarketplacePage, [
+  'availabilityQuery',
+  'resolveWorkingHoursTimeZone',
+  'marketplace_profile_opened',
+  'data-analytics-location="marketplace_list"',
+]);
+
+requireMarkers('Vidriera por zona filtra disponibilidad', publicMarketplaceZonePage, [
+  'availabilityQuery',
+  'resolveWorkingHoursTimeZone',
+  'marketplace_profile_opened',
+]);
+
+forbidMarkers('Listado público principal', publicMarketplacePage, ['href={whatsappLink}', 'buildWhatsappLink']);
+forbidMarkers('Listado público por zona', publicMarketplaceZonePage, ['href={whatsappLink}', 'buildWhatsappLink']);
+
+requireMarkers('Perfil público concentra el contacto', publicTechnicianProfile, [
+  'buildPublicWhatsappHref',
+  'resolveWorkingHoursTimeZone',
+  'technician_whatsapp_contact',
+  'data-analytics-target={profile.id}',
+]);
+
+requireMarkers('Teléfono público usa país real', publicPhone, [
+  'libphonenumber-js/min',
+  'getCountryCode',
+  'buildPublicWhatsappHref',
+]);
+
+requireMarkers('Embudo reconoce todas las rutas públicas', analyticsSummaryRoute, [
+  "pathname.startsWith('/vidriera/')",
+  '/^\\/tecnicos\\/[^/]+\\/[^/]+\\/?$/.test(pathname)',
+  "eventNames: ['marketplace_profile_opened']",
+]);
+
+requireMarkers('Analítica excluye pruebas locales', analyticsTracker, [
+  'isLocalAnalyticsRuntime',
+  "['localhost', '127.0.0.1', '::1']",
 ]);
 
 requireMarkers('Migracion base marketplace', baseMigration, [

@@ -21,11 +21,13 @@ import {
   isMissingPublicProfileFieldError,
 } from '../../../lib/public-profile-select';
 import { isPublicProfileVisible } from '../../../lib/public-profile-validity';
+import { buildPublicWhatsappHref } from '../../../lib/public-phone';
 import {
   ARGENTINA_TIMEZONE,
   formatWorkingHoursLabel,
   isNowWithinWorkingHours,
   parseWorkingHoursConfig,
+  resolveWorkingHoursTimeZone,
 } from '../../api/_shared/marketplace';
 
 const sora = Sora({
@@ -110,28 +112,13 @@ const parseBadgeArray = (value: string[] | null | undefined) => {
   return value.map((item) => String(item || '').trim()).filter(Boolean);
 };
 
-const formatArgentinaTimeLabel = (now = new Date()) =>
+const formatLocalTimeLabel = (timeZone: string, now = new Date()) =>
   new Intl.DateTimeFormat('es-AR', {
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
-    timeZone: ARGENTINA_TIMEZONE,
+    timeZone,
   }).format(now);
-
-const buildWhatsappLink = (phone: string | null | undefined) => {
-  const raw = String(phone || '').replace(/\D/g, '');
-  if (!raw) return '';
-  let normalized = raw;
-  if (normalized.startsWith('00')) normalized = normalized.slice(2);
-  if (!normalized.startsWith('54')) {
-    if (normalized.startsWith('0')) normalized = normalized.slice(1);
-    if (normalized.length === 11 && normalized.slice(2, 4) === '15') {
-      normalized = `${normalized.slice(0, 2)}${normalized.slice(4)}`;
-    }
-    normalized = `54${normalized}`;
-  }
-  return `https://wa.me/${normalized}`;
-};
 
 const normalizeSocialUrl = (value: string | null | undefined) => {
   const raw = String(value || '').trim();
@@ -642,14 +629,17 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
   const hasWorkingHoursConfigured = Boolean(String(profile.working_hours || '').trim());
   const workingHoursConfig = parseWorkingHoursConfig(profile.working_hours || '');
   const workingHoursLabel = hasWorkingHoursConfigured ? formatWorkingHoursLabel(workingHoursConfig) : 'Horario a coordinar';
-  const isWithinWorkingHours = hasWorkingHoursConfigured ? isNowWithinWorkingHours(workingHoursConfig) : false;
+  const workingHoursTimeZone = resolveWorkingHoursTimeZone(profile.country, profile.service_city, profile.city);
+  const isWithinWorkingHours = hasWorkingHoursConfigured
+    ? isNowWithinWorkingHours(workingHoursConfig, new Date(), workingHoursTimeZone)
+    : false;
   const availabilityLabel = hasWorkingHoursConfigured
     ? isWithinWorkingHours
       ? 'Disponible ahora'
       : 'Fuera de horario'
     : 'A coordinar';
-  const argentinaTimeLabel = formatArgentinaTimeLabel();
-  const whatsappLink = buildWhatsappLink(profile.phone);
+  const localTimeLabel = formatLocalTimeLabel(workingHoursTimeZone);
+  const whatsappLink = buildPublicWhatsappHref(profile.phone, profile.country);
   const coverageHeroLabel = profile.service_city || profile.city || profile.coverage_area || profile.country || '';
   const availabilityToneClass = hasWorkingHoursConfigured
     ? isWithinWorkingHours
@@ -786,7 +776,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                             {availabilityLabel}
                           </span>
                           <span className="w-full text-xs leading-5 text-white/62 sm:w-auto">
-                            {workingHoursLabel} · {argentinaTimeLabel}
+                            {workingHoursLabel} · {localTimeLabel}
                           </span>
                         </div>
                         <div className="flex flex-wrap items-center justify-center gap-3 pt-2 sm:justify-start">
@@ -797,6 +787,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                               rel="noreferrer noopener"
                               data-analytics-event="technician_whatsapp_contact"
                               data-analytics-location="public_technician_profile"
+                              data-analytics-target={profile.id}
                               aria-label="Contactar por WhatsApp"
                               title="WhatsApp"
                               className="inline-flex h-10 w-full max-w-[230px] items-center justify-center gap-2 rounded-full bg-[#25d366] px-4 text-xs font-black text-[#052513] shadow-[0_18px_36px_-26px_rgba(37,211,102,0.9)] transition hover:-translate-y-0.5 hover:bg-[#31e477] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white/70 sm:w-auto sm:max-w-none"
