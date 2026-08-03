@@ -3514,19 +3514,32 @@ export default function AdminPage() {
     setLoadingOverview(true);
     setOverviewError('');
     try {
-      const response = await fetch('/api/admin/overview', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      let response: Response | null = null;
+      let data: any = {};
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          response = await fetch('/api/admin/overview', {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          data = await response.json().catch(() => ({}));
+          const shouldRetry = [429, 500, 502, 503, 504].includes(response.status);
+          if (!shouldRetry || attempt === 1) break;
+        } catch (error) {
+          if (attempt === 1) throw error;
+        }
+        await new Promise((resolve) => window.setTimeout(resolve, 1200));
+      }
+      if (!response) {
+        throw new Error('No se pudo conectar con el resumen administrativo.');
+      }
       if (response.status === 403) {
         setIsAdmin(false);
         setOverview(null);
         return;
       }
       if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
         throw new Error(data?.error || 'No se pudo cargar el panel.');
       }
-      const data = await response.json();
       setIsAdmin(true);
       setOverview({
         ...data,
@@ -6961,6 +6974,66 @@ export default function AdminPage() {
       .sort((a, b) => b.score - a.score)
       .slice(0, 4);
   }, [activityData, roadmapUpdates]);
+
+  const activityGlobalFunnel = useMemo(() => {
+    if (!activityData) return null;
+
+    const funnelSteps = new Map(
+      (activityData.funnel?.steps || []).map((step) => [step.key, step.sessions])
+    );
+    const internalSessions = Math.max(
+      0,
+      activityData.registrationConversion?.visitorSessions || activityData.totals.uniqueSessions || 0
+    );
+    const publicVisitors =
+      vercelActivityData?.status === 'ready'
+        ? Math.max(0, vercelActivityData.totals?.public.visitors || 0)
+        : null;
+    const stages = [
+      {
+        key: 'urbanfix_sessions',
+        label: 'Sesiones UrbanFix',
+        value: internalSessions,
+        source: 'UrbanFix',
+      },
+      {
+        key: 'registration_started',
+        label: 'Inician registro',
+        value: activityData.registrationConversion?.started || 0,
+        source: 'UrbanFix',
+      },
+      {
+        key: 'registration_completed',
+        label: 'Crean una cuenta',
+        value: activityData.registrationConversion?.completed || 0,
+        source: 'UrbanFix',
+      },
+      {
+        key: 'technical_profile_published',
+        label: 'Perfil visible',
+        value: funnelSteps.get('technical_profile_published') || 0,
+        source: 'UrbanFix',
+      },
+      {
+        key: 'technician_whatsapp_contact',
+        label: 'Contacto generado',
+        value: funnelSteps.get('technician_whatsapp_contact') || 0,
+        source: 'UrbanFix',
+      },
+      {
+        key: 'quote_created',
+        label: 'Presupuesto creado',
+        value: funnelSteps.get('quote_created') || 0,
+        source: 'UrbanFix',
+      },
+    ].map((stage) => ({
+      ...stage,
+      sessionRate:
+        internalSessions > 0 ? Math.min(100, (stage.value / internalSessions) * 100) : 0,
+    }));
+
+    return { publicVisitors, internalSessions, stages };
+  }, [activityData, vercelActivityData]);
 
   const retentionPlan = useMemo(
     () => roadmapUpdates.find((item) => item.source_key === 'activity-retention:accounts') || null,
@@ -13347,6 +13420,80 @@ export default function AdminPage() {
                       </p>
                     </div>
                   </div>
+
+                  {activityGlobalFunnel && (
+                    <section className="mt-8 border-y border-slate-200 py-6">
+                      <div className="flex flex-wrap items-end justify-between gap-4">
+                        <div>
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-orange-600">
+                            Lectura ejecutiva
+                          </p>
+                          <h4 className="mt-1 text-lg font-semibold text-slate-900">Embudo global</h4>
+                          <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">
+                            Resume el paso desde el alcance publico hasta las acciones que generan trabajo.
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                            Alcance publico en Vercel
+                          </p>
+                          <p className="mt-1 text-2xl font-semibold text-slate-900">
+                            {activityGlobalFunnel.publicVisitors === null
+                              ? 'Sin configurar'
+                              : formatNumber(activityGlobalFunnel.publicVisitors)}
+                          </p>
+                          <p className="text-[11px] text-slate-500">
+                            {activityGlobalFunnel.publicVisitors === null
+                              ? 'La conversion interna sigue disponible.'
+                              : 'Visitantes del periodo seleccionado'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-5 grid border-y border-slate-200 bg-white sm:grid-cols-2 xl:grid-cols-6 xl:divide-x xl:divide-slate-200">
+                        {activityGlobalFunnel.stages.map((stage, index) => (
+                          <article
+                            key={stage.key}
+                            className={`relative min-w-0 px-4 py-4 ${
+                              index > 0 ? 'border-t border-slate-200 sm:border-t-0' : ''
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                                Paso {String(index + 1).padStart(2, '0')}
+                              </span>
+                              <span className="text-[10px] font-medium text-slate-400">{stage.source}</span>
+                            </div>
+                            <p className="mt-3 min-h-10 text-xs font-semibold leading-5 text-slate-700">
+                              {stage.label}
+                            </p>
+                            <p className="mt-1 text-2xl font-semibold text-slate-900">
+                              {formatNumber(stage.value)}
+                            </p>
+                            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                              <div
+                                className="h-full rounded-full bg-orange-500"
+                                style={{ width: `${stage.sessionRate}%` }}
+                              />
+                            </div>
+                            <p className="mt-2 text-[11px] text-slate-500">
+                              {index === 0
+                                ? 'Base de conversion interna'
+                                : `${stage.sessionRate.toFixed(1).replace('.', ',')}% de las sesiones`}
+                            </p>
+                          </article>
+                        ))}
+                      </div>
+
+                      <div className="mt-4 flex items-start gap-3 border-l-2 border-sky-400 bg-sky-50 px-4 py-3 text-xs leading-5 text-sky-950">
+                        <CircleHelp className="mt-0.5 h-4 w-4 shrink-0" />
+                        <p>
+                          Vercel muestra alcance anonimo. Los porcentajes se calculan solo con sesiones UrbanFix
+                          para que registros, perfiles, contactos y presupuestos mantengan una misma identidad de medicion.
+                        </p>
+                      </div>
+                    </section>
+                  )}
 
                   {activityData.registrationConversion && (
                     <section className="mt-8 border-y border-slate-200 py-6">

@@ -34,6 +34,10 @@ import {
 } from '../../lib/seo/gremios-data';
 import { TECH_SPECIALTY_OPTIONS } from '../../lib/technician-specialties';
 import { ciudades } from '../../lib/seo/urbanfix-data';
+import {
+  technicianSeoLaunchCountries,
+  technicianSeoTrades,
+} from '../../lib/seo/technician-market-data';
 
 const sora = Sora({
   subsets: ['latin'],
@@ -87,9 +91,12 @@ type PublishedProfileRow = {
 };
 
 type VidrieraSearchParams = {
+  pais?: string | string[] | undefined;
   zona?: string | string[] | undefined;
   gremio?: string | string[] | undefined;
   especialidad?: string | string[] | undefined;
+  mercado?: string | string[] | undefined;
+  ruta_mercado?: string | string[] | undefined;
 };
 
 type VidrieraPageProps = {
@@ -177,7 +184,18 @@ export const dynamic = 'force-dynamic';
 
 export default async function VidrieraPage({ searchParams }: VidrieraPageProps) {
   const resolvedSearchParams = (await searchParams) || {};
-  const selectedCountry = await getServerCountryPreference();
+  const marketHeadingRaw = Array.isArray(resolvedSearchParams.mercado)
+    ? resolvedSearchParams.mercado[0] || ''
+    : resolvedSearchParams.mercado || '';
+  const marketPathRaw = Array.isArray(resolvedSearchParams.ruta_mercado)
+    ? resolvedSearchParams.ruta_mercado[0] || ''
+    : resolvedSearchParams.ruta_mercado || '';
+  const marketHeading = String(marketHeadingRaw || '').trim();
+  const marketPath = String(marketPathRaw || '').trim();
+  const storedCountry = await getServerCountryPreference();
+  const countryQueryRaw = Array.isArray(resolvedSearchParams.pais)
+    ? resolvedSearchParams.pais[0] || ''
+    : resolvedSearchParams.pais || '';
   const zonaQueryRaw = Array.isArray(resolvedSearchParams.zona)
     ? resolvedSearchParams.zona[0] || ''
     : resolvedSearchParams.zona || '';
@@ -188,9 +206,12 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
     ? resolvedSearchParams.especialidad[0] || ''
     : resolvedSearchParams.especialidad || '';
   const zonaQuery = String(zonaQueryRaw || '').trim();
+  const countryQuery = String(countryQueryRaw || '').trim();
   const gremioQuery = String(gremioQueryRaw || '').trim();
   const specialtyQuery = String(specialtyQueryRaw || '').trim();
   const zonaQueryNormalized = normalizeSearchText(zonaQuery);
+  const countryQueryNormalized = normalizeSearchText(countryQuery);
+  const selectedCountry = countryQuery || storedCountry;
   const activeGremio = gremioQuery ? getGremioBySlug(gremioQuery) : null;
   const featuredGremios = [
     'electricidad',
@@ -223,20 +244,28 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
 
   const { data: profiles, error, usedFallback } = await fetchPublishedProfiles(supabase);
   const safeProfiles = profiles.filter(isPublicDirectoryProfileVisible);
-  const zoneFilteredProfiles = zonaQueryNormalized
-    ? safeProfiles.filter((profile) =>
-        matchesArgentinaZoneQuery(
-          zonaQuery,
-          profile.city,
-          profile.service_city,
-          profile.service_district,
-          profile.service_province,
-          profile.coverage_area,
-          profile.address,
-          profile.company_address
-        )
-      )
+  const countryFilteredProfiles = countryQueryNormalized
+    ? safeProfiles.filter((profile) => {
+        const profileCountry = normalizeSearchText(profile.country);
+        if (profileCountry) return profileCountry === countryQueryNormalized;
+        return countryQueryNormalized === 'argentina';
+      })
     : safeProfiles;
+  const zoneFilteredProfiles = zonaQueryNormalized
+    ? countryFilteredProfiles.filter(
+        (profile) =>
+          matchesArgentinaZoneQuery(
+            zonaQuery,
+            profile.city,
+            profile.service_city,
+            profile.service_district,
+            profile.service_province,
+            profile.coverage_area,
+            profile.address,
+            profile.company_address
+          ) || normalizeSearchText(buildProfileZoneText(profile)).includes(zonaQueryNormalized)
+      )
+    : countryFilteredProfiles;
   const filteredProfiles = zoneFilteredProfiles.filter((profile) => {
     if (activeGremio && !profileMatchesGremioQuery(profile.specialties, activeGremio)) return false;
     if (specialtyQuery && !profileMatchesSpecialtyQuery(profile.specialties, specialtyQuery)) return false;
@@ -250,10 +279,10 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
   const whatsappEnabledCount = filteredProfiles.filter((profile) => Boolean(buildWhatsappLink(profile.phone))).length;
   const zonaOptions = Array.from(
     new Set([
-      ...safeProfiles
+      ...countryFilteredProfiles
         .map((profile) => String(profile.service_city || profile.city || profile.coverage_area || profile.country || '').trim())
         .filter(Boolean),
-      ...getArgentinaZoneSearchOptions(),
+      ...(!countryQuery || countryQueryNormalized === 'argentina' ? getArgentinaZoneSearchOptions() : []),
     ])
   ).sort((a, b) => a.localeCompare(b, 'es'));
   const rubroOptions = TECH_SPECIALTY_OPTIONS.slice().sort((a, b) => a.localeCompare(b, 'es')).map((specialty) => ({
@@ -340,6 +369,16 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
           zoneResultCount={zoneFilteredProfiles.length}
         />
 
+        {marketHeading && (
+          <header className="mx-auto w-full max-w-7xl px-4 pb-2 pt-8 sm:px-6 lg:px-8">
+            <p className="text-[11px] uppercase tracking-[0.2em] text-[#ffbf7a]">Directorio UrbanFix</p>
+            <h1 className="mt-2 text-3xl font-semibold text-white sm:text-4xl">{marketHeading}</h1>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-white/72">
+              Compara perfiles publicados, zonas de cobertura y formas de contacto disponibles.
+            </p>
+          </header>
+        )}
+
         <div className="px-3 pb-4 pt-3 sm:px-4 lg:px-6">
           {error && (
             <div className="mx-auto mb-4 w-full max-w-[1500px] rounded-2xl border border-rose-300/35 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
@@ -358,8 +397,8 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
               title="Explora tecnicos por zona"
               description="Busca una ciudad o barrio, selecciona un punto y compara reputacion, rubros y contacto directo."
               searchConfig={{
-                actionHref: '/vidriera',
-                clearHref: '/vidriera',
+                actionHref: marketPath || '/vidriera',
+                clearHref: marketPath || '/vidriera',
                 query: zonaQuery,
                 options: zonaOptions,
                 rubroFieldName: 'especialidad',
@@ -367,6 +406,7 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
                 rubroOptions,
                 rubroPlaceholder: 'Todos los rubros',
                 hiddenFields: [
+                  ...(countryQuery ? [{ name: 'pais', value: countryQuery }] : []),
                   ...(activeGremio ? [{ name: 'gremio', value: activeGremio.slug }] : []),
                 ],
                 resultLabel:
@@ -415,6 +455,26 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
             </section>
           )}
 
+          {!countryQuery && (
+            <section className="mt-8 border-y border-white/12 py-6">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Explorar por pais y oficio</p>
+              <h2 className="mt-2 text-xl font-semibold text-white">Tecnicos por mercado</h2>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {technicianSeoLaunchCountries.flatMap((country) =>
+                  technicianSeoTrades.slice(0, 4).map((trade) => (
+                    <Link
+                      key={`${country.slug}-${trade.slug}`}
+                      href={`/tecnicos/${trade.slug}/${country.slug}`}
+                      className="border-b border-white/25 px-1 py-1 text-sm text-white/78 transition hover:border-[#ff8f1f] hover:text-white"
+                    >
+                      {trade.label} en {country.name}
+                    </Link>
+                  ))
+                )}
+              </div>
+            </section>
+          )}
+
           <section className="mt-6 rounded-3xl border border-white/15 bg-white/[0.03] p-6">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
@@ -426,7 +486,13 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
               </div>
               {(activeGremio || specialtyQuery) && (
                 <Link
-                  href={zonaQuery ? `/vidriera?zona=${encodeURIComponent(zonaQuery)}` : '/vidriera'}
+                  href={
+                    marketPath
+                      ? marketPath
+                      : zonaQuery
+                        ? `/vidriera?zona=${encodeURIComponent(zonaQuery)}`
+                        : '/vidriera'
+                  }
                   className="rounded-full border border-white/30 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
                 >
                   Limpiar filtro de gremio
@@ -440,7 +506,7 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
                   key={gremio.slug}
                   href={
                     zonaQuery
-                      ? `/vidriera?zona=${encodeURIComponent(zonaQuery)}&gremio=${gremio.slug}`
+                      ? `/vidriera?zona=${encodeURIComponent(zonaQuery)}&gremio=${gremio.slug}${countryQuery ? `&pais=${encodeURIComponent(countryQuery)}` : ''}`
                       : `/vidriera/gremio/${gremio.slug}`
                   }
                   className={`rounded-full border px-3 py-2 text-xs font-semibold transition ${
@@ -465,9 +531,11 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
                     <Link
                       key={item}
                       href={
-                        zonaQuery
-                          ? `/vidriera?zona=${encodeURIComponent(zonaQuery)}&gremio=${activeGremio.slug}&especialidad=${encodeURIComponent(item)}`
-                          : `/vidriera/gremio/${activeGremio.slug}?especialidad=${encodeURIComponent(item)}`
+                        marketPath
+                          ? `${marketPath}?especialidad=${encodeURIComponent(item)}`
+                          : zonaQuery
+                            ? `/vidriera?zona=${encodeURIComponent(zonaQuery)}&gremio=${activeGremio.slug}&especialidad=${encodeURIComponent(item)}${countryQuery ? `&pais=${encodeURIComponent(countryQuery)}` : ''}`
+                            : `/vidriera/gremio/${activeGremio.slug}?especialidad=${encodeURIComponent(item)}`
                       }
                       className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
                         specialtyQuery === item

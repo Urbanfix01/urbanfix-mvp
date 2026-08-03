@@ -3,6 +3,7 @@ import { gremioSlugs } from "../lib/seo/gremios-data";
 import { ciudadSlugs, guiaSlugs } from "../lib/seo/urbanfix-data";
 import { buildTechnicianPath } from "../lib/seo/technician-profile";
 import { createAnonClient } from "../lib/supabase/server";
+import { technicianSeoStaticParams } from "../lib/seo/technician-market-data";
 
 export const dynamic = "force-dynamic";
 
@@ -87,6 +88,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.68,
     }))
   );
+  const technicianMarketEntries: MetadataRoute.Sitemap = technicianSeoStaticParams.map(({ gremio, pais }) => ({
+    url: `${baseUrl}/tecnicos/${gremio}/${pais}`,
+    lastModified: new Date(),
+    changeFrequency: "weekly",
+    priority: 0.74,
+  }));
   const guiasEntries: MetadataRoute.Sitemap = guiaSlugs.map((slug) => ({
     url: `${baseUrl}/guias-precios/${slug}`,
     lastModified: new Date(),
@@ -143,6 +150,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...vidrieraGremioEntries,
     ...vidrieraZonaEntries,
     ...vidrieraZonaGremioEntries,
+    ...technicianMarketEntries,
     ...technicianEntries,
     {
       url: `${baseUrl}/soporte`,

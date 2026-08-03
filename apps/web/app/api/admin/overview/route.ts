@@ -1268,6 +1268,10 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error?.message || 'Admin query failed' }, { status: 500 });
+    console.error('[admin/overview] query failed', error);
+    return NextResponse.json(
+      { error: error?.message || 'No se pudo cargar el resumen administrativo. Reintenta en unos segundos.' },
+      { status: 500 }
+    );
   }
 }
