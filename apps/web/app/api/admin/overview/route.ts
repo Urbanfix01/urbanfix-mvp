@@ -421,9 +421,56 @@ const serializeAnalyticsSections = (map: Map<string, AnalyticsSectionBucket>) =>
       paths: Array.from(item.paths).slice(0, 4),
     }))
     .sort((a, b) => b.views - a.views || b.uniqueSessions - a.uniqueSessions || a.label.localeCompare(b.label))
-    .slice(0, 8);
+    .slice(0, 20);
 
 const ANALYTICS_REACH_MONTHS = 12;
+const ANALYTICS_REACH_PAGE_SIZE = 1000;
+const MAX_ANALYTICS_REACH_ROWS = 100000;
+
+const fetchAnalyticsEventRows = async ({
+  since,
+  eventType,
+  select,
+}: {
+  since: Date;
+  eventType: string;
+  select: string;
+}) => {
+  const rows: any[] = [];
+
+  for (let from = 0; from < MAX_ANALYTICS_REACH_ROWS; from += ANALYTICS_REACH_PAGE_SIZE) {
+    const to = Math.min(
+      from + ANALYTICS_REACH_PAGE_SIZE - 1,
+      MAX_ANALYTICS_REACH_ROWS - 1
+    );
+    const { data, error } = await supabase!
+      .from('analytics_events')
+      .select(select)
+      .eq('event_type', eventType)
+      .gte('created_at', since.toISOString())
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, to);
+
+    if (error) return { data: [] as any[], error, truncated: false };
+    const batch = data || [];
+    rows.push(...batch);
+    if (batch.length < ANALYTICS_REACH_PAGE_SIZE) {
+      return { data: rows, error: null, truncated: false };
+    }
+  }
+
+  return { data: rows, error: null, truncated: true };
+};
+
+const fetchAnalyticsReachRows = (since: Date, includeEventContext = true) =>
+  fetchAnalyticsEventRows({
+    since,
+    eventType: 'page_view',
+    select: includeEventContext
+      ? 'id,session_id,user_id,path,created_at,event_context,user_agent'
+      : 'id,session_id,user_id,path,created_at,user_agent',
+  });
 
 const getAnalyticsMonthKey = (value: any) => {
   const date = new Date(value);
@@ -558,27 +605,21 @@ export async function GET(request: NextRequest) {
         .select('id, user_id, status, amount, paid_at, created_at')
         .order('created_at', { ascending: false })
         .limit(10),
-      supabase
-        .from('analytics_events')
-        .select('session_id')
-        .eq('event_type', 'page_view')
-        .gte('created_at', analyticsSince7.toISOString())
-        .order('created_at', { ascending: false })
-        .limit(10000),
-      supabase
-        .from('analytics_events')
-        .select('session_id')
-        .eq('event_type', 'page_view')
-        .gte('created_at', analyticsSince1.toISOString())
-        .order('created_at', { ascending: false })
-        .limit(10000),
-      supabase
-        .from('analytics_events')
-        .select('path, duration_ms')
-        .eq('event_type', 'page_duration')
-        .gte('created_at', analyticsSince30.toISOString())
-        .order('created_at', { ascending: false })
-        .limit(20000),
+      fetchAnalyticsEventRows({
+        since: analyticsSince7,
+        eventType: 'page_view',
+        select: 'id,session_id,created_at',
+      }),
+      fetchAnalyticsEventRows({
+        since: analyticsSince1,
+        eventType: 'page_view',
+        select: 'id,session_id,created_at',
+      }),
+      fetchAnalyticsEventRows({
+        since: analyticsSince30,
+        eventType: 'page_duration',
+        select: 'id,path,duration_ms,created_at',
+      }),
     ]);
 
     if (
@@ -680,6 +721,10 @@ export async function GET(request: NextRequest) {
     let analyticsGeo = {
       rangeDays: 30,
       rangeMonths: ANALYTICS_REACH_MONTHS,
+      rowCount: 0,
+      maxRows: MAX_ANALYTICS_REACH_ROWS,
+      dataComplete: true,
+      geoContextAvailable: true,
       totalViews: 0,
       totalSessions: 0,
       accountSessions: 0,
@@ -789,20 +834,19 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const analyticsGeoRes = await supabase
-      .from('analytics_events')
-      .select('session_id,user_id,path,created_at,event_context,user_agent')
-      .eq('event_type', 'page_view')
-      .gte('created_at', analyticsSinceMonthly.toISOString())
-      .order('created_at', { ascending: false })
-      .limit(20000);
-
+    let analyticsGeoRes = await fetchAnalyticsReachRows(analyticsSinceMonthly, true);
+    let geoContextAvailable = true;
     if (analyticsGeoRes.error) {
       const message = String(analyticsGeoRes.error.message || '');
       if (!/event_context|column.*does not exist|schema cache/i.test(message)) {
         throw analyticsGeoRes.error;
       }
-    } else {
+      analyticsGeoRes = await fetchAnalyticsReachRows(analyticsSinceMonthly, false);
+      geoContextAvailable = false;
+    }
+    if (analyticsGeoRes.error) throw analyticsGeoRes.error;
+
+    {
       const analyticsRows = analyticsGeoRes.data || [];
       const analyticsEventUserIds = new Set<string>();
       analyticsRows.forEach((row: any) => {
@@ -905,8 +949,12 @@ export async function GET(request: NextRequest) {
           current.deviceSessions.set(deviceType, currentDeviceSessions);
           current.views += 1;
           if (sessionId) current.sessions.add(sessionId);
-          if (!current.lastSeenAt) {
-            current.lastSeenAt = cleanGeoText(row?.created_at) || null;
+          const rowCreatedAt = cleanGeoText(row?.created_at);
+          if (
+            rowCreatedAt &&
+            (!current.lastSeenAt || new Date(rowCreatedAt).getTime() > new Date(current.lastSeenAt).getTime())
+          ) {
+            current.lastSeenAt = rowCreatedAt;
             current.lastPath = cleanGeoText(row?.path);
           }
           analyticsAccountMap.set(userId, current);
@@ -968,6 +1016,10 @@ export async function GET(request: NextRequest) {
       analyticsGeo = {
         rangeDays: 30,
         rangeMonths: ANALYTICS_REACH_MONTHS,
+        rowCount: analyticsRows.length,
+        maxRows: MAX_ANALYTICS_REACH_ROWS,
+        dataComplete: !analyticsGeoRes.truncated,
+        geoContextAvailable,
         totalViews: totalWebViews,
         totalSessions: allSessions.size,
         accountSessions: accountSessions.size,

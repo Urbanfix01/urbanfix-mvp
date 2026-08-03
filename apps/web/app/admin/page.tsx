@@ -49,6 +49,7 @@ import AdminTechniciansUnified, { type TechnicianQueueStats } from '../../compon
 import { ACTIVE_LABOR_COUNTRY, getLaborCountrySettings } from '../../lib/labor-country-config';
 import { buildMasterItemChoiceLabel, compactTechnicalNotesText } from '../../lib/master-items';
 import { getPasswordPolicyError } from '../../lib/auth/password-policy';
+import { trackFunnelEvent } from '../../lib/analytics';
 
 type AdminProfile = {
   id: string;
@@ -569,6 +570,10 @@ type AdminOverview = {
     analyticsGeo?: {
       rangeDays: number;
       rangeMonths?: number;
+      rowCount?: number;
+      maxRows?: number;
+      dataComplete?: boolean;
+      geoContextAvailable?: boolean;
       totalViews?: number;
       totalSessions: number;
       accountSessions: number;
@@ -1033,7 +1038,7 @@ const WORLD_LAUNCH_ROADMAP_TASKS: RoadmapLaunchTask[] = [
     key: 'secciones-demanda',
     title: 'Detectar secciones con mas demanda',
     description: 'Medir que pantallas concentran visitas para reforzar precios, comunidad, vidriera y presupuestos.',
-    status: 'planned',
+    status: 'in_progress',
     area: 'ops',
     priority: 'high',
     sector: 'funcionalidades',
@@ -1045,7 +1050,7 @@ const WORLD_LAUNCH_ROADMAP_TASKS: RoadmapLaunchTask[] = [
     key: 'conversion-registros',
     title: 'Convertir visitas en registros',
     description: 'Crear acciones para que visitantes internacionales pasen a cuentas de cliente o tecnico.',
-    status: 'planned',
+    status: 'in_progress',
     area: 'web',
     priority: 'high',
     sector: 'clientes',
@@ -1057,7 +1062,7 @@ const WORLD_LAUNCH_ROADMAP_TASKS: RoadmapLaunchTask[] = [
     key: 'comunidad-vidriera',
     title: 'Impulsar comunidad y vidriera',
     description: 'Usar publicaciones, perfiles y mapa para que la plataforma muestre actividad real.',
-    status: 'planned',
+    status: 'in_progress',
     area: 'web',
     priority: 'medium',
     sector: 'funcionalidades',
@@ -1069,7 +1074,7 @@ const WORLD_LAUNCH_ROADMAP_TASKS: RoadmapLaunchTask[] = [
     key: 'reporte-mensual',
     title: 'Reporte mensual de crecimiento',
     description: 'Imprimir y compartir un balance mensual con alcance, paises, secciones y proximas acciones.',
-    status: 'planned',
+    status: 'in_progress',
     area: 'ops',
     priority: 'medium',
     sector: 'operativo',
@@ -7207,6 +7212,12 @@ export default function AdminPage() {
     1,
     ...summarySectionRanking.map((item) => item.uniqueSessions || 0)
   );
+  const summaryCommunitySection =
+    summarySectionRanking.find((item) => item.key === 'comunidad') || null;
+  const summaryMarketplaceSection =
+    summarySectionRanking.find((item) => item.key === 'vidriera') || null;
+  const summaryPublicProfilesSection =
+    summarySectionRanking.find((item) => item.key === 'perfil-tecnico') || null;
   const summaryGeoCoverage = summaryWebSessions
     ? Math.round((summaryWebKnownSessions / summaryWebSessions) * 100)
     : 0;
@@ -7482,6 +7493,14 @@ export default function AdminPage() {
   const handlePrintSummaryReachReport = () => {
     if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
+    trackFunnelEvent('global_growth_report_printed', {
+      month: selectedSummaryMonth?.monthKey || 'rolling_12_months',
+      row_count: summaryGeo?.rowCount || 0,
+      data_complete: summaryGeo?.dataComplete !== false,
+      countries_count: summaryReachCountries.length,
+      sections_count: summaryTopSections.length,
+    });
+
     const escapeHtml = (value: unknown) =>
       String(value ?? '')
         .replace(/&/g, '&amp;')
@@ -7538,6 +7557,21 @@ export default function AdminPage() {
           })
           .join('')
       : renderEmpty('Todavia no hay secciones con trafico suficiente para este balance.');
+
+    const worldNetworkRows = [
+      { label: 'Comunidad', metric: summaryCommunitySection },
+      { label: 'Mapa / vidriera', metric: summaryMarketplaceSection },
+      { label: 'Perfiles publicos', metric: summaryPublicProfilesSection },
+    ]
+      .map(
+        ({ label, metric }) => `
+          <div class="list-row">
+            <span>${escapeHtml(label)}</span>
+            <strong>${formatNumber(metric?.uniqueSessions || 0)} sesiones / ${formatNumber(metric?.views || 0)} vistas</strong>
+          </div>
+        `
+      )
+      .join('');
 
     const accountRows = summaryAccountUsers.length
       ? summaryAccountUsers
@@ -7620,6 +7654,20 @@ export default function AdminPage() {
                 ? `${formatNumber(summaryWebKnownSessions)} de ${formatNumber(summaryReachSessions)} sesiones tienen ubicacion aproximada en ${escapeHtml(summaryReachLabel)}. ${formatNumber(summaryWebUnknownSessions)} sesiones quedaron sin ubicacion por privacidad o infraestructura.`
                 : `Todavia no hay navegacion real registrada para ${escapeHtml(summaryReachLabel)}.`}
             </p>
+
+            <p class="note">
+              Fuente paginada: ${formatNumber(summaryGeo?.rowCount || 0)} eventos procesados. ${
+                summaryGeo?.dataComplete === false
+                  ? `Cobertura incompleta: se alcanzo el tope de ${formatNumber(summaryGeo.maxRows || 100000)} filas; no usar como total definitivo.`
+                  : 'Cobertura completa para el periodo consultado.'
+              }
+            </p>
+
+            <section class="panel" style="margin-top:14px;">
+              <p class="eyebrow">Comunidad + vidriera mundial</p>
+              <h2>Actividad publica del ecosistema</h2>
+              ${worldNetworkRows}
+            </section>
 
             <section class="panel" style="margin-top:14px;">
               <p class="eyebrow">Secciones mas visitadas</p>
@@ -9329,6 +9377,86 @@ export default function AdminPage() {
                         ? `${formatNumber(summaryWebKnownSessions)} de ${formatNumber(summaryReachSessions)} sesión(es) tienen ubicación aproximada en ${summaryReachLabel}. ${formatNumber(summaryWebUnknownSessions)} sesión(es) quedaron sin ubicación por privacidad o infraestructura.`
                         : `Todavía no hay navegación real registrada para ${summaryReachLabel}.`}
                     </p>
+
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[#eadff0] bg-white px-4 py-3 text-xs text-[#6c6177]">
+                      <span>
+                        Fuente paginada: {formatNumber(summaryGeo?.rowCount || 0)} eventos de navegación procesados.
+                      </span>
+                      <span
+                        className={`rounded-full px-3 py-1 font-semibold ${
+                          summaryGeo?.dataComplete === false
+                            ? 'bg-rose-100 text-rose-700'
+                            : 'bg-emerald-100 text-emerald-700'
+                        }`}
+                      >
+                        {summaryGeo?.dataComplete === false ? 'Cobertura incompleta' : 'Cobertura completa'}
+                      </span>
+                    </div>
+
+                    {summaryGeo?.dataComplete === false && (
+                      <p className="mt-3 border-l-2 border-rose-400 bg-rose-50 px-4 py-3 text-xs leading-5 text-rose-800">
+                        El reporte alcanzó el tope de {formatNumber(summaryGeo.maxRows || 100000)} filas. No debe usarse para cerrar tarjetas ni afirmar totales del período.
+                      </p>
+                    )}
+
+                    {summaryGeo?.geoContextAvailable === false && (
+                      <p className="mt-3 border-l-2 border-amber-400 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">
+                        Las visitas y secciones están completas, pero Supabase no entregó el contexto geográfico. Países y ciudades se muestran sin estimaciones.
+                      </p>
+                    )}
+
+                    <section className="mt-5 rounded-[24px] border border-[#eadff0] bg-white p-4 shadow-[0_12px_26px_rgba(31,10,46,0.05)]">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8b7c98]">
+                            Comunidad + vidriera mundial
+                          </p>
+                          <h4 className="mt-1 text-base font-semibold text-[#180f24]">
+                            Actividad pública del ecosistema
+                          </h4>
+                          <p className="mt-1 text-xs leading-5 text-[#6c6177]">
+                            Sesiones reales del período seleccionado; abrir un perfil se mide por separado de visitar el mapa.
+                          </p>
+                        </div>
+                        <div className="ufx-admin-print-hidden flex flex-wrap gap-2">
+                          <a
+                            href="/comunidad"
+                            className="rounded-full border border-[#d9c8e4] bg-white px-3 py-2 text-xs font-semibold text-[#432451] transition hover:bg-[#faf6fc]"
+                          >
+                            Abrir Comunidad
+                          </a>
+                          <a
+                            href="/vidriera"
+                            className="rounded-full bg-[#2a0338] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#401354]"
+                          >
+                            Abrir Vidriera
+                          </a>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                        {[
+                          { label: 'Comunidad', metric: summaryCommunitySection },
+                          { label: 'Mapa / vidriera', metric: summaryMarketplaceSection },
+                          { label: 'Perfiles públicos', metric: summaryPublicProfilesSection },
+                        ].map(({ label, metric }) => (
+                          <div key={label} className="rounded-2xl bg-[#faf8fb] px-4 py-3">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8b7c98]">
+                              {label}
+                            </p>
+                            <p className="mt-2 text-2xl font-semibold text-[#180f24]">
+                              {formatNumber(metric?.uniqueSessions || 0)}
+                            </p>
+                            <p className="mt-1 text-[11px] text-[#6c6177]">
+                              sesiones · {formatNumber(metric?.views || 0)} vistas
+                            </p>
+                            <p className="mt-1 text-[11px] font-semibold text-[#047857]">
+                              {metric?.accountShare || 0}% con cuenta
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
 
                     <div className="mt-6 border-t border-[#eadff0] pt-6">
                       <div className="flex items-center justify-between gap-3">

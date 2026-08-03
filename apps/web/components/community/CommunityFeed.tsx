@@ -21,6 +21,13 @@ import {
 
 import { hasSupabaseConfig, supabase } from '../../lib/supabase/supabase';
 import { trackFunnelEvent } from '../../lib/analytics';
+import {
+  COUNTRY_SELECTION_OPTIONS,
+  getCountryOptionLabel,
+  getStoredCountryPreference,
+  normalizeCountryPreference,
+  storeCountryPreference,
+} from '../../lib/country-preference';
 import { buildTechnicianPath } from '../../lib/seo/technician-profile';
 import { parseGremioSpecialties } from '../../lib/seo/gremios-data';
 import { TECH_SPECIALTY_OPTIONS, TECH_SPECIALTY_SEARCH_ALIASES } from '../../lib/technician-specialties';
@@ -59,6 +66,7 @@ type CommunityPost = {
   coordinates: CommunityCoordinates | null;
   contact_url: string | null;
   author_location: string | null;
+  author_country: string | null;
   author_specialties: string[];
   tags: string[];
   media_items: CommunityMedia[];
@@ -83,6 +91,7 @@ type CommunityProfile = {
   role: AuthorRole | null;
   avatarUrl: string | null;
   location: string | null;
+  country: string | null;
   specialties: string[];
   profileHref: string;
 };
@@ -93,6 +102,7 @@ type CommunityAuthorPublicProfile = {
   avatarUrl: string | null;
   profileHref: string;
   location: string | null;
+  country: string | null;
   specialties: string[];
 };
 
@@ -222,6 +232,7 @@ const buildAdminCommunityProfile = (userId: string, draft: AdminCommunityProfile
   role: 'admin',
   avatarUrl: draft.logoUrl,
   location: 'UrbanFix',
+  country: null,
   specialties: [],
   profileHref: '/urbanfix',
 });
@@ -258,6 +269,7 @@ const normalizeAuthorProfile = (row: any): CommunityAuthorPublicProfile => {
     avatarUrl: String(row?.company_logo_url || row?.avatar_url || '').trim() || null,
     profileHref: buildTechnicianPath(String(row.id), name),
     location: buildProfileLocation(row),
+    country: normalizeCountryPreference(row?.country) || null,
     specialties: parseGremioSpecialties(row?.specialties).slice(0, 6),
   };
 };
@@ -268,6 +280,7 @@ const profileToAuthorProfile = (profile: CommunityProfile): CommunityAuthorPubli
   avatarUrl: profile.avatarUrl,
   profileHref: profile.profileHref,
   location: profile.location,
+  country: profile.country,
   specialties: profile.specialties,
 });
 
@@ -317,6 +330,7 @@ const normalizePost = (
     coordinates: normalizeCoordinates(row.coordinates),
     contact_url: profileContactUrl,
     author_location: publicProfile?.location || null,
+    author_country: publicProfile?.country || null,
     author_specialties: authorSpecialties,
     tags: Array.isArray(row.tags) ? row.tags.map((tag: unknown) => String(tag)).filter(Boolean) : [],
     media_items: Array.isArray(row.media_items)
@@ -383,15 +397,18 @@ const buildCommunityPath = ({
   createType,
   postId,
   action,
+  country,
 }: {
   createType?: PostType;
   postId?: string;
   action?: CommunityPostAction;
+  country?: string;
 }) => {
   const params = new URLSearchParams();
   if (createType) params.set('crear', createType);
   if (postId) params.set('post', postId);
   if (action) params.set('accion', action);
+  if (country) params.set('pais', country);
   const query = params.toString();
   return `/comunidad${query ? `?${query}` : ''}`;
 };
@@ -582,6 +599,7 @@ export default function CommunityFeed() {
   const [targetPostId, setTargetPostId] = useState('');
   const [targetPostAction, setTargetPostAction] = useState<CommunityPostAction | null>(null);
   const [highlightedPostId, setHighlightedPostId] = useState('');
+  const [countryFilter, setCountryFilter] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
   const [specialtyFilter, setSpecialtyFilter] = useState('');
   const [authorFilter, setAuthorFilter] = useState('');
@@ -653,6 +671,7 @@ export default function CommunityFeed() {
           role,
           avatarUrl: String(data?.company_logo_url || data?.avatar_url || metadata.avatar_url || '').trim() || null,
           location: buildProfileLocation(data),
+          country: normalizeCountryPreference(data?.country) || null,
           specialties: profileSpecialties,
           profileHref: role === 'cliente' ? '/cliente' : buildTechnicianPath(user.id, profileName),
         });
@@ -686,6 +705,9 @@ export default function CommunityFeed() {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     const action = params.get('accion');
+    setCountryFilter(
+      normalizeCountryPreference(params.get('pais')) || getStoredCountryPreference()
+    );
     setAuthorFilter((params.get('autor') || '').slice(0, 80));
     setTargetPostId((params.get('post') || '').slice(0, 80));
     setTargetPostAction(action === 'comentar' || action === 'like' ? action : null);
@@ -823,15 +845,55 @@ export default function CommunityFeed() {
           { type: 'consulta' as PostType, label: 'Consulta', icon: MessageCircle, iconClass: 'text-sky-600' },
           { type: 'antes_despues' as PostType, label: 'Antes/despues', icon: ImageIcon, iconClass: 'text-violet-600' },
         ];
+  const normalizedCountryFilter = normalizeFilterText(countryFilter);
   const normalizedLocationFilter = normalizeFilterText(locationFilter);
-  const hasActiveFilters = Boolean(normalizedLocationFilter || specialtyFilter || authorFilter);
+  const hasActiveFilters = Boolean(
+    normalizedCountryFilter || normalizedLocationFilter || specialtyFilter || authorFilter
+  );
   const filteredPosts = posts.filter((post) => {
     const locationText = normalizeFilterText([post.location, post.author_location].filter(Boolean).join(' '));
+    const postCountry = normalizeFilterText(post.author_country);
+    const matchesCountry =
+      !normalizedCountryFilter ||
+      post.author_role === 'admin' ||
+      post.id === targetPostId ||
+      postCountry === normalizedCountryFilter ||
+      locationText.includes(normalizedCountryFilter);
     const matchesLocation = !normalizedLocationFilter || locationText.includes(normalizedLocationFilter);
     const matchesSpecialty = !specialtyFilter || postMatchesSpecialty(post, specialtyFilter);
     const matchesAuthor = !authorFilter || post.author_id === authorFilter;
-    return matchesLocation && matchesSpecialty && matchesAuthor;
+    return matchesCountry && matchesLocation && matchesSpecialty && matchesAuthor;
   });
+
+  const handleCountryFilterChange = (value: string) => {
+    const nextCountry = normalizeCountryPreference(value);
+    setCountryFilter(nextCountry);
+    if (nextCountry) storeCountryPreference(nextCountry);
+
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (nextCountry) url.searchParams.set('pais', nextCountry);
+      else url.searchParams.delete('pais');
+      window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+    }
+
+    const normalizedNextCountry = normalizeFilterText(nextCountry);
+    const resultCount = posts.filter((post) => {
+      if (!normalizedNextCountry || post.author_role === 'admin') return true;
+      const postLocation = normalizeFilterText(
+        [post.location, post.author_location].filter(Boolean).join(' ')
+      );
+      return (
+        normalizeFilterText(post.author_country) === normalizedNextCountry ||
+        postLocation.includes(normalizedNextCountry)
+      );
+    }).length;
+    trackFunnelEvent('community_country_filtered', {
+      origin: 'community_filters',
+      country: nextCountry || 'all',
+      result_count: resultCount,
+    });
+  };
 
   const getPostAnalyticsContext = (postId: string, origin = 'community_feed') => {
     const targetPost = posts.find((post) => post.id === postId);
@@ -840,6 +902,7 @@ export default function CommunityFeed() {
       post_id: postId,
       post_type: targetPost?.post_type || 'unknown',
       author_role: targetPost?.author_role || 'unknown',
+      country: targetPost?.author_country || 'unknown',
     };
   };
 
@@ -853,7 +916,9 @@ export default function CommunityFeed() {
         action: 'publish',
         post_type: safePostType,
       });
-      window.location.href = buildCommunityAuthHref(buildCommunityPath({ createType: safePostType }));
+      window.location.href = buildCommunityAuthHref(
+        buildCommunityPath({ createType: safePostType, country: countryFilter || undefined })
+      );
       return;
     }
 
@@ -1034,6 +1099,7 @@ export default function CommunityFeed() {
         post_id: String(data.id),
         post_type: postType,
         author_role: profile.role,
+        country: profile.country || 'unknown',
       });
       setFeedback('Publicado.');
       resetComposer();
@@ -1540,7 +1606,20 @@ export default function CommunityFeed() {
         </div>
 
         <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
-          <div className="grid gap-2 sm:grid-cols-[1fr_230px_auto]">
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-[210px_1fr_230px_auto]">
+            <select
+              value={countryFilter}
+              onChange={(event) => handleCountryFilterChange(event.target.value)}
+              aria-label="Filtrar Comunidad por país"
+              className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-800 outline-none transition focus:border-[#ff8f1f]"
+            >
+              <option value="">Todos los países</option>
+              {COUNTRY_SELECTION_OPTIONS.map((country) => (
+                <option key={country} value={country}>
+                  {getCountryOptionLabel(country)}
+                </option>
+              ))}
+            </select>
             <input
               value={locationFilter}
               onChange={(event) => setLocationFilter(event.target.value)}
@@ -1562,6 +1641,7 @@ export default function CommunityFeed() {
             <button
               type="button"
               onClick={() => {
+                handleCountryFilterChange('');
                 setLocationFilter('');
                 setSpecialtyFilter('');
                 setAuthorFilter('');
@@ -1572,11 +1652,27 @@ export default function CommunityFeed() {
               Limpiar
             </button>
           </div>
-          {hasActiveFilters ? (
-            <p className="mt-2 text-xs font-bold text-slate-500">
-              Mostrando {filteredPosts.length} de {posts.length} publicacion(es).
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+            <p className="text-xs font-bold text-slate-500">
+              {hasActiveFilters
+                ? `Mostrando ${filteredPosts.length} de ${posts.length} publicacion(es).`
+                : `${posts.length} publicacion(es) reales en el muro global.`}
             </p>
-          ) : null}
+            <Link
+              href={countryFilter ? `/vidriera?pais=${encodeURIComponent(countryFilter)}` : '/vidriera'}
+              onClick={() =>
+                trackFunnelEvent('community_marketplace_opened', {
+                  origin: 'community_filters',
+                  country: countryFilter || 'all',
+                  community_result_count: filteredPosts.length,
+                })
+              }
+              className="inline-flex items-center gap-2 rounded-full bg-[#2a0338] px-4 py-2 text-xs font-black text-white transition hover:bg-[#401354]"
+            >
+              <Globe2 className="h-4 w-4 text-[#ff9c1a]" />
+              Ver técnicos{countryFilter ? ` en ${countryFilter}` : ''}
+            </Link>
+          </div>
         </div>
 
         <div className="flex items-center justify-between">
@@ -1842,7 +1938,11 @@ export default function CommunityFeed() {
                       {authIntent ? (
                         <Link
                           href={buildCommunityAuthHref(
-                            buildCommunityPath({ postId: post.id, action: authIntent })
+                            buildCommunityPath({
+                              postId: post.id,
+                              action: authIntent,
+                              country: countryFilter || undefined,
+                            })
                           )}
                           className="inline-flex rounded-full bg-[#2a0338] px-4 py-2 text-xs font-black text-white transition hover:bg-[#401354]"
                         >
@@ -1935,7 +2035,11 @@ export default function CommunityFeed() {
                           <p className="text-sm font-bold text-slate-500">Ingresa con tu cuenta UrbanFix para comentar.</p>
                           <Link
                             href={buildCommunityAuthHref(
-                              buildCommunityPath({ postId: post.id, action: 'comentar' })
+                              buildCommunityPath({
+                                postId: post.id,
+                                action: 'comentar',
+                                country: countryFilter || undefined,
+                              })
                             )}
                             onClick={() =>
                               trackFunnelEvent('community_auth_requested', {
