@@ -68,8 +68,21 @@ import {
   setAuthAccessProfileIntent,
   syncAuthAccessTokenCookie,
 } from '../../lib/auth/post-auth';
+import {
+  consumeTechnicalRegistrationAttempt,
+  getOrCreateTechnicalRegistrationAttempt,
+  getTechnicalRegistrationAttempt,
+  getTechnicalRegistrationEventContext,
+  isUserCreatedDuringTechnicalRegistrationAttempt,
+  normalizeTechnicalRegistrationSource,
+  type TechnicalRegistrationAttempt,
+  type TechnicalRegistrationMethod,
+  type TechnicalRegistrationSource,
+  updateTechnicalRegistrationAttempt,
+} from '../../lib/auth/technical-registration';
 import { getPasswordPolicyError, PASSWORD_POLICY_MESSAGE } from '../../lib/auth/password-policy';
 import { trackFunnelEvent } from '../../lib/analytics';
+import { getStoredCountryPreference } from '../../lib/country-preference';
 import {
   buildMasterItemChoiceLabel,
   canonicalizeMasterItemUnit,
@@ -87,6 +100,7 @@ import {
   isKnownProvinceName,
 } from '../../lib/location-catalog';
 import { buildTechnicianPath } from '../../lib/seo/technician-profile';
+import { normalizePublicWhatsappPhone } from '../../lib/public-phone';
 import LocalitySelect from '../../components/LocalitySelect';
 import TechnicianLocationPicker, { type LocationPickerResult } from '../../components/TechnicianLocationPicker';
 import TechnicianClientHistoryMap from '../../components/TechnicianClientHistoryMap';
@@ -118,6 +132,18 @@ const SUPPORT_MAX_IMAGES = 4;
 const SUPPORT_MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const QUOTE_ITEM_MAX_IMAGES = 6;
 const QUOTE_ITEM_MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+
+type TechnicalRegistrationField = 'fullName' | 'businessName' | 'whatsapp' | 'email' | 'password';
+type TechnicalRegistrationFieldErrors = Partial<Record<TechnicalRegistrationField, string>>;
+
+const TECHNICAL_REGISTRATION_FIELD_ORDER: TechnicalRegistrationField[] = [
+  'fullName',
+  'businessName',
+  'whatsapp',
+  'email',
+  'password',
+];
+const TECHNICAL_REGISTRATION_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 const DEFAULT_PUBLIC_WEB_URL = 'https://www.urbanfix.com.ar';
 const UI_THEME = 'light';
@@ -4665,7 +4691,6 @@ export default function TechniciansPage() {
   const [loadingSession, setLoadingSession] = useState(true);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const sessionUserIdRef = useRef<string | null>(null);
-  const registrationStartTrackedRef = useRef(false);
   const profileOnboardingTrackedRef = useRef<Set<string>>(new Set());
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
@@ -4673,6 +4698,16 @@ export default function TechniciansPage() {
   const [fullName, setFullName] = useState('');
   const [businessName, setBusinessName] = useState('');
   const [authWhatsapp, setAuthWhatsapp] = useState('');
+  const [showRegistrationEmail, setShowRegistrationEmail] = useState(false);
+  const [registrationFieldErrors, setRegistrationFieldErrors] =
+    useState<TechnicalRegistrationFieldErrors>({});
+  const [registrationEmailWarning, setRegistrationEmailWarning] = useState('');
+  const registrationSourceRef = useRef<TechnicalRegistrationSource>('direct');
+  const registrationFullNameRef = useRef<HTMLInputElement | null>(null);
+  const registrationBusinessNameRef = useRef<HTMLInputElement | null>(null);
+  const registrationWhatsappRef = useRef<HTMLInputElement | null>(null);
+  const registrationEmailRef = useRef<HTMLInputElement | null>(null);
+  const registrationPasswordRef = useRef<HTMLInputElement | null>(null);
   const [quickRegisterMode, setQuickRegisterMode] = useState(false);
   const [autoGoogleStarted, setAutoGoogleStarted] = useState(false);
   const [entryPrompt, setEntryPrompt] = useState('');
@@ -4954,6 +4989,7 @@ export default function TechniciansPage() {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     const initialMode = params.get('mode');
+    registrationSourceRef.current = normalizeTechnicalRegistrationSource(params.get('source'));
     const designPreviewEnabled =
       process.env.NODE_ENV !== 'production' &&
       (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
@@ -5014,6 +5050,7 @@ export default function TechniciansPage() {
     }
     if (initialMode === 'register') {
       setAuthMode('register');
+      setShowRegistrationEmail(false);
     }
     if (params.get('quick') === '1') {
       setQuickRegisterMode(true);
@@ -5027,6 +5064,9 @@ export default function TechniciansPage() {
       setRecoveryMode(true);
       setAuthError('');
       setAuthNotice('');
+    }
+    if (params.get('registration') === 'confirmed') {
+      setAuthNotice('Correo confirmado. Tu cuenta ya está lista para continuar.');
     }
     const incomingTab = (params.get('tab') || params.get('view') || '').toLowerCase();
     if (isTechnicianDashboardTab(incomingTab)) {
@@ -5112,11 +5152,21 @@ export default function TechniciansPage() {
   }, [loadingMasterItems, masterItems, masterSelectionHydratedUserId]);
 
   useEffect(() => {
-    if (authMode !== 'register' || registrationStartTrackedRef.current) return;
-    registrationStartTrackedRef.current = true;
-    trackFunnelEvent('technical_registration_started', {
-      access_profile: selectedAccessProfile || 'tecnico',
-    });
+    if (
+      authMode !== 'register' ||
+      (selectedAccessProfile !== 'tecnico' && selectedAccessProfile !== 'empresa')
+    )
+      return;
+    const attempt = getOrCreateTechnicalRegistrationAttempt(
+      selectedAccessProfile,
+      registrationSourceRef.current
+    );
+    if (attempt.startedEventAt) return;
+    trackFunnelEvent(
+      'technical_registration_started',
+      getTechnicalRegistrationEventContext(attempt, { result: 'registration_opened' })
+    );
+    updateTechnicalRegistrationAttempt(attempt, { startedEventAt: Date.now() });
   }, [authMode, selectedAccessProfile]);
 
   useEffect(() => {
@@ -10402,12 +10452,76 @@ export default function TechniciansPage() {
     setAuthNotice('');
     setGoogleAuthLoading(false);
     setShowAuthPassword(false);
+    setShowRegistrationEmail(false);
+    setRegistrationFieldErrors({});
+    setRegistrationEmailWarning('');
     setEmail('');
     setPassword('');
     setFullName('');
     setBusinessName('');
     setAuthWhatsapp('');
     resetForm();
+  };
+
+  const getRegistrationAttemptForMethod = (method: TechnicalRegistrationMethod) => {
+    if (
+      authMode !== 'register' ||
+      (selectedAccessProfile !== 'tecnico' && selectedAccessProfile !== 'empresa')
+    ) {
+      return null;
+    }
+
+    let attempt = getOrCreateTechnicalRegistrationAttempt(
+      selectedAccessProfile,
+      registrationSourceRef.current
+    );
+    if (!attempt.startedEventAt) {
+      trackFunnelEvent(
+        'technical_registration_started',
+        getTechnicalRegistrationEventContext(attempt, { result: 'registration_opened' })
+      );
+      attempt = updateTechnicalRegistrationAttempt(attempt, { startedEventAt: Date.now() });
+    }
+    if (attempt.method !== method || !attempt.methodEventAt) {
+      attempt = updateTechnicalRegistrationAttempt(attempt, {
+        method,
+        methodEventAt: Date.now(),
+      });
+      trackFunnelEvent(
+        'technical_registration_method_selected',
+        getTechnicalRegistrationEventContext(attempt, { provider: method, result: 'method_selected' })
+      );
+    }
+    return attempt;
+  };
+
+  const trackRegistrationSubmission = (attempt: TechnicalRegistrationAttempt) => {
+    if (attempt.submittedEventAt) return attempt;
+    trackFunnelEvent(
+      'technical_registration_submitted',
+      getTechnicalRegistrationEventContext(attempt, { result: 'submitted' })
+    );
+    return updateTechnicalRegistrationAttempt(attempt, { submittedEventAt: Date.now() });
+  };
+
+  const focusRegistrationField = (field: TechnicalRegistrationField) => {
+    const refs: Record<TechnicalRegistrationField, React.RefObject<HTMLInputElement | null>> = {
+      fullName: registrationFullNameRef,
+      businessName: registrationBusinessNameRef,
+      whatsapp: registrationWhatsappRef,
+      email: registrationEmailRef,
+      password: registrationPasswordRef,
+    };
+    window.requestAnimationFrame(() => refs[field].current?.focus());
+  };
+
+  const handleRegistrationEmailReveal = () => {
+    setShowRegistrationEmail(true);
+    setAuthError('');
+    setAuthNotice('');
+    setRegistrationEmailWarning('');
+    getRegistrationAttemptForMethod('email');
+    focusRegistrationField('fullName');
   };
 
   const handleGoogleLogin = async () => {
@@ -10419,6 +10533,10 @@ export default function TechniciansPage() {
       return;
     }
     setGoogleAuthLoading(true);
+    const registrationAttempt = getRegistrationAttemptForMethod('google');
+    if (registrationAttempt) {
+      trackRegistrationSubmission(registrationAttempt);
+    }
     if (selectedAccessProfile) {
       setAuthAccessProfileIntent(selectedAccessProfile);
     } else {
@@ -10430,6 +10548,17 @@ export default function TechniciansPage() {
       options: { redirectTo },
     });
     if (error) {
+      const activeAttempt = registrationAttempt || getTechnicalRegistrationAttempt();
+      if (activeAttempt && authMode === 'register') {
+        trackFunnelEvent(
+          'technical_registration_failed',
+          getTechnicalRegistrationEventContext(activeAttempt, {
+            provider: 'google',
+            reason: 'oauth_start_failed',
+            result: 'failed',
+          })
+        );
+      }
       setAuthError(getFriendlyAuthErrorMessage(error, 'google'));
       setGoogleAuthLoading(false);
     }
@@ -10461,7 +10590,7 @@ export default function TechniciansPage() {
     }
     setSendingRecovery(true);
     try {
-      const redirectTo = `${window.location.origin}/tecnicos`;
+      const redirectTo = `${window.location.origin}/tecnicos?recovery=1`;
       const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, { redirectTo });
       if (error) throw error;
       setAuthNotice('Te enviamos un correo para recuperar tu contraseña.');
@@ -10508,95 +10637,226 @@ export default function TechniciansPage() {
     }
   };
 
-  const technicalRegisterMissing = useMemo(() => {
-    if (authMode !== 'register') return [];
-    const missing: string[] = [];
-    if (!fullName.trim()) missing.push('nombre completo');
-    if (!businessName.trim()) {
-      missing.push(selectedAccessProfile === 'empresa' ? 'nombre de la empresa' : 'nombre del negocio');
-    }
-    if (!isWhatsappLike(authWhatsapp.trim())) missing.push('WhatsApp valido');
-    return missing;
-  }, [authMode, authWhatsapp, businessName, fullName, selectedAccessProfile]);
+  const getTechnicalRegistrationValidation = () => {
+    const errors: TechnicalRegistrationFieldErrors = {};
+    const safeEmail = email.trim().toLowerCase();
+    const selectedCountry = getStoredCountryPreference() || DEFAULT_COUNTRY_NAME;
+    const normalizedWhatsapp = normalizePublicWhatsappPhone(authWhatsapp, selectedCountry);
 
-  const technicalRegisterBlocked = technicalRegisterMissing.length > 0;
+    if (!fullName.trim()) errors.fullName = 'Ingresa tu nombre completo.';
+    if (!businessName.trim()) {
+      errors.businessName =
+        selectedAccessProfile === 'empresa'
+          ? 'Ingresa el nombre de la empresa.'
+          : 'Ingresa el nombre del negocio.';
+    }
+    if (!normalizedWhatsapp) {
+      errors.whatsapp = `Ingresa un WhatsApp válido para ${selectedCountry}.`;
+    }
+    if (!TECHNICAL_REGISTRATION_EMAIL_PATTERN.test(safeEmail)) {
+      errors.email = 'Ingresa un correo válido.';
+    }
+    const passwordError = getPasswordPolicyError(password);
+    if (passwordError) errors.password = passwordError;
+
+    return { errors, safeEmail, normalizedWhatsapp, selectedCountry };
+  };
 
   const handleEmailAuth = async () => {
     setAuthError('');
     setAuthNotice('');
+    setRegistrationEmailWarning('');
     if (!hasSupabaseConfig) {
       setAuthError(supabaseConfigError);
       return;
     }
+
+    let registrationAttempt: TechnicalRegistrationAttempt | null = null;
+    if (authMode === 'register') {
+      setShowRegistrationEmail(true);
+      registrationAttempt = getRegistrationAttemptForMethod('email');
+      if (!registrationAttempt) {
+        setAuthError('Selecciona acceso técnico o empresa antes de crear la cuenta.');
+        return;
+      }
+      const validation = getTechnicalRegistrationValidation();
+      const firstInvalidField = TECHNICAL_REGISTRATION_FIELD_ORDER.find(
+        (field) => validation.errors[field]
+      );
+      if (firstInvalidField) {
+        setRegistrationFieldErrors(validation.errors);
+        trackFunnelEvent(
+          'technical_registration_validation_failed',
+          getTechnicalRegistrationEventContext(registrationAttempt, {
+            provider: 'email',
+            reason: firstInvalidField,
+            result: 'validation_failed',
+          })
+        );
+        focusRegistrationField(firstInvalidField);
+        return;
+      }
+      setRegistrationFieldErrors({});
+      registrationAttempt = trackRegistrationSubmission(registrationAttempt);
+    }
+
     setAuthLoading(true);
     try {
       const safeEmail = email.trim().toLowerCase();
-      const normalizedAuthWhatsapp = authWhatsapp.trim();
       if (!safeEmail || !password) {
         throw new Error('Ingresa correo y contraseña.');
       }
-      if (!safeEmail.includes('@')) {
+      if (!TECHNICAL_REGISTRATION_EMAIL_PATTERN.test(safeEmail)) {
         throw new Error('Ingresa un correo válido.');
-      }
-      const passwordPolicyError = authMode === 'register' ? getPasswordPolicyError(password) : '';
-      if (passwordPolicyError) {
-        throw new Error(passwordPolicyError);
-      }
-      if (technicalRegisterBlocked) {
-        throw new Error(`Completa estos datos para crear la cuenta: ${technicalRegisterMissing.join(', ')}.`);
       }
       if (selectedAccessProfile) {
         setAuthAccessProfileIntent(selectedAccessProfile);
       } else {
         clearAuthAccessProfileIntent();
       }
+
       if (authMode === 'login') {
         const { error } = await supabase.auth.signInWithPassword({ email: safeEmail, password });
         if (error) throw error;
-      } else {
-        const emailValidationResponse = await fetch('/api/auth/validate-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: safeEmail }),
-        });
-        const emailValidationPayload = await emailValidationResponse.json();
-        if (!emailValidationResponse.ok || emailValidationPayload?.valid !== true) {
-          throw new Error(emailValidationPayload?.error || 'Ingresa un correo real para crear la cuenta.');
-        }
-        const normalizedFullName = fullName.trim();
-        const normalizedBusinessName = businessName.trim();
-        const accessProfile = selectedAccessProfile === 'empresa' ? 'empresa' : 'tecnico';
-        const { data: signUpData, error } = await supabase.auth.signUp({
-          email: safeEmail,
-          password,
-          options: {
-            data: {
-              full_name: normalizedFullName,
-              business_name: normalizedBusinessName,
-              phone: normalizedAuthWhatsapp,
-              user_type: accessProfile,
-              profile: accessProfile,
-            },
-          },
-        });
-        if (error) throw error;
-        trackFunnelEvent('technical_registration_completed', {
-          access_profile: accessProfile,
-          session_started: Boolean(signUpData?.session),
-        });
-        const welcomeSent = signUpData?.session?.access_token
-          ? await notifyAccountWelcomeWhatsapp(signUpData.session.access_token, accessProfile, 'technical_register')
-          : false;
-        setAuthNotice(
-          signUpData?.session
-            ? welcomeSent
-              ? 'Cuenta creada. Ya puedes completar tu perfil. Te enviamos un WhatsApp de bienvenida.'
-              : 'Cuenta creada. Ya puedes completar tu perfil, cargar rubros y publicar tu vidriera.'
-            : 'Cuenta creada. Revisa tu correo para confirmar y luego entra: el perfil base se preparará al iniciar sesión.'
-        );
-        setPassword('');
+        return;
       }
+
+      const emailValidationResponse = await fetch('/api/auth/validate-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: safeEmail }),
+      });
+      const emailValidationPayload = await emailValidationResponse.json();
+      if (!emailValidationResponse.ok || emailValidationPayload?.valid !== true) {
+        const reason = String(emailValidationPayload?.code || 'email_validation_failed').slice(0, 60);
+        const errorMessage =
+          emailValidationPayload?.error || 'Ingresa un correo real para crear la cuenta.';
+        setRegistrationFieldErrors({ email: errorMessage });
+        if (registrationAttempt) {
+          trackFunnelEvent(
+            'technical_registration_validation_failed',
+            getTechnicalRegistrationEventContext(registrationAttempt, {
+              provider: 'email',
+              reason,
+              result: 'validation_failed',
+            })
+          );
+        }
+        setAuthError(errorMessage);
+        focusRegistrationField('email');
+        return;
+      }
+
+      setRegistrationEmailWarning(String(emailValidationPayload?.warning || '').trim());
+      const registrationValidation = getTechnicalRegistrationValidation();
+      const normalizedFullName = fullName.trim();
+      const normalizedBusinessName = businessName.trim();
+      const accessProfile = selectedAccessProfile === 'empresa' ? 'empresa' : 'tecnico';
+      const confirmationParams = new URLSearchParams({
+        registration: 'confirmed',
+        perfil: accessProfile,
+      });
+      const { data: signUpData, error } = await supabase.auth.signUp({
+        email: safeEmail,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/tecnicos?${confirmationParams.toString()}`,
+          data: {
+            full_name: normalizedFullName,
+            business_name: normalizedBusinessName,
+            phone: registrationValidation.normalizedWhatsapp,
+            country: registrationValidation.selectedCountry,
+            user_type: accessProfile,
+            profile: accessProfile,
+          },
+        },
+      });
+      if (error) throw error;
+
+      const returnedIdentities = signUpData?.user?.identities;
+      const hasNewIdentity = !Array.isArray(returnedIdentities) || returnedIdentities.length > 0;
+      const accountCreated = Boolean(
+        registrationAttempt &&
+          signUpData?.user &&
+          hasNewIdentity &&
+          isUserCreatedDuringTechnicalRegistrationAttempt(
+            signUpData.user.created_at,
+            registrationAttempt
+          )
+      );
+      if (!accountCreated || !registrationAttempt) {
+        if (registrationAttempt) {
+          trackFunnelEvent(
+            'technical_registration_existing_account',
+            getTechnicalRegistrationEventContext(registrationAttempt, {
+              provider: 'email',
+              result: 'existing_account',
+            })
+          );
+          consumeTechnicalRegistrationAttempt(registrationAttempt.attemptId);
+        }
+        setAuthMode('login');
+        setShowRegistrationEmail(false);
+        setPassword('');
+        setAuthNotice('Ese correo ya tiene una cuenta. Ingresa con tu contraseña para continuar.');
+        return;
+      }
+
+      trackFunnelEvent(
+        'technical_registration_completed',
+        getTechnicalRegistrationEventContext(registrationAttempt, {
+          provider: 'email',
+          session_started: Boolean(signUpData?.session),
+          result: 'account_created',
+        })
+      );
+      if (!signUpData?.session) {
+        trackFunnelEvent(
+          'technical_registration_confirmation_required',
+          getTechnicalRegistrationEventContext(registrationAttempt, {
+            provider: 'email',
+            result: 'confirmation_required',
+          })
+        );
+      }
+      consumeTechnicalRegistrationAttempt(registrationAttempt.attemptId);
+
+      const welcomeSent = signUpData?.session?.access_token
+        ? await notifyAccountWelcomeWhatsapp(
+            signUpData.session.access_token,
+            accessProfile,
+            'technical_register'
+          )
+        : false;
+      setAuthNotice(
+        signUpData?.session
+          ? welcomeSent
+            ? 'Cuenta creada. Ya puedes completar tu perfil. Te enviamos un WhatsApp de bienvenida.'
+            : 'Cuenta creada. Ya puedes completar tu perfil, cargar rubros y publicar tu vidriera.'
+          : 'Cuenta creada. Revisa tu correo para confirmar y luego entra: el perfil base se preparará al iniciar sesión.'
+      );
+      setPassword('');
     } catch (error: any) {
+      if (registrationAttempt && authMode === 'register') {
+        const errorText = String(error?.message || '').toLowerCase();
+        const isExistingAccount = /already registered|already exists|user already/.test(errorText);
+        trackFunnelEvent(
+          isExistingAccount
+            ? 'technical_registration_existing_account'
+            : 'technical_registration_failed',
+          getTechnicalRegistrationEventContext(registrationAttempt, {
+            provider: 'email',
+            reason: isExistingAccount ? 'existing_account' : 'supabase_error',
+            result: isExistingAccount ? 'existing_account' : 'failed',
+          })
+        );
+        if (isExistingAccount) {
+          consumeTechnicalRegistrationAttempt(registrationAttempt.attemptId);
+          setAuthMode('login');
+          setShowRegistrationEmail(false);
+          setPassword('');
+        }
+      }
       setAuthError(getFriendlyAuthErrorMessage(error, authMode));
     } finally {
       setAuthLoading(false);
@@ -12497,7 +12757,11 @@ export default function TechniciansPage() {
                           ) : (
                             <GoogleMark className="h-5 w-5" />
                           )}
-                          {googleAuthLoading ? 'Abriendo Google...' : selectedAccessFlowCopy?.googleLabel || 'Continuar con Google'}
+                          {googleAuthLoading
+                            ? 'Abriendo Google...'
+                            : authMode === 'register'
+                              ? 'Crear cuenta con Google'
+                              : 'Ingresar con Google'}
                         </button>
 
                         <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
@@ -12519,8 +12783,11 @@ export default function TechniciansPage() {
                                 setAuthMode('login');
                                 setQuickRegisterMode(false);
                                 setAuthError('');
-                                setAuthNotice('');
-                                setShowAuthPassword(false);
+                                 setAuthNotice('');
+                                 setShowAuthPassword(false);
+                                 setShowRegistrationEmail(false);
+                                 setRegistrationFieldErrors({});
+                                 setRegistrationEmailWarning('');
                               }}
                               className={`relative z-10 min-h-10 rounded-xl px-3 py-2 text-sm font-semibold transition ${
                               authMode === 'login'
@@ -12535,8 +12802,11 @@ export default function TechniciansPage() {
                               onClick={() => {
                                 setAuthMode('register');
                                 setAuthError('');
-                                setAuthNotice('');
-                                setShowAuthPassword(false);
+                                 setAuthNotice('');
+                                 setShowAuthPassword(false);
+                                 setShowRegistrationEmail(false);
+                                 setRegistrationFieldErrors({});
+                                 setRegistrationEmailWarning('');
                               }}
                               className={`relative z-10 min-h-10 rounded-xl px-3 py-2 text-sm font-semibold transition ${
                               authMode === 'register'
@@ -12548,82 +12818,146 @@ export default function TechniciansPage() {
                           </button>
                         </div>
 
-                        {authMode === 'register' && (
+                        {authMode === 'register' && !showRegistrationEmail && (
+                          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                            <p className="text-sm font-semibold text-slate-800">¿Prefieres usar correo?</p>
+                            <p className="mt-1 text-xs leading-5 text-slate-500">
+                              Conservamos nombre, negocio y WhatsApp para dejar preparado tu perfil inicial.
+                            </p>
+                            <button
+                              type="button"
+                              onClick={handleRegistrationEmailReveal}
+                              className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-[#ff8f1f] hover:text-[#8f4f08]"
+                            >
+                              <Mail className="h-4 w-4" />
+                              Crear con correo
+                            </button>
+                          </div>
+                        )}
+
+                        {authMode === 'register' && showRegistrationEmail && (
                           <div className="mt-4 space-y-3">
-                            <div className="relative">
-                              <User className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--ui-muted)]" />
-                              <input
-                                value={fullName}
-                                onChange={(event) => setFullName(event.target.value)}
-                                placeholder="Nombre completo"
-                                autoComplete="name"
-                                className={authIconInputClass.replace('mt-2 ', '')}
-                              />
+                            <div className="space-y-1">
+                              <div className="relative">
+                                <User className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--ui-muted)]" />
+                                <input
+                                  ref={registrationFullNameRef}
+                                  value={fullName}
+                                  onChange={(event) => {
+                                    setFullName(event.target.value);
+                                    setRegistrationFieldErrors((current) => ({ ...current, fullName: undefined }));
+                                  }}
+                                  placeholder="Nombre completo"
+                                  autoComplete="name"
+                                  aria-invalid={Boolean(registrationFieldErrors.fullName)}
+                                  className={authIconInputClass.replace('mt-2 ', '')}
+                                />
+                              </div>
+                              {registrationFieldErrors.fullName && (
+                                <p className="px-1 text-xs text-amber-700">{registrationFieldErrors.fullName}</p>
+                              )}
                             </div>
-                            <div className="relative">
-                              <Building2 className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--ui-muted)]" />
-                              <input
-                                value={businessName}
-                                onChange={(event) => setBusinessName(event.target.value)}
-                                placeholder={selectedAccessProfile === 'empresa' ? 'Nombre de la empresa' : 'Nombre del negocio'}
-                                autoComplete="organization"
-                                className={authIconInputClass.replace('mt-2 ', '')}
-                              />
+                            <div className="space-y-1">
+                              <div className="relative">
+                                <Building2 className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--ui-muted)]" />
+                                <input
+                                  ref={registrationBusinessNameRef}
+                                  value={businessName}
+                                  onChange={(event) => {
+                                    setBusinessName(event.target.value);
+                                    setRegistrationFieldErrors((current) => ({ ...current, businessName: undefined }));
+                                  }}
+                                  placeholder={selectedAccessProfile === 'empresa' ? 'Nombre de la empresa' : 'Nombre del negocio'}
+                                  autoComplete="organization"
+                                  aria-invalid={Boolean(registrationFieldErrors.businessName)}
+                                  className={authIconInputClass.replace('mt-2 ', '')}
+                                />
+                              </div>
+                              {registrationFieldErrors.businessName && (
+                                <p className="px-1 text-xs text-amber-700">{registrationFieldErrors.businessName}</p>
+                              )}
                             </div>
-                            <div className="relative">
-                              <MessageCircle className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--ui-muted)]" />
-                              <input
-                                value={authWhatsapp}
-                                onChange={(event) => setAuthWhatsapp(event.target.value)}
-                                placeholder="WhatsApp de contacto"
-                                inputMode="tel"
-                                autoComplete="tel"
-                                className={authIconInputClass.replace('mt-2 ', '')}
-                              />
+                            <div className="space-y-1">
+                              <div className="relative">
+                                <MessageCircle className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--ui-muted)]" />
+                                <input
+                                  ref={registrationWhatsappRef}
+                                  value={authWhatsapp}
+                                  onChange={(event) => {
+                                    setAuthWhatsapp(event.target.value);
+                                    setRegistrationFieldErrors((current) => ({ ...current, whatsapp: undefined }));
+                                  }}
+                                  placeholder="WhatsApp de contacto"
+                                  inputMode="tel"
+                                  autoComplete="tel"
+                                  aria-invalid={Boolean(registrationFieldErrors.whatsapp)}
+                                  className={authIconInputClass.replace('mt-2 ', '')}
+                                />
+                              </div>
+                              {registrationFieldErrors.whatsapp && (
+                                <p className="px-1 text-xs text-amber-700">{registrationFieldErrors.whatsapp}</p>
+                              )}
                             </div>
                             <p className="text-[11px] leading-5 text-slate-500">
                               {selectedAccessFlowCopy?.registerHint || 'Para crear la cuenta necesitamos nombre, negocio y WhatsApp. Luego completas rubros, zona exacta y datos comerciales dentro del panel.'}
                             </p>
-                            {technicalRegisterMissing.length > 0 && (
-                              <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">
-                                Falta completar: {technicalRegisterMissing.join(', ')}.
-                              </p>
-                            )}
                           </div>
                         )}
 
-                        <div className="mt-4 space-y-3">
-                          <div className="relative">
-                            <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--ui-muted)]" />
-                            <input
-                              value={email}
-                              onChange={(event) => setEmail(event.target.value)}
-                              type="email"
-                              placeholder="Correo"
-                              autoComplete="email"
-                              className={authIconInputClass.replace('mt-2 ', '')}
-                            />
+                        {(authMode === 'login' || showRegistrationEmail) && (
+                          <div className="mt-4 space-y-3">
+                            <div className="space-y-1">
+                              <div className="relative">
+                                <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--ui-muted)]" />
+                                <input
+                                  ref={registrationEmailRef}
+                                  value={email}
+                                  onChange={(event) => {
+                                    setEmail(event.target.value);
+                                    setRegistrationFieldErrors((current) => ({ ...current, email: undefined }));
+                                  }}
+                                  type="email"
+                                  placeholder="Correo"
+                                  autoComplete="email"
+                                  aria-invalid={Boolean(registrationFieldErrors.email)}
+                                  className={authIconInputClass.replace('mt-2 ', '')}
+                                />
+                              </div>
+                              {registrationFieldErrors.email && (
+                                <p className="px-1 text-xs text-amber-700">{registrationFieldErrors.email}</p>
+                              )}
+                            </div>
+                            <div className="space-y-1">
+                              <div className="relative">
+                                <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--ui-muted)]" />
+                                <input
+                                  ref={registrationPasswordRef}
+                                  value={password}
+                                  onChange={(event) => {
+                                    setPassword(event.target.value);
+                                    setRegistrationFieldErrors((current) => ({ ...current, password: undefined }));
+                                  }}
+                                  type={showAuthPassword ? 'text' : 'password'}
+                                  placeholder="Contraseña"
+                                  autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
+                                  aria-invalid={Boolean(registrationFieldErrors.password)}
+                                  className={authIconInputClass.replace('mt-2 ', '').replace('pr-4', 'pr-12')}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setShowAuthPassword((current) => !current)}
+                                  aria-label={showAuthPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                                  className="absolute right-3 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                                >
+                                  {showAuthPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </button>
+                              </div>
+                              {registrationFieldErrors.password && (
+                                <p className="px-1 text-xs text-amber-700">{registrationFieldErrors.password}</p>
+                              )}
+                            </div>
                           </div>
-                          <div className="relative">
-                            <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--ui-muted)]" />
-                            <input
-                              value={password}
-                              onChange={(event) => setPassword(event.target.value)}
-                              type={showAuthPassword ? 'text' : 'password'}
-                              placeholder="Contrasena"
-                              autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
-                              className={authIconInputClass.replace('mt-2 ', '').replace('pr-4', 'pr-12')}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowAuthPassword((current) => !current)}
-                              aria-label={showAuthPassword ? 'Ocultar contrasena' : 'Mostrar contrasena'}
-                              className="absolute right-3 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-                            >
-                              {showAuthPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                            </button>
-                          </div>
-                        </div>
+                        )}
 
                         {authMode === 'login' && (
                           <div className="mt-3 flex justify-end">
@@ -12640,34 +12974,43 @@ export default function TechniciansPage() {
                         )}
 
                         {authNotice && (
-                          <p className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-700">
+                          <p aria-live="polite" className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-700">
                             {authNotice}
                           </p>
                         )}
+                        {registrationEmailWarning && authMode === 'register' && (
+                          <p aria-live="polite" className="mt-4 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs leading-5 text-sky-800">
+                            {registrationEmailWarning}
+                          </p>
+                        )}
                         {authError && (
-                          <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">
+                          <p aria-live="assertive" className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">
                             {authError}
                           </p>
                         )}
 
-                        <button
-                          type="button"
-                          onClick={handleEmailAuth}
-                          disabled={authLoading || googleAuthLoading || technicalRegisterBlocked}
-                          className="mt-5 inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl bg-[#ff8f1f] px-4 py-3 text-sm font-semibold text-[#2a0338] shadow-[0_18px_40px_-24px_rgba(255,143,31,0.78)] transition hover:bg-[#ffad56] disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          {authLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-                          {authLoading
-                            ? 'Procesando...'
-                            : authMode === 'login'
-                              ? selectedAccessFlowCopy?.loginLabel || 'Ingresar'
-                              : selectedAccessFlowCopy?.registerLabel || 'Crear cuenta'}
-                          {!authLoading && <ArrowRight className="h-4 w-4" />}
-                        </button>
-                        <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] font-semibold text-slate-400">
-                          <ShieldCheck className="h-3.5 w-3.5 text-[#c48635]" />
-                          {selectedAccessFlowCopy?.secureLabel || 'Acceso seguro UrbanFix'}
-                        </p>
+                        {(authMode === 'login' || showRegistrationEmail) && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={handleEmailAuth}
+                              disabled={authLoading || googleAuthLoading}
+                              className="mt-5 inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl bg-[#ff8f1f] px-4 py-3 text-sm font-semibold text-[#2a0338] shadow-[0_18px_40px_-24px_rgba(255,143,31,0.78)] transition hover:bg-[#ffad56] disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {authLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                              {authLoading
+                                ? 'Procesando...'
+                                : authMode === 'login'
+                                  ? selectedAccessFlowCopy?.loginLabel || 'Ingresar'
+                                  : selectedAccessFlowCopy?.registerLabel || 'Crear cuenta'}
+                              {!authLoading && <ArrowRight className="h-4 w-4" />}
+                            </button>
+                            <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] font-semibold text-slate-400">
+                              <ShieldCheck className="h-3.5 w-3.5 text-[#c48635]" />
+                              {selectedAccessFlowCopy?.secureLabel || 'Acceso seguro UrbanFix'}
+                            </p>
+                          </>
+                        )}
                     </div>
                   </div>
                 )}

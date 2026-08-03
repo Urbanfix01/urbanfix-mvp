@@ -39,7 +39,9 @@ type AccessOption = {
 
 const TECH_PANEL_PATH = '/tecnicos';
 const buildTechnicianAccessHref = (mode: 'login' | 'register') =>
-  `/tecnicos?mode=${mode}&perfil=tecnico&next=${encodeURIComponent(TECH_PANEL_PATH)}`;
+  `/tecnicos?mode=${mode}&perfil=tecnico&next=${encodeURIComponent(TECH_PANEL_PATH)}${
+    mode === 'register' ? '&source=portal' : ''
+  }`;
 
 const ACCESS_OPTIONS: AccessOption[] = [
   {

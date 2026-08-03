@@ -3059,6 +3059,32 @@ export default function AdminPage() {
         prevCompletionRate: number;
         dropOffRate: number;
       }[];
+      technicalAuthAccounts: {
+        status: 'ready' | 'error';
+        current: {
+          total: number;
+          technicians: number;
+          companies: number;
+          providers: Record<string, number>;
+        };
+        previous: {
+          total: number;
+          technicians: number;
+          companies: number;
+          providers: Record<string, number>;
+        };
+        providers: {
+          key: string;
+          label: string;
+          count: number;
+          prevCount: number;
+        }[];
+        attributedCompletions: number;
+        prevAttributedCompletions: number;
+        instrumentationCoverage: number;
+        prevInstrumentationCoverage: number;
+        error: string | null;
+      };
     };
     retention?: {
       activeAccounts: number;
@@ -7004,7 +7030,7 @@ export default function AdminPage() {
       },
       {
         key: 'registration_completed',
-        label: 'Crean una cuenta',
+        label: 'Crean cuenta atribuida',
         value: activityData.registrationConversion?.completed || 0,
         source: 'UrbanFix',
       },
@@ -13537,7 +13563,7 @@ export default function AdminPage() {
                             previous: activityData.registrationConversion.prevStarted,
                           },
                           {
-                            label: 'Cuentas creadas',
+                            label: 'Cuentas atribuidas',
                             value: activityData.registrationConversion.completed,
                             previous: activityData.registrationConversion.prevCompleted,
                           },
@@ -13588,6 +13614,76 @@ export default function AdminPage() {
                           <p>
                             Los inicios de registro comienzan a medirse desde esta actualización. Las cuentas
                             creadas anteriormente siguen visibles, pero no se usan para calcular el abandono.
+                          </p>
+                        </div>
+                      )}
+
+                      {activityData.registrationConversion.technicalAuthAccounts?.status === 'ready' ? (
+                        <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                                Fuente real · Supabase Auth
+                              </p>
+                              <p className="mt-1 text-sm font-semibold text-slate-900">
+                                Cuentas técnicas creadas en el período
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-2xl font-semibold text-slate-950">
+                                {formatNumber(activityData.registrationConversion.technicalAuthAccounts.current.total)}
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                anterior {formatNumber(activityData.registrationConversion.technicalAuthAccounts.previous.total)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                            <div className="rounded-xl border border-slate-200 bg-white px-3 py-3">
+                              <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400">Técnicos</p>
+                              <p className="mt-1 text-lg font-semibold text-slate-900">
+                                {formatNumber(activityData.registrationConversion.technicalAuthAccounts.current.technicians)}
+                              </p>
+                            </div>
+                            <div className="rounded-xl border border-slate-200 bg-white px-3 py-3">
+                              <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400">Empresas</p>
+                              <p className="mt-1 text-lg font-semibold text-slate-900">
+                                {formatNumber(activityData.registrationConversion.technicalAuthAccounts.current.companies)}
+                              </p>
+                            </div>
+                            <div className="rounded-xl border border-slate-200 bg-white px-3 py-3">
+                              <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400">Cobertura atribuida</p>
+                              <p className="mt-1 text-lg font-semibold text-slate-900">
+                                {activityData.registrationConversion.technicalAuthAccounts.instrumentationCoverage
+                                  .toFixed(1)
+                                  .replace('.', ',')}%
+                              </p>
+                            </div>
+                          </div>
+                          {activityData.registrationConversion.technicalAuthAccounts.providers.length > 0 && (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {activityData.registrationConversion.technicalAuthAccounts.providers.map((provider) => (
+                                <span
+                                  key={provider.key}
+                                  className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600"
+                                >
+                                  {provider.label}: {formatNumber(provider.count)}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          <p className="mt-3 text-xs leading-5 text-slate-500">
+                            {formatNumber(activityData.registrationConversion.technicalAuthAccounts.attributedCompletions)} de{' '}
+                            {formatNumber(activityData.registrationConversion.technicalAuthAccounts.current.total)} altas reales
+                            quedaron unidas a un intento explícito. La diferencia se muestra como cobertura, no como conversión estimada.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="mt-5 flex items-start gap-3 border-l-2 border-amber-400 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                          <CircleHelp className="mt-0.5 h-4 w-4 shrink-0" />
+                          <p>
+                            {activityData.registrationConversion.technicalAuthAccounts?.error ||
+                              'No se pudo consultar Supabase Auth. El embudo de eventos continúa disponible sin estimar cuentas.'}
                           </p>
                         </div>
                       )}

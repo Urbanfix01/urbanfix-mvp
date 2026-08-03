@@ -19,6 +19,7 @@
     "marketplace-flow:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-marketplace-flow.js",
     "profile-indexing:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-profile-indexing.js",
     "post-auth-redirects:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-post-auth-redirects.js",
+    "technical-registration-flow:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-technical-registration-flow.js",
     "secret-boundaries:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-secret-boundaries.js",
     "security-headers:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-security-headers.js",
     "supabase-client:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-supabase-client-guards.js",

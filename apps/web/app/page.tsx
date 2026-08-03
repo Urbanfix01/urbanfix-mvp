@@ -224,7 +224,7 @@ export default function HomePage() {
             </div>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <a
-                href="/tecnicos?mode=register&perfil=tecnico&next=%2Ftecnicos"
+                href="/tecnicos?mode=register&perfil=tecnico&next=%2Ftecnicos&source=home"
                 className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#ff8f1f] px-7 text-sm font-extrabold uppercase tracking-normal text-[#21002f] shadow-[0_18px_42px_rgba(255,143,31,0.24)] transition hover:bg-[#ffbf7a]"
               >
                 Crear perfil t&eacute;cnico

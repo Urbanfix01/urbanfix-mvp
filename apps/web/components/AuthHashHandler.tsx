@@ -1,7 +1,13 @@
 'use client';
 
 import { useEffect } from 'react';
-import { POST_AUTH_REDIRECT_KEY, sanitizeNextPath } from '../lib/auth/post-auth';
+import type { Session } from '@supabase/supabase-js';
+import {
+  getAuthAccessProfileIntent,
+  getAuthUserProfileFromMetadata,
+  POST_AUTH_REDIRECT_KEY,
+  sanitizeNextPath,
+} from '../lib/auth/post-auth';
 import { hasSupabaseConfig, supabase } from '../lib/supabase/supabase';
 
 const getOAuthTokensFromHash = () => {
@@ -57,6 +63,25 @@ const resolvePostAuthRedirect = (cleanedPath: string, isRecovery: boolean) => {
   return '/tecnicos';
 };
 
+const applyIntendedAccessProfile = async (session: Session | null) => {
+  if (!session?.user) return;
+  const intendedProfile = getAuthAccessProfileIntent();
+  if (intendedProfile !== 'tecnico' && intendedProfile !== 'empresa') return;
+  const currentProfile = getAuthUserProfileFromMetadata(session.user.user_metadata);
+  if (currentProfile === 'tecnico' || currentProfile === 'empresa') return;
+
+  const { error } = await supabase.auth.updateUser({
+    data: {
+      ...session.user.user_metadata,
+      user_type: intendedProfile,
+      profile: intendedProfile,
+    },
+  });
+  if (error) {
+    console.error('Error guardando el perfil de acceso OAuth:', error);
+  }
+};
+
 export default function AuthHashHandler() {
   useEffect(() => {
     const tokens = getOAuthTokensFromHash();
@@ -67,23 +92,22 @@ export default function AuthHashHandler() {
       return;
     }
 
-    const basePath = window.location.pathname || '/';
     const cleanedPath = stripAuthParams();
     const isRecovery =
       tokens?.type === 'recovery' ||
       code?.type === 'recovery' ||
-      new URLSearchParams(window.location.search).get('recovery') === '1' ||
-      (basePath === '/' && !!code && !code.type);
+      new URLSearchParams(window.location.search).get('recovery') === '1';
     const redirectPath = resolvePostAuthRedirect(cleanedPath, isRecovery);
 
     if (tokens) {
       supabase.auth
         .setSession(tokens)
-        .then(({ error }) => {
+        .then(async ({ data, error }) => {
           if (error) {
             console.error('Error guardando sesion OAuth:', error);
             return;
           }
+          await applyIntendedAccessProfile(data.session);
           window.history.replaceState({}, document.title, redirectPath);
           window.location.replace(redirectPath);
         })
@@ -96,11 +120,12 @@ export default function AuthHashHandler() {
     if (code) {
       supabase.auth
         .exchangeCodeForSession(window.location.href)
-        .then(({ error }) => {
+        .then(async ({ data, error }) => {
           if (error) {
             console.error('Error intercambiando code:', error);
             return;
           }
+          await applyIntendedAccessProfile(data.session);
           window.history.replaceState({}, document.title, redirectPath);
           window.location.replace(redirectPath);
         })

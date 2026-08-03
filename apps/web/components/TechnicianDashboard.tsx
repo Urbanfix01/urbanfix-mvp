@@ -206,7 +206,7 @@ export default function TechnicianDashboard() {
                 Iniciar sesión
               </button>
               <button
-                onClick={() => (window.location.href = '/tecnicos?mode=register&perfil=tecnico&next=%2Ftecnicos')}
+                onClick={() => (window.location.href = '/tecnicos?mode=register&perfil=tecnico&next=%2Ftecnicos&source=technician_dashboard')}
                 className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 font-semibold text-slate-700 hover:bg-slate-50 transition"
               >
                 Crear cuenta

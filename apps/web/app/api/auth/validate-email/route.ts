@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { resolve4, resolve6, resolveMx } from 'node:dns/promises';
+import { enforceRateLimit } from '@/lib/api/rate-limit';
+import { readLimitedJsonBody } from '@/lib/api/read-json-body';
 
 export const runtime = 'nodejs';
 
@@ -24,41 +26,74 @@ const BLOCKED_TLDS = new Set(['test', 'invalid', 'example', 'localhost', 'local'
 
 const normalizeEmail = (value: unknown) => String(value || '').trim().toLowerCase();
 
-const hasResolvableMailDomain = async (domain: string) => {
+type DnsResolutionResult = 'resolvable' | 'not_found' | 'temporarily_unavailable';
+
+const getDnsErrorCode = (error: unknown) =>
+  String((error as { code?: string } | null)?.code || '').toUpperCase();
+
+const isDefinitiveDnsMiss = (error: unknown) =>
+  ['ENODATA', 'ENOTFOUND', 'ENONAME', 'NOTFOUND', 'NXDOMAIN'].includes(getDnsErrorCode(error));
+
+const resolveMailDomain = async (domain: string): Promise<DnsResolutionResult> => {
+  const errors: unknown[] = [];
+
   try {
     const mx = await resolveMx(domain);
-    if (mx.some((record) => record.exchange && Number.isFinite(Number(record.priority)))) return true;
-  } catch {
-    // Some valid domains can receive mail via address records. Check them before rejecting.
+    if (mx.some((record) => record.exchange && Number.isFinite(Number(record.priority)))) {
+      return 'resolvable';
+    }
+  } catch (error) {
+    errors.push(error);
+    // Some valid domains receive mail through address records.
   }
 
   try {
     const records = await resolve4(domain);
-    if (records.length > 0) return true;
-  } catch {
-    // Continue to IPv6 fallback.
+    if (records.length > 0) return 'resolvable';
+  } catch (error) {
+    errors.push(error);
+    // Continue to IPv6 before deciding whether the failure is definitive.
   }
 
   try {
     const records = await resolve6(domain);
-    return records.length > 0;
-  } catch {
-    return false;
+    if (records.length > 0) return 'resolvable';
+  } catch (error) {
+    errors.push(error);
   }
+
+  return errors.length > 0 && errors.every(isDefinitiveDnsMiss)
+    ? 'not_found'
+    : 'temporarily_unavailable';
 };
 
 export async function POST(request: NextRequest) {
-  let email = '';
-
-  try {
-    const body = await request.json();
-    email = normalizeEmail(body?.email);
-  } catch {
-    email = '';
+  const rateLimit = enforceRateLimit(request, {
+    keyPrefix: 'auth-validate-email',
+    max: 30,
+    windowMs: 60 * 1000,
+  });
+  if (!rateLimit.ok) {
+    return NextResponse.json(
+      { valid: false, code: 'rate_limited', error: rateLimit.error },
+      { status: rateLimit.status, headers: rateLimit.headers }
+    );
   }
 
+  const bodyResult = await readLimitedJsonBody<{ email?: unknown }>(request, { maxBytes: 2 * 1024 });
+  if (!bodyResult.ok) {
+    return NextResponse.json(
+      { valid: false, code: 'invalid_request', error: bodyResult.error },
+      { status: bodyResult.status }
+    );
+  }
+  const email = normalizeEmail(bodyResult.body?.email);
+
   if (!EMAIL_PATTERN.test(email)) {
-    return NextResponse.json({ valid: false, error: 'Ingresa un correo válido.' }, { status: 400 });
+    return NextResponse.json(
+      { valid: false, code: 'invalid_format', error: 'Ingresa un correo válido.' },
+      { status: 400 }
+    );
   }
 
   const domain = email.split('@')[1] || '';
@@ -67,18 +102,30 @@ export async function POST(request: NextRequest) {
 
   if (domainParts.length < 2 || BLOCKED_DOMAINS.has(domain) || BLOCKED_TLDS.has(tld)) {
     return NextResponse.json(
-      { valid: false, error: 'Ingresa un correo real para crear la cuenta.' },
+      { valid: false, code: 'blocked_domain', error: 'Ingresa un correo real para crear la cuenta.' },
       { status: 400 }
     );
   }
 
-  const hasMailDomain = await hasResolvableMailDomain(domain);
-  if (!hasMailDomain) {
+  const dnsResult = await resolveMailDomain(domain);
+  if (dnsResult === 'not_found') {
     return NextResponse.json(
-      { valid: false, error: 'No pudimos validar el dominio del correo. Usa una cuenta real.' },
+      {
+        valid: false,
+        code: 'domain_not_found',
+        error: 'No pudimos encontrar el dominio del correo. Revisa que esté bien escrito.',
+      },
       { status: 400 }
     );
   }
 
-  return NextResponse.json({ valid: true });
+  if (dnsResult === 'temporarily_unavailable') {
+    return NextResponse.json({
+      valid: true,
+      code: 'dns_temporarily_unavailable',
+      warning: 'No pudimos verificar el dominio ahora. Supabase confirmará que el correo te pertenece.',
+    });
+  }
+
+  return NextResponse.json({ valid: true, code: 'validated' });
 }

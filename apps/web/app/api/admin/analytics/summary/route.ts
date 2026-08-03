@@ -33,8 +33,84 @@ const chunk = <T,>(items: T[], size: number) => {
   return chunks;
 };
 
+type TechnicalAuthAccountRange = {
+  total: number;
+  technicians: number;
+  companies: number;
+  providers: Record<string, number>;
+};
+
+const createEmptyTechnicalAuthAccountRange = (): TechnicalAuthAccountRange => ({
+  total: 0,
+  technicians: 0,
+  companies: 0,
+  providers: {},
+});
+
+const getAuthAccountProfile = (authUser: any) =>
+  String(authUser?.user_metadata?.user_type || authUser?.user_metadata?.profile || '')
+    .trim()
+    .toLowerCase();
+
+const getAuthAccountProvider = (authUser: any) =>
+  String(authUser?.app_metadata?.provider || authUser?.identities?.[0]?.provider || 'other')
+    .trim()
+    .toLowerCase() || 'other';
+
+const summarizeTechnicalAuthAccounts = (
+  authUsers: any[],
+  start: Date,
+  end: Date,
+  excludedUserIds: Set<string>,
+  excludedEmails: Set<string>
+) => {
+  const summary = createEmptyTechnicalAuthAccountRange();
+  authUsers.forEach((authUser) => {
+    const authUserId = String(authUser?.id || '').trim();
+    const email = String(authUser?.email || '').trim().toLowerCase();
+    const createdAt = new Date(authUser?.created_at || '').getTime();
+    const profile = getAuthAccountProfile(authUser);
+    if (
+      !authUserId ||
+      excludedUserIds.has(authUserId) ||
+      (email && excludedEmails.has(email)) ||
+      !Number.isFinite(createdAt) ||
+      createdAt < start.getTime() ||
+      createdAt > end.getTime() ||
+      (profile !== 'tecnico' && profile !== 'empresa')
+    ) {
+      return;
+    }
+
+    summary.total += 1;
+    if (profile === 'empresa') summary.companies += 1;
+    else summary.technicians += 1;
+    const provider = getAuthAccountProvider(authUser);
+    summary.providers[provider] = (summary.providers[provider] || 0) + 1;
+  });
+  return summary;
+};
+
+const listAllAuthUsers = async () => {
+  const authUsers: any[] = [];
+  for (let page = 1; page <= 100; page += 1) {
+    const { data, error } = await supabase!.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) throw error;
+    const batch = data?.users || [];
+    authUsers.push(...batch);
+    if (batch.length < 1000) break;
+  }
+  return authUsers;
+};
+
 const technicalRoleEvents = new Set([
   'technical_registration_started',
+  'technical_registration_method_selected',
+  'technical_registration_submitted',
+  'technical_registration_validation_failed',
+  'technical_registration_confirmation_required',
+  'technical_registration_existing_account',
+  'technical_registration_failed',
   'technical_registration_completed',
   'technical_profile_onboarding_started',
   'technical_profile_identity_completed',
@@ -43,8 +119,6 @@ const technicalRoleEvents = new Set([
   'technical_profile_location_completed',
   'technical_profile_completed',
   'technical_profile_published',
-  'home_register_start',
-  'home_register_start_from_empresas',
 ]);
 const clientRoleEvents = new Set([
   'client_registration_started',
@@ -111,6 +185,12 @@ const getAnalyticsSection = (pathValue: unknown) => {
 
 const funnelEventLabels: Record<string, string> = {
   technical_registration_started: 'Inicios de registro técnico',
+  technical_registration_method_selected: 'Métodos de registro elegidos',
+  technical_registration_submitted: 'Registros técnicos enviados',
+  technical_registration_validation_failed: 'Validaciones de registro fallidas',
+  technical_registration_confirmation_required: 'Altas pendientes de confirmación',
+  technical_registration_existing_account: 'Cuentas existentes detectadas',
+  technical_registration_failed: 'Errores de alta técnica',
   client_registration_started: 'Inicios de registro de clientes',
   technical_registration_completed: 'Registros técnicos',
   client_registration_completed: 'Registros de clientes',
@@ -141,8 +221,6 @@ const funnelEventLabels: Record<string, string> = {
   home_audience_empresas: 'Interés de empresas',
   home_audience_clientes: 'Interés en contratar',
   home_open_guia_precios: 'Aperturas de valores de mano de obra',
-  home_register_start: 'Inicios de registro técnico',
-  home_register_start_from_empresas: 'Inicios de registro de empresa',
   home_download_android_click: 'Intentos de descarga Android',
   marketplace_search_performed: 'Búsquedas filtradas en el mapa',
   marketplace_technician_selected: 'Técnicos seleccionados en el mapa',
@@ -950,6 +1028,65 @@ export async function GET(request: NextRequest) {
     sections: sectionRetentionRows,
   };
 
+  const getTechnicalRegistrationJourneyKey = (event: any) => {
+    const context =
+      event?.event_context &&
+      typeof event.event_context === 'object' &&
+      !Array.isArray(event.event_context)
+        ? event.event_context
+        : {};
+    const attemptId = String(context.attempt_id || '').trim().slice(0, 120);
+    if (attemptId) return `attempt:${attemptId}`;
+    const sessionId = String(event?.session_id || '').trim().slice(0, 120);
+    return sessionId ? `session:${sessionId}` : '';
+  };
+
+  const summarizeTechnicalRegistrationAttempts = (rows: any[]) => {
+    const excludedJourneyKeys = new Set<string>();
+    rows.forEach((event) => {
+      const eventUserId = String(event?.user_id || '').trim();
+      if (!eventUserId || !excludedRetentionUserIds.has(eventUserId)) return;
+      const journeyKey = getTechnicalRegistrationJourneyKey(event);
+      if (journeyKey) excludedJourneyKeys.add(journeyKey);
+    });
+
+    const starts = new Map<string, number>();
+    const completions = new Map<string, number>();
+    rows.forEach((event) => {
+      const eventName = String(event?.event_name || '').trim();
+      if (
+        eventName !== 'technical_registration_started' &&
+        eventName !== 'technical_registration_completed'
+      )
+        return;
+      const journeyKey = getTechnicalRegistrationJourneyKey(event);
+      const createdAt = new Date(event?.created_at || '').getTime();
+      if (!journeyKey || excludedJourneyKeys.has(journeyKey) || !Number.isFinite(createdAt)) return;
+
+      if (eventName === 'technical_registration_started') {
+        const previous = starts.get(journeyKey);
+        if (previous === undefined || createdAt < previous) starts.set(journeyKey, createdAt);
+        return;
+      }
+      const previous = completions.get(journeyKey);
+      if (previous === undefined || createdAt < previous) completions.set(journeyKey, createdAt);
+    });
+
+    const completedKeys = new Set<string>();
+    starts.forEach((startedAt, journeyKey) => {
+      const completedAt = completions.get(journeyKey);
+      if (completedAt !== undefined && completedAt >= startedAt) completedKeys.add(journeyKey);
+    });
+    return { startedKeys: new Set(starts.keys()), completedKeys };
+  };
+
+  const currentTechnicalRegistrationAttempts = summarizeTechnicalRegistrationAttempts(
+    funnelEvents || []
+  );
+  const previousTechnicalRegistrationAttempts = summarizeTechnicalRegistrationAttempts(
+    prevFunnelEvents || []
+  );
+
   const funnelCounts = new Map<string, { count: number; sessions: Set<string> }>();
   const prevFunnelCounts = new Map<string, { count: number; sessions: Set<string> }>();
 
@@ -1043,6 +1180,49 @@ export async function GET(request: NextRequest) {
     };
   };
 
+  const summarizeTechnicalRegistrationJourney = (
+    definition: (typeof funnelJourneyDefinitions)[number]
+  ) => {
+    const started = currentTechnicalRegistrationAttempts.startedKeys.size;
+    const completed = currentTechnicalRegistrationAttempts.completedKeys.size;
+    const prevStarted = previousTechnicalRegistrationAttempts.startedKeys.size;
+    const prevCompleted = previousTechnicalRegistrationAttempts.completedKeys.size;
+    const completionRate = started > 0 ? Math.min(100, (completed / started) * 100) : 0;
+    const prevCompletionRate =
+      prevStarted > 0 ? Math.min(100, (prevCompleted / prevStarted) * 100) : 0;
+    return {
+      key: definition.key,
+      label: definition.label,
+      description: definition.description,
+      recommendation:
+        'Comparar intentos atribuidos con las cuentas reales de Supabase Auth y revisar el motivo de cada fallo.',
+      stages: [
+        {
+          key: 'technical_registration_started',
+          label: 'Inicio',
+          count: started,
+          prevCount: prevStarted,
+          rate: started > 0 ? 100 : 0,
+          dropOffRate: 0,
+        },
+        {
+          key: 'technical_registration_completed',
+          label: 'Cuenta creada',
+          count: completed,
+          prevCount: prevCompleted,
+          rate: completionRate,
+          dropOffRate: Math.max(0, 100 - completionRate),
+        },
+      ],
+      completionRate,
+      prevCompletionRate,
+      dropOffRate: Math.max(0, 100 - completionRate),
+      hasData: started > 0,
+      weakestStageKey: completed < started ? 'technical_registration_completed' : null,
+      weakestStageLabel: completed < started ? 'Cuenta creada' : null,
+    };
+  };
+
   const funnel = {
     totalEvents: Array.from(funnelCounts.values()).reduce((sum, item) => sum + item.count, 0),
     prevTotalEvents: Array.from(prevFunnelCounts.values()).reduce((sum, item) => sum + item.count, 0),
@@ -1065,7 +1245,9 @@ export async function GET(request: NextRequest) {
       sessions: funnelCounts.get(step.key)?.sessions.size || 0,
     })),
     journeys: funnelJourneyDefinitions.map((journey) =>
-      summarizeJourney(journey, funnelCounts, prevFunnelCounts)
+      journey.key === 'technical_registration'
+        ? summarizeTechnicalRegistrationJourney(journey)
+        : summarizeJourney(journey, funnelCounts, prevFunnelCounts)
     ),
     topEvents: Array.from(funnelCounts.entries())
       .map(([event_name, stats]) => ({
@@ -1388,6 +1570,85 @@ export async function GET(request: NextRequest) {
       .slice(0, 8),
   };
 
+  let technicalAuthAccounts: {
+    status: 'ready' | 'error';
+    current: TechnicalAuthAccountRange;
+    previous: TechnicalAuthAccountRange;
+    providers: { key: string; label: string; count: number; prevCount: number }[];
+    attributedCompletions: number;
+    prevAttributedCompletions: number;
+    instrumentationCoverage: number;
+    prevInstrumentationCoverage: number;
+    error: string | null;
+  } = {
+    status: 'error',
+    current: createEmptyTechnicalAuthAccountRange(),
+    previous: createEmptyTechnicalAuthAccountRange(),
+    providers: [],
+    attributedCompletions: currentTechnicalRegistrationAttempts.completedKeys.size,
+    prevAttributedCompletions: previousTechnicalRegistrationAttempts.completedKeys.size,
+    instrumentationCoverage: 0,
+    prevInstrumentationCoverage: 0,
+    error: 'No se pudo consultar Supabase Auth.',
+  };
+
+  try {
+    const authUsers = await listAllAuthUsers();
+    const current = summarizeTechnicalAuthAccounts(
+      authUsers,
+      startDate,
+      endDate,
+      excludedRetentionUserIds,
+      excludedEmails
+    );
+    const previous = summarizeTechnicalAuthAccounts(
+      authUsers,
+      prevStart,
+      prevEnd,
+      excludedRetentionUserIds,
+      excludedEmails
+    );
+    const providerKeys = Array.from(
+      new Set([...Object.keys(current.providers), ...Object.keys(previous.providers)])
+    );
+    const providerLabels: Record<string, string> = {
+      email: 'Correo',
+      google: 'Google',
+      apple: 'Apple',
+      phone: 'Teléfono',
+      other: 'Otro',
+    };
+    const attributedCompletions = currentTechnicalRegistrationAttempts.completedKeys.size;
+    const prevAttributedCompletions = previousTechnicalRegistrationAttempts.completedKeys.size;
+    technicalAuthAccounts = {
+      status: 'ready',
+      current,
+      previous,
+      providers: providerKeys
+        .map((provider) => ({
+          key: provider,
+          label: providerLabels[provider] || provider,
+          count: current.providers[provider] || 0,
+          prevCount: previous.providers[provider] || 0,
+        }))
+        .sort((a, b) => b.count - a.count || b.prevCount - a.prevCount || a.label.localeCompare(b.label, 'es')),
+      attributedCompletions,
+      prevAttributedCompletions,
+      instrumentationCoverage:
+        current.total > 0 ? Math.min(100, (attributedCompletions / current.total) * 100) : 0,
+      prevInstrumentationCoverage:
+        previous.total > 0
+          ? Math.min(100, (prevAttributedCompletions / previous.total) * 100)
+          : 0,
+      error: null,
+    };
+  } catch (authError: any) {
+    technicalAuthAccounts = {
+      ...technicalAuthAccounts,
+      error: String(authError?.message || 'No se pudo consultar Supabase Auth.').slice(0, 180),
+    };
+  }
+
   const buildRegistrationRole = (
     key: 'technical' | 'client',
     label: string,
@@ -1415,44 +1676,45 @@ export async function GET(request: NextRequest) {
     };
   };
 
+  const technicalRegistrationStarted = currentTechnicalRegistrationAttempts.startedKeys.size;
+  const technicalRegistrationCompleted = currentTechnicalRegistrationAttempts.completedKeys.size;
+  const prevTechnicalRegistrationStarted = previousTechnicalRegistrationAttempts.startedKeys.size;
+  const prevTechnicalRegistrationCompleted = previousTechnicalRegistrationAttempts.completedKeys.size;
+  const technicalRegistrationRate =
+    technicalRegistrationStarted > 0
+      ? Math.min(100, (technicalRegistrationCompleted / technicalRegistrationStarted) * 100)
+      : 0;
+  const prevTechnicalRegistrationRate =
+    prevTechnicalRegistrationStarted > 0
+      ? Math.min(100, (prevTechnicalRegistrationCompleted / prevTechnicalRegistrationStarted) * 100)
+      : 0;
+  const clientRegistrationRole = buildRegistrationRole(
+    'client',
+    'Clientes',
+    ['client_registration_started'],
+    ['client_registration_completed']
+  );
   const registrationRoles = [
-    buildRegistrationRole(
-      'technical',
-      'Técnicos',
-      ['technical_registration_started', 'home_register_start', 'home_register_start_from_empresas'],
-      ['technical_registration_completed']
-    ),
-    buildRegistrationRole(
-      'client',
-      'Clientes',
-      ['client_registration_started'],
-      ['client_registration_completed']
-    ),
+    {
+      key: 'technical' as const,
+      label: 'Técnicos y empresas',
+      started: technicalRegistrationStarted,
+      completed: technicalRegistrationCompleted,
+      prevStarted: prevTechnicalRegistrationStarted,
+      prevCompleted: prevTechnicalRegistrationCompleted,
+      completionRate: technicalRegistrationRate,
+      prevCompletionRate: prevTechnicalRegistrationRate,
+      dropOffRate:
+        technicalRegistrationStarted > 0 ? Math.max(0, 100 - technicalRegistrationRate) : 0,
+    },
+    clientRegistrationRole,
   ];
-  const registrationStartedSessions = collectSessions(funnelCounts, [
-    'technical_registration_started',
-    'home_register_start',
-    'home_register_start_from_empresas',
-    'client_registration_started',
-  ]);
-  const prevRegistrationStartedSessions = collectSessions(prevFunnelCounts, [
-    'technical_registration_started',
-    'home_register_start',
-    'home_register_start_from_empresas',
-    'client_registration_started',
-  ]);
-  const registrationCompletedSessions = collectSessions(funnelCounts, [
-    'technical_registration_completed',
-    'client_registration_completed',
-  ]);
-  const prevRegistrationCompletedSessions = collectSessions(prevFunnelCounts, [
-    'technical_registration_completed',
-    'client_registration_completed',
-  ]);
-  const registrationStarted = registrationStartedSessions.size;
-  const registrationCompleted = registrationCompletedSessions.size;
-  const prevRegistrationStarted = prevRegistrationStartedSessions.size;
-  const prevRegistrationCompleted = prevRegistrationCompletedSessions.size;
+  const registrationStarted = technicalRegistrationStarted + clientRegistrationRole.started;
+  const registrationCompleted = technicalRegistrationCompleted + clientRegistrationRole.completed;
+  const prevRegistrationStarted =
+    prevTechnicalRegistrationStarted + clientRegistrationRole.prevStarted;
+  const prevRegistrationCompleted =
+    prevTechnicalRegistrationCompleted + clientRegistrationRole.prevCompleted;
   const registrationConversion = {
     visitorSessions: sessions.size,
     prevVisitorSessions: prevSessions.size,
@@ -1475,6 +1737,7 @@ export async function GET(request: NextRequest) {
       prevSessions.size > 0 ? Math.min(100, (prevRegistrationCompleted / prevSessions.size) * 100) : 0,
     measurementReady: registrationStarted > 0,
     roles: registrationRoles,
+    technicalAuthAccounts,
   };
 
   const totals = {
