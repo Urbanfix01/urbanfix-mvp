@@ -127,6 +127,8 @@ const funnelEventLabels: Record<string, string> = {
   technician_whatsapp_contact: 'Contactos por WhatsApp',
   quote_approved: 'Presupuestos aprobados',
   labor_prices_viewed: 'Consultas de valores de mano de obra',
+  labor_price_item_selected: 'Valores de mano de obra seleccionados',
+  labor_price_items_added_to_quote: 'Valores agregados al presupuesto',
   community_post_published: 'Publicaciones en comunidad',
   community_comment_published: 'Comentarios en comunidad',
   community_post_liked: 'Me gusta en comunidad',
@@ -191,6 +193,15 @@ const funnelGroupDefinitions = [
     key: 'quotes',
     label: 'Presupuestador',
     events: ['quote_created', 'quote_sent', 'quote_approved'],
+  },
+  {
+    key: 'labor_prices',
+    label: 'Valores de mano de obra',
+    events: [
+      'labor_prices_viewed',
+      'labor_price_item_selected',
+      'labor_price_items_added_to_quote',
+    ],
   },
   {
     key: 'contacts',
@@ -298,6 +309,7 @@ type SectionConversionStageDefinition = {
   label: string;
   eventNames?: string[];
   pathMatcher?: (path: string) => boolean;
+  requiresUser?: boolean;
 };
 
 type SectionConversionDefinition = {
@@ -327,14 +339,18 @@ const sectionConversionDefinitions: SectionConversionDefinition[] = [
       {
         key: 'labor_prices_visited',
         label: 'Visita valores MO',
-        eventNames: ['labor_prices_viewed', 'home_open_guia_precios'],
-        pathMatcher: (rawPath) => {
-          const { pathname, searchParams } = parseAnalyticsPath(rawPath);
-          return (
-            (pathname === '/tecnicos' && searchParams.get('tab') === 'precios') ||
-            (pathname === '/cliente' && searchParams.get('view') === 'precios')
-          );
-        },
+        eventNames: ['labor_prices_viewed'],
+        requiresUser: true,
+      },
+      {
+        key: 'labor_price_item_selected',
+        label: 'Selecciona un valor',
+        eventNames: ['labor_price_item_selected'],
+      },
+      {
+        key: 'labor_price_items_added',
+        label: 'Lo agrega al presupuesto',
+        eventNames: ['labor_price_items_added_to_quote'],
       },
       {
         key: 'quote_created_after_prices',
@@ -1089,6 +1105,7 @@ export async function GET(request: NextRequest) {
     const sessionTimes: SessionTimeMap = new Map();
     const registerTime = (row: any) => {
       if (isExcludedAnalyticsRow(row)) return;
+      if (stage.requiresUser && !String(row?.user_id || '').trim()) return;
       const sessionId = String(row?.session_id || '').trim();
       const createdAt = new Date(row?.created_at || '').getTime();
       if (!sessionId || !Number.isFinite(createdAt)) return;

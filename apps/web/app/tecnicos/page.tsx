@@ -5040,12 +5040,6 @@ export default function TechniciansPage() {
   }, []);
 
   useEffect(() => {
-    if (activeTab !== 'precios' || laborPricesViewTrackedRef.current) return;
-    laborPricesViewTrackedRef.current = true;
-    trackFunnelEvent('labor_prices_viewed');
-  }, [activeTab]);
-
-  useEffect(() => {
     if (typeof window === 'undefined') return;
     const userId = session?.user?.id;
     if (!userId) {
@@ -10312,9 +10306,16 @@ export default function TechniciansPage() {
       lastSavedItemsSignatureRef.current = itemsSignature;
       lastSavedItemsCountRef.current = cleanedItems.length;
       if (!isEditing) {
+        const catalogItemCount = cleanedItems.filter((item) => Boolean(item.masterItemId)).length;
+        const laborCatalogItemCount = cleanedItems.filter(
+          (item) => item.type === 'labor' && Boolean(item.masterItemId)
+        ).length;
         trackFunnelEvent('quote_created', {
           status: nextStatus,
           item_count: cleanedItems.length,
+          source: catalogItemCount > 0 ? 'labor_prices' : 'quote_builder',
+          catalog_item_count: catalogItemCount,
+          labor_catalog_item_count: laborCatalogItemCount,
         });
       }
       if (nextStatus === 'sent') {
@@ -10630,6 +10631,25 @@ export default function TechniciansPage() {
     if (!hasExactMapPoint) missing.push('Ubicacion en el mapa');
     return missing;
   }, [profile?.business_name, profile?.full_name, profile?.phone, profile?.specialties, technicianLocationResult?.isValid, technicianLocationResult?.precision]);
+
+  useEffect(() => {
+    if (
+      activeTab !== 'precios' ||
+      !session?.user?.id ||
+      !profileHydrated ||
+      !profile ||
+      profileRequiredMissing.length > 0 ||
+      isBetaAdmin ||
+      laborPricesViewTrackedRef.current
+    )
+      return;
+
+    laborPricesViewTrackedRef.current = true;
+    trackFunnelEvent('labor_prices_viewed', {
+      source: 'technician_prices',
+      role: 'technical',
+    });
+  }, [activeTab, isBetaAdmin, profile, profileHydrated, profileRequiredMissing.length, session?.user?.id]);
 
   const hasResolvedBaseAddress = useMemo(() => {
     const locationLabel = String(technicianLocationResult?.displayName || '').trim();
