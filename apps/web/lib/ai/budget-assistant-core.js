@@ -256,6 +256,14 @@ const buildElectricSelection = (description, answers, templateKey, catalog) => {
     addQuestion(result.questions, answers, question('metros_canalizacion', 'Cuantos metros de canaleta y cano corrugado hay?', 'No se infieren metros desde la cantidad de bocas.', 'number', { unit: 'm' }));
   }
   if (wall && routeMeters) {
+    if (wall !== 'vista') {
+      addSelection(
+        result.items,
+        findCatalogItem(catalog, [['calado', 'muro', 'caneria electrica'], ['calado', 'muro', 'electrica']], 'metro'),
+        routeMeters,
+        'Calado o ranurado del muro para alojar la caneria electrica; no incluye tapado ni revoque.'
+      );
+    }
     const wallGroups = wall === 'ladrillo_hueco'
       ? [['amurado', 'ladrillo hueco'], ['mamposteria', 'ladrillo hueco']]
       : wall === 'ladrillo_comun'

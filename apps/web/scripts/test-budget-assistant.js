@@ -25,6 +25,7 @@ const row = (id, name, type, unit, category, price = 100, createdAt = '2026-08-0
 const catalog = [
   row('e-mouth', 'Obra Nueva - Canalizacion propia', 'labor', 'boca', 'Electricidad'),
   row('e-point', 'Punto, toma simple y portalampara', 'labor', 'boca', 'Electricidad'),
+  row('e-wall-chasing', 'Calado de muro para cañeria electrica (romper pared)', 'labor', 'metro', 'Electricidad', 23981),
   row('e-wall', 'Amurado mamposteria ladrillo hueco', 'labor', 'metro', 'Electricidad'),
   row('e-pipe', 'Caño Corrugado 3/4 (Metro)', 'material', 'unidad', 'Electricidad', 250),
   row('e-box-light', 'Caja octogonal', 'material', 'unidad', 'Electricidad', 300),
@@ -79,6 +80,8 @@ const testFiveMouthElectricalCase = () => {
     },
     catalog: electricalCatalog,
   });
+  assert.equal(completed.items.find((item) => item.catalogItemId === 'e-wall-chasing').quantity, 12);
+  assert.equal(completed.items.find((item) => item.catalogItemId === 'e-wall').quantity, 12);
   assert.equal(completed.items.find((item) => item.catalogItemId === 'e-pipe').quantity, 12);
   assert.equal(completed.items.find((item) => item.catalogItemId === 'e-cable15').quantity, 36);
   assert.equal(completed.items.find((item) => item.catalogItemId === 'e-cable25').quantity, 18);
