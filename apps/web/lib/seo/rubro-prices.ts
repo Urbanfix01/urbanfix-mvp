@@ -98,7 +98,7 @@ const STOPWORDS = new Set([
 ]);
 
 const SOURCE_LABEL_ALIASES: Record<string, string> = {
-  aaieric_electricidad_2026_07: 'AAIERIC julio 2026',
+  aaieric_electricidad_2026_07: 'lista vigente de electricidad',
   mo_rubro_elecdtricidad: 'mo rubro electricidad',
   mo_rubro_electricidad: 'mo rubro electricidad',
   mo_rubro_demolicions: 'mo rubro demoliciones',

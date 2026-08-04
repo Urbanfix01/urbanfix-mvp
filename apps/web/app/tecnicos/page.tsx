@@ -20,6 +20,8 @@ import {
   Home,
   ImagePlus,
   Info,
+  LayoutGrid,
+  List,
   Loader2,
   LockKeyhole,
   LogOut,
@@ -165,7 +167,9 @@ const POST_LOGIN_VIDEO_SEEN_STORAGE_KEY = 'urbanfix_post_login_video_seen';
 const POST_LOGIN_VIDEO_ENABLED = false;
 const PRICE_SELECTION_QUERY_PARAM = 'price_item';
 const PRICE_SELECTION_STORAGE_PREFIX = 'urbanfix_quote_master_selection';
+const PRICE_VIEW_STORAGE_PREFIX = 'urbanfix_master_prices_view';
 const MAX_PERSISTED_PRICE_SELECTIONS = 50;
+type MasterPriceViewMode = 'list' | 'cards' | 'classic';
 
 const normalizeMasterSelectionIds = (values: Array<string | null | undefined>) => {
   const normalized: string[] = [];
@@ -1932,11 +1936,18 @@ const formatSuggestedPriceInput = (price: number) => {
 
 const pricesAreEquivalent = (left: number, right: number) => Math.abs(left - right) < 0.01;
 
+const removeCatalogSourceAttribution = (value: string | null | undefined) =>
+  normalizeTechnicalNotesText(value)
+    .split('\n')
+    .filter((line) => !/\baaieric\b/i.test(line))
+    .join('\n')
+    .trim();
+
 const formatCatalogSourceLabel = (source: string | null | undefined) => {
   const value = String(source || '').trim();
   if (!value) return 'sin fuente';
   const knownLabels: Record<string, string> = {
-    aaieric_electricidad_2026_07: 'AAIERIC julio 2026',
+    aaieric_electricidad_2026_07: 'Lista vigente de electricidad',
     mo_rubro_mamposteria_tabiqueria: 'MO mamposteria',
     mo_rubro_revoques: 'MO revoques',
   };
@@ -2371,7 +2382,7 @@ const formatNumber = (value: number) => Number(value || 0).toLocaleString('es-AR
 const buildLaborPriceUpdateNote = (item: MasterItemRow | null | undefined) => {
   if (item?.type !== 'labor') return '';
   if (isDirectLaborPriceSource(item.source_ref)) {
-    return 'Precio vigente AAIERIC julio 2026 para CABA y GBA.';
+    return 'Precio vigente de mano de obra para CABA y GBA.';
   }
   const basePrice = getMasterItemBasePrice(item);
   const updatedPrice = getMasterItemSuggestedPrice(item);
@@ -3059,7 +3070,10 @@ const formatRubroLabel = (value: string) => {
 };
 
 const getMasterItemChoiceValue = (item: Pick<MasterItemRow, 'name' | 'technical_notes' | 'unit'>) =>
-  buildMasterItemChoiceLabel(item);
+  buildMasterItemChoiceLabel({
+    ...item,
+    technical_notes: removeCatalogSourceAttribution(item.technical_notes),
+  });
 
 type MasterItemBlueprint = {
   summary: string;
@@ -3241,7 +3255,8 @@ const SANITARIOS_TERMOFUSION_ENGRAMPADA_BLUEPRINT: MasterItemBlueprint = {
 };
 
 const getMasterItemBlueprintSummary = (item: MasterItemRow, fallback: string) => {
-  const note = item.technical_notes ? compactTechnicalNotesText(item.technical_notes, { maxLength: 150 }) : '';
+  const publicNotes = removeCatalogSourceAttribution(item.technical_notes);
+  const note = publicNotes ? compactTechnicalNotesText(publicNotes, { maxLength: 150 }) : '';
   return note || fallback;
 };
 
@@ -4888,6 +4903,9 @@ export default function TechniciansPage() {
   const [loadingMasterItems, setLoadingMasterItems] = useState(false);
   const [masterSearch, setMasterSearch] = useState('');
   const [masterCategory, setMasterCategory] = useState('all');
+  const [masterVisibleCount, setMasterVisibleCount] = useState(40);
+  const [masterPriceView, setMasterPriceView] = useState<MasterPriceViewMode>('list');
+  const [masterPriceViewHydratedUserId, setMasterPriceViewHydratedUserId] = useState('');
   const [selectedMasterItemIds, setSelectedMasterItemIds] = useState<string[]>([]);
   const [masterSelectionHydratedUserId, setMasterSelectionHydratedUserId] = useState('');
   const [quoteCatalogSearch, setQuoteCatalogSearch] = useState('');
@@ -5162,6 +5180,35 @@ export default function TechniciansPage() {
       // Browsers with blocked storage still keep the selection in React state.
     }
   }, [masterSelectionHydratedUserId, selectedMasterItemIds, session?.user?.id]);
+
+  useEffect(() => {
+    const userId = session?.user?.id || '';
+    if (typeof window === 'undefined' || !userId) {
+      setMasterPriceViewHydratedUserId('');
+      setMasterPriceView('list');
+      return;
+    }
+
+    let storedView: MasterPriceViewMode = 'list';
+    try {
+      const value = window.localStorage.getItem(`${PRICE_VIEW_STORAGE_PREFIX}:${userId}`);
+      storedView = value === 'cards' || value === 'classic' ? value : 'list';
+    } catch {
+      // Browsers with blocked storage keep the preference in React state.
+    }
+    setMasterPriceView(storedView);
+    setMasterPriceViewHydratedUserId(userId);
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    const userId = session?.user?.id || '';
+    if (typeof window === 'undefined' || !userId || masterPriceViewHydratedUserId !== userId) return;
+    try {
+      window.localStorage.setItem(`${PRICE_VIEW_STORAGE_PREFIX}:${userId}`, masterPriceView);
+    } catch {
+      // Browsers with blocked storage keep the preference in React state.
+    }
+  }, [masterPriceView, masterPriceViewHydratedUserId, session?.user?.id]);
 
   useEffect(() => {
     if (!masterSelectionHydratedUserId || loadingMasterItems || masterItems.length === 0) return;
@@ -6445,7 +6492,9 @@ export default function TechniciansPage() {
         unit: String(item?.metadata?.unit || ''),
         workArea: String(item?.metadata?.work_area || item?.metadata?.workArea || ''),
         itemImages: normalizeQuoteItemImages(item?.metadata?.item_images || item?.metadata?.itemImages),
-        technicalNotes: normalizeTechnicalNotes(item?.metadata?.technical_notes || item?.metadata?.technicalNotes || ''),
+        technicalNotes: removeCatalogSourceAttribution(
+          item?.metadata?.technical_notes || item?.metadata?.technicalNotes || ''
+        ),
         masterItemId: String(item?.metadata?.master_item_id || ''),
         masterItemCategory: String(item?.metadata?.master_item_category || ''),
         masterItemSourceRef: String(item?.metadata?.master_item_source_ref || ''),
@@ -6492,7 +6541,7 @@ export default function TechniciansPage() {
     workArea: '',
     itemImages: [],
     technicalNotes: mergeUniqueText(
-      [normalizeTechnicalNotes(item.technical_notes), buildLaborPriceUpdateNote(item)],
+      [removeCatalogSourceAttribution(item.technical_notes), buildLaborPriceUpdateNote(item)],
       '\n\n'
     ),
     masterItemId: item.id,
@@ -7874,8 +7923,8 @@ export default function TechniciansPage() {
 
     const nextTechnicalNotes =
       options?.fillNotesFromMaster && !normalizeTechnicalNotes(item.technicalNotes)
-        ? mergeUniqueText([normalizeTechnicalNotes(match.technical_notes), buildLaborPriceUpdateNote(match)], '\n\n')
-        : normalizeTechnicalNotes(item.technicalNotes);
+        ? mergeUniqueText([removeCatalogSourceAttribution(match.technical_notes), buildLaborPriceUpdateNote(match)], '\n\n')
+        : removeCatalogSourceAttribution(item.technicalNotes);
 
     return {
       ...item,
@@ -8012,7 +8061,7 @@ export default function TechniciansPage() {
             next.unitPrice = getMasterItemSuggestedPrice(match);
             next.unit = match.unit || '';
             next.technicalNotes = mergeUniqueText(
-              [normalizeTechnicalNotes(match.technical_notes), buildLaborPriceUpdateNote(match)],
+              [removeCatalogSourceAttribution(match.technical_notes), buildLaborPriceUpdateNote(match)],
               '\n\n'
             );
             next.masterItemId = match.id;
@@ -9237,6 +9286,10 @@ export default function TechniciansPage() {
       return matchesSearch && matchesCategory;
     });
   }, [masterItems, masterSearch, masterCategory]);
+  const visibleMasterItems = useMemo(
+    () => filteredMasterItems.slice(0, masterVisibleCount),
+    [filteredMasterItems, masterVisibleCount]
+  );
   const selectedMasterItems = useMemo(
     () => selectedMasterItemIds
       .map((itemId) => masterItems.find((item) => item.id === itemId))
@@ -20414,14 +20467,20 @@ export default function TechniciansPage() {
                           <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                           <input
                             value={masterSearch}
-                            onChange={(event) => setMasterSearch(event.target.value)}
+                            onChange={(event) => {
+                              setMasterSearch(event.target.value);
+                              setMasterVisibleCount(40);
+                            }}
                             placeholder="Buscar por tarea, rubro o detalle tecnico"
                             className="h-12 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-sm font-semibold text-slate-700 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-200/60"
                           />
                         </label>
                         <select
                           value={masterCategory}
-                          onChange={(event) => setMasterCategory(event.target.value)}
+                          onChange={(event) => {
+                            setMasterCategory(event.target.value);
+                            setMasterVisibleCount(40);
+                          }}
                           className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-200/60"
                         >
                           <option value="all">Todos los rubros</option>
@@ -20438,6 +20497,7 @@ export default function TechniciansPage() {
                           onClick={() => {
                             setMasterSearch('');
                             setMasterCategory('all');
+                            setMasterVisibleCount(40);
                           }}
                           className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
                         >
@@ -20554,193 +20614,371 @@ export default function TechniciansPage() {
                     </div>
                   </section>
                 )}
-                <section className="space-y-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+                <section className="space-y-3">
+                  <div className="flex flex-wrap items-end justify-between gap-3 px-1">
                     <div>
-                      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Listado de referencia</p>
-                      <h3 className="mt-1 text-lg font-black text-slate-950">Valores disponibles</h3>
+                      <h3 className="text-lg font-black text-slate-950">Lista de precios</h3>
+                      <p className="mt-1 text-xs font-semibold text-slate-500">
+                        Mano de obra y materiales de referencia para armar presupuestos.
+                      </p>
                     </div>
-                    <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">
-                      {formatNumber(filteredMasterItems.length)} item(s)
-                    </span>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <p className="text-xs font-bold text-slate-500">
+                        {formatNumber(filteredMasterItems.length)} resultado(s)
+                      </p>
+                      <div
+                        className="inline-flex rounded-lg border border-slate-200 bg-white p-1"
+                        role="group"
+                        aria-label="Vista de precios"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setMasterPriceView('list')}
+                          aria-pressed={masterPriceView === 'list'}
+                          className={`inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-black transition ${
+                            masterPriceView === 'list'
+                              ? 'bg-slate-950 text-white'
+                              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
+                          }`}
+                        >
+                          <List className="h-3.5 w-3.5" aria-hidden="true" />
+                          Lista
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setMasterPriceView('cards')}
+                          aria-pressed={masterPriceView === 'cards'}
+                          className={`inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-black transition ${
+                            masterPriceView === 'cards'
+                              ? 'bg-slate-950 text-white'
+                              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
+                          }`}
+                        >
+                          <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
+                          Tarjetas
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setMasterPriceView('classic')}
+                          aria-pressed={masterPriceView === 'classic'}
+                          className={`inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-black transition ${
+                            masterPriceView === 'classic'
+                              ? 'bg-slate-950 text-white'
+                              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
+                          }`}
+                        >
+                          <ImagePlus className="h-3.5 w-3.5" aria-hidden="true" />
+                          Clásica
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
-                  <div>
-                    {loadingMasterItems && (
-                      <div className="grid gap-3">
-                        {Array.from({ length: 4 }).map((_, index) => (
-                          <div key={index} className="h-36 animate-pulse rounded-3xl border border-slate-200 bg-slate-50" />
-                        ))}
-                      </div>
-                    )}
+                  {loadingMasterItems && (
+                    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                      {Array.from({ length: 6 }).map((_, index) => (
+                        <div key={index} className="h-16 animate-pulse border-b border-slate-100 bg-slate-50 last:border-b-0" />
+                      ))}
+                    </div>
+                  )}
 
-                    {!loadingMasterItems && filteredMasterItems.length === 0 && (
-                      <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center">
-                        <Tag className="mx-auto h-8 w-8 text-slate-400" />
-                        <p className="mt-3 text-sm font-bold text-slate-700">No encontramos items con esos filtros.</p>
-                        <p className="mt-1 text-xs text-slate-500">Prueba otro rubro o limpia la busqueda para volver al catalogo completo.</p>
-                      </div>
-                    )}
+                  {!loadingMasterItems && filteredMasterItems.length === 0 && (
+                    <div className="rounded-xl border border-dashed border-slate-300 bg-white px-5 py-8 text-center">
+                      <Tag className="mx-auto h-7 w-7 text-slate-400" />
+                      <p className="mt-3 text-sm font-bold text-slate-700">No encontramos precios con esos filtros.</p>
+                      <p className="mt-1 text-xs text-slate-500">Prueba otro rubro o limpia la busqueda.</p>
+                    </div>
+                  )}
 
-                    {!loadingMasterItems && filteredMasterItems.length > 0 && (
-                      <div className="grid gap-3">
-                        {filteredMasterItems.map((item) => {
-                          const rubro = resolveMasterRubro(item);
-                          const basePrice = getMasterItemBasePrice(item);
+                  {!loadingMasterItems && visibleMasterItems.length > 0 && masterPriceView === 'list' && (
+                    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                      <div className="hidden grid-cols-[minmax(0,1fr)_150px_100px_140px_92px] gap-4 border-b border-slate-200 bg-slate-50 px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.12em] text-slate-500 md:grid">
+                        <span>Trabajo</span>
+                        <span>Rubro</span>
+                        <span>Unidad</span>
+                        <span className="text-right">Precio</span>
+                        <span />
+                      </div>
+                      <ul className="divide-y divide-slate-100">
+                        {visibleMasterItems.map((item) => {
+                          const rubroLabel = formatRubroLabel(resolveMasterRubro(item));
                           const activePrice = getMasterItemSuggestedPrice(item);
-                          const hasLaborUpdate =
-                            item.type === 'labor' && basePrice > 0 && activePrice > 0 && !pricesAreEquivalent(basePrice, activePrice);
                           const unitLabel = canonicalizeMasterItemUnit(item.unit || '') || item.unit || 'unidad';
                           const isSelected = selectedMasterItemIdSet.has(item.id);
-                          const itemBlueprint = getMasterItemBlueprint(item);
 
                           return (
-                            <article
+                            <li
                               key={item.id}
-                              className={`group flex min-h-[156px] flex-col justify-between rounded-3xl border p-4 transition hover:-translate-y-0.5 ${
-                                isSelected
-                                  ? 'border-[#ff8f1f]/55 bg-[#fffaf3] shadow-[0_18px_42px_-32px_rgba(255,143,31,0.7)]'
-                                  : 'border-slate-200 bg-white shadow-[0_14px_34px_-30px_rgba(15,23,42,0.75)] hover:border-slate-300 hover:shadow-[0_24px_46px_-34px_rgba(15,23,42,0.85)]'
+                              className={`grid gap-3 px-4 py-3 transition md:grid-cols-[minmax(0,1fr)_150px_100px_140px_92px] md:items-center md:gap-4 ${
+                                isSelected ? 'bg-[#fff8ed]' : 'hover:bg-slate-50'
                               }`}
                             >
-                              <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-                                <div className="w-full shrink-0 sm:w-52">
-                                  {itemBlueprint?.imageSrc ? (
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        setCatalogImagePreview({
-                                          src: itemBlueprint.imageSrc || '',
-                                          alt: itemBlueprint.imageAlt || item.name,
-                                          title: item.name,
-                                        })
-                                      }
-                                      className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#ff8f1f]/45"
-                                      aria-label={`Ver imagen ampliada de ${item.name}`}
-                                    >
-                                      <Image
-                                        src={itemBlueprint.imageSrc}
-                                        alt={itemBlueprint.imageAlt || item.name}
-                                        fill
-                                        sizes="(min-width: 640px) 208px, 100vw"
-                                        quality={100}
-                                        className="object-cover object-center"
-                                      />
-                                      <span className="absolute inset-x-2 bottom-2 rounded-full bg-slate-950/78 px-2 py-1 text-center text-[10px] font-black uppercase tracking-[0.12em] text-white opacity-0 transition group-hover:opacity-100">
-                                        Ampliar
-                                      </span>
-                                    </button>
-                                  ) : (
-                                    <div className="flex aspect-[4/3] w-full items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-slate-300">
-                                      <ImagePlus className="h-6 w-6" aria-hidden="true" />
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-slate-600">
-                                      {formatRubroLabel(rubro)}
-                                    </span>
-                                  </div>
-                                  <p title={getMasterItemChoiceValue(item)} className="mt-3 text-base font-black leading-5 text-slate-950">
-                                    {item.name}
-                                  </p>
-                                  {itemBlueprint ? (
-                                    <p className="mt-2 text-xs leading-5 text-slate-600">{itemBlueprint.summary}</p>
-                                  ) : item.technical_notes ? (
-                                    <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">
-                                      {compactTechnicalNotesText(item.technical_notes, { maxLength: 150 })}
-                                    </p>
-                                  ) : (
-                                    <p className="mt-2 text-xs leading-5 text-slate-400">Sin especificacion tecnica adicional.</p>
-                                  )}
-                                </div>
-                                <div className="w-full shrink-0 rounded-2xl bg-slate-950 px-3 py-2 text-right text-white sm:w-auto sm:min-w-[132px]">
-                                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-300">{unitLabel}</p>
-                                  <p className="mt-1 text-base font-black">{activePrice > 0 ? formatCurrency(activePrice) : 'Pendiente'}</p>
-                                  {hasLaborUpdate && <p className="text-[10px] font-bold text-slate-300">base {formatCurrency(basePrice)}</p>}
-                                </div>
+                              <div className="min-w-0">
+                                <p title={getMasterItemChoiceValue(item)} className="text-sm font-bold leading-5 text-slate-950">
+                                  {item.name}
+                                </p>
+                                <p className="mt-1 text-xs text-slate-500 md:hidden">
+                                  {rubroLabel} · {unitLabel}
+                                </p>
                               </div>
-                              <div className="mt-4 flex flex-wrap items-start justify-between gap-3 border-t border-slate-100 pt-3">
-                                <div className="min-w-0 flex-1">
-                                  {itemBlueprint ? (
-                                    <details className="group">
-                                      <summary className="inline-flex cursor-pointer list-none items-center gap-2 text-[11px] font-bold text-slate-500 transition hover:text-slate-800 [&::-webkit-details-marker]:hidden">
-                                        <Info className="h-3.5 w-3.5" />
-                                        <span>Mano de obra</span>
-                                        <ChevronDown className="h-3.5 w-3.5 transition group-open:rotate-180" />
-                                      </summary>
-                                      <div className="mt-3 grid gap-3 lg:grid-cols-2">
-                                        <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3">
-                                          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Incluye</p>
-                                          <ul className="mt-2 space-y-1.5 text-xs font-semibold leading-5 text-slate-700">
-                                            {itemBlueprint.includes.map((entry) => (
-                                              <li key={entry}>- {entry}</li>
-                                            ))}
-                                          </ul>
-                                        </div>
-                                        <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3">
-                                          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">No incluye</p>
-                                          <ul className="mt-2 space-y-1.5 text-xs font-semibold leading-5 text-slate-700">
-                                            {itemBlueprint.excludes.map((entry) => (
-                                              <li key={entry}>- {entry}</li>
-                                            ))}
-                                          </ul>
-                                        </div>
-                                        <div className="rounded-2xl border border-slate-100 bg-white p-3">
-                                          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Condiciones previas</p>
-                                          <ul className="mt-2 space-y-1.5 text-xs font-semibold leading-5 text-slate-700">
-                                            {itemBlueprint.requirements.map((entry) => (
-                                              <li key={entry}>- {entry}</li>
-                                            ))}
-                                          </ul>
-                                        </div>
-                                        <div className="rounded-2xl border border-slate-100 bg-white p-3">
-                                          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Materiales a definir</p>
-                                          <ul className="mt-2 space-y-1.5 text-xs font-semibold leading-5 text-slate-700">
-                                            {itemBlueprint.materials.map((entry) => (
-                                              <li key={entry}>- {entry}</li>
-                                            ))}
-                                          </ul>
-                                        </div>
-                                        <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3 lg:col-span-2">
-                                          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Criterio de entrega</p>
-                                          <div className="mt-2 grid gap-2 text-xs font-semibold leading-5 text-slate-700 md:grid-cols-2">
-                                            {itemBlueprint.finishCriteria.map((entry) => (
-                                              <p key={entry}>- {entry}</p>
-                                            ))}
-                                          </div>
-                                          <p className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-bold leading-5 text-slate-700">
-                                            {itemBlueprint.budgetNote}
-                                          </p>
-                                        </div>
-                                      </div>
-                                    </details>
-                                  ) : (
-                                    <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500">
-                                      <Info className="h-3.5 w-3.5" />
-                                      <span>{item.type === 'labor' ? 'Mano de obra' : 'Material o insumo'}</span>
-                                    </div>
-                                  )}
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => toggleMasterComboItem(item)}
-                                  className={`rounded-full px-4 py-2 text-[11px] font-black shadow-sm transition ${
-                                    isSelected
-                                      ? 'bg-slate-950 text-white hover:bg-slate-800'
-                                      : 'bg-[#ff8f1f] text-white hover:bg-[#ea7c10]'
-                                  }`}
-                                >
-                                  {isSelected ? 'Quitar' : 'Sumar al presupuesto'}
-                                </button>
-                              </div>
-                            </article>
+                              <p className="hidden text-xs font-semibold text-slate-600 md:block">{rubroLabel}</p>
+                              <p className="hidden text-xs font-semibold text-slate-600 md:block">{unitLabel}</p>
+                              <p className="text-left text-sm font-black text-slate-950 md:text-right">
+                                {activePrice > 0 ? formatCurrency(activePrice) : 'Pendiente'}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => toggleMasterComboItem(item)}
+                                className={`h-9 rounded-lg px-3 text-xs font-black transition ${
+                                  isSelected
+                                    ? 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
+                                    : 'bg-[#ff8f1f] text-white hover:bg-[#ea7c10]'
+                                }`}
+                              >
+                                {isSelected ? 'Quitar' : 'Agregar'}
+                              </button>
+                            </li>
                           );
                         })}
-                      </div>
-                    )}
-                  </div>
+                      </ul>
+                    </div>
+                  )}
+
+                  {!loadingMasterItems && visibleMasterItems.length > 0 && masterPriceView === 'cards' && (
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      {visibleMasterItems.map((item) => {
+                        const rubroLabel = formatRubroLabel(resolveMasterRubro(item));
+                        const activePrice = getMasterItemSuggestedPrice(item);
+                        const unitLabel = canonicalizeMasterItemUnit(item.unit || '') || item.unit || 'unidad';
+                        const isSelected = selectedMasterItemIdSet.has(item.id);
+                        const publicNotes = removeCatalogSourceAttribution(item.technical_notes);
+                        const itemDetail = publicNotes
+                          ? compactTechnicalNotesText(publicNotes, { maxLength: 120 })
+                          : item.type === 'labor'
+                            ? 'Mano de obra de referencia.'
+                            : 'Material o insumo de referencia.';
+
+                        return (
+                          <article
+                            key={item.id}
+                            className={`flex min-h-52 flex-col justify-between rounded-xl border p-4 transition ${
+                              isSelected
+                                ? 'border-[#ff8f1f]/60 bg-[#fff8ed]'
+                                : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm'
+                            }`}
+                          >
+                            <div>
+                              <div className="flex items-start justify-between gap-3">
+                                <span className="rounded-md bg-slate-100 px-2 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-slate-600">
+                                  {rubroLabel}
+                                </span>
+                                <span className="text-xs font-bold text-slate-500">{unitLabel}</span>
+                              </div>
+                              <h4 title={getMasterItemChoiceValue(item)} className="mt-4 text-base font-black leading-6 text-slate-950">
+                                {item.name}
+                              </h4>
+                              <p className="mt-2 line-clamp-2 text-xs font-semibold leading-5 text-slate-500">{itemDetail}</p>
+                            </div>
+                            <div className="mt-5 flex items-end justify-between gap-3 border-t border-slate-100 pt-4">
+                              <div>
+                                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">Precio</p>
+                                <p className="mt-1 text-lg font-black text-slate-950">
+                                  {activePrice > 0 ? formatCurrency(activePrice) : 'Pendiente'}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => toggleMasterComboItem(item)}
+                                className={`h-9 rounded-lg px-3 text-xs font-black transition ${
+                                  isSelected
+                                    ? 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
+                                    : 'bg-[#ff8f1f] text-white hover:bg-[#ea7c10]'
+                                }`}
+                              >
+                                {isSelected ? 'Quitar' : 'Agregar'}
+                              </button>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {!loadingMasterItems && visibleMasterItems.length > 0 && masterPriceView === 'classic' && (
+                    <div className="grid gap-3">
+                      {visibleMasterItems.map((item) => {
+                        const rubro = resolveMasterRubro(item);
+                        const basePrice = getMasterItemBasePrice(item);
+                        const activePrice = getMasterItemSuggestedPrice(item);
+                        const hasLaborUpdate =
+                          item.type === 'labor' && basePrice > 0 && activePrice > 0 && !pricesAreEquivalent(basePrice, activePrice);
+                        const unitLabel = canonicalizeMasterItemUnit(item.unit || '') || item.unit || 'unidad';
+                        const isSelected = selectedMasterItemIdSet.has(item.id);
+                        const itemBlueprint = getMasterItemBlueprint(item);
+
+                        return (
+                          <article
+                            key={item.id}
+                            className={`group flex min-h-[156px] flex-col justify-between rounded-3xl border p-4 transition hover:-translate-y-0.5 ${
+                              isSelected
+                                ? 'border-[#ff8f1f]/55 bg-[#fffaf3] shadow-[0_18px_42px_-32px_rgba(255,143,31,0.7)]'
+                                : 'border-slate-200 bg-white shadow-[0_14px_34px_-30px_rgba(15,23,42,0.75)] hover:border-slate-300 hover:shadow-[0_24px_46px_-34px_rgba(15,23,42,0.85)]'
+                            }`}
+                          >
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                              <div className="w-full shrink-0 sm:w-52">
+                                {itemBlueprint?.imageSrc ? (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setCatalogImagePreview({
+                                        src: itemBlueprint.imageSrc || '',
+                                        alt: itemBlueprint.imageAlt || item.name,
+                                        title: item.name,
+                                      })
+                                    }
+                                    className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#ff8f1f]/45"
+                                    aria-label={`Ver imagen ampliada de ${item.name}`}
+                                  >
+                                    <Image
+                                      src={itemBlueprint.imageSrc}
+                                      alt={itemBlueprint.imageAlt || item.name}
+                                      fill
+                                      sizes="(min-width: 640px) 208px, 100vw"
+                                      quality={100}
+                                      className="object-cover object-center"
+                                    />
+                                    <span className="absolute inset-x-2 bottom-2 rounded-full bg-slate-950/78 px-2 py-1 text-center text-[10px] font-black uppercase tracking-[0.12em] text-white opacity-0 transition group-hover:opacity-100">
+                                      Ampliar
+                                    </span>
+                                  </button>
+                                ) : (
+                                  <div className="flex aspect-[4/3] w-full items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-slate-300">
+                                    <ImagePlus className="h-6 w-6" aria-hidden="true" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-slate-600">
+                                    {formatRubroLabel(rubro)}
+                                  </span>
+                                </div>
+                                <p title={getMasterItemChoiceValue(item)} className="mt-3 text-base font-black leading-5 text-slate-950">
+                                  {item.name}
+                                </p>
+                                {itemBlueprint ? (
+                                  <p className="mt-2 text-xs leading-5 text-slate-600">{itemBlueprint.summary}</p>
+                                ) : removeCatalogSourceAttribution(item.technical_notes) ? (
+                                  <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">
+                                    {compactTechnicalNotesText(removeCatalogSourceAttribution(item.technical_notes), {
+                                      maxLength: 150,
+                                    })}
+                                  </p>
+                                ) : (
+                                  <p className="mt-2 text-xs leading-5 text-slate-400">Sin especificacion tecnica adicional.</p>
+                                )}
+                              </div>
+                              <div className="w-full shrink-0 rounded-2xl bg-slate-950 px-3 py-2 text-right text-white sm:w-auto sm:min-w-[132px]">
+                                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-300">{unitLabel}</p>
+                                <p className="mt-1 text-base font-black">{activePrice > 0 ? formatCurrency(activePrice) : 'Pendiente'}</p>
+                                {hasLaborUpdate && <p className="text-[10px] font-bold text-slate-300">base {formatCurrency(basePrice)}</p>}
+                              </div>
+                            </div>
+                            <div className="mt-4 flex flex-wrap items-start justify-between gap-3 border-t border-slate-100 pt-3">
+                              <div className="min-w-0 flex-1">
+                                {itemBlueprint ? (
+                                  <details className="group">
+                                    <summary className="inline-flex cursor-pointer list-none items-center gap-2 text-[11px] font-bold text-slate-500 transition hover:text-slate-800 [&::-webkit-details-marker]:hidden">
+                                      <Info className="h-3.5 w-3.5" />
+                                      <span>Mano de obra</span>
+                                      <ChevronDown className="h-3.5 w-3.5 transition group-open:rotate-180" />
+                                    </summary>
+                                    <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                                      <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3">
+                                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Incluye</p>
+                                        <ul className="mt-2 space-y-1.5 text-xs font-semibold leading-5 text-slate-700">
+                                          {itemBlueprint.includes.map((entry) => (
+                                            <li key={entry}>- {entry}</li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                      <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3">
+                                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">No incluye</p>
+                                        <ul className="mt-2 space-y-1.5 text-xs font-semibold leading-5 text-slate-700">
+                                          {itemBlueprint.excludes.map((entry) => (
+                                            <li key={entry}>- {entry}</li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                      <div className="rounded-2xl border border-slate-100 bg-white p-3">
+                                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Condiciones previas</p>
+                                        <ul className="mt-2 space-y-1.5 text-xs font-semibold leading-5 text-slate-700">
+                                          {itemBlueprint.requirements.map((entry) => (
+                                            <li key={entry}>- {entry}</li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                      <div className="rounded-2xl border border-slate-100 bg-white p-3">
+                                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Materiales a definir</p>
+                                        <ul className="mt-2 space-y-1.5 text-xs font-semibold leading-5 text-slate-700">
+                                          {itemBlueprint.materials.map((entry) => (
+                                            <li key={entry}>- {entry}</li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                      <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3 lg:col-span-2">
+                                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Criterio de entrega</p>
+                                        <div className="mt-2 grid gap-2 text-xs font-semibold leading-5 text-slate-700 md:grid-cols-2">
+                                          {itemBlueprint.finishCriteria.map((entry) => (
+                                            <p key={entry}>- {entry}</p>
+                                          ))}
+                                        </div>
+                                        <p className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-bold leading-5 text-slate-700">
+                                          {itemBlueprint.budgetNote}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </details>
+                                ) : (
+                                  <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500">
+                                    <Info className="h-3.5 w-3.5" />
+                                    <span>{item.type === 'labor' ? 'Mano de obra' : 'Material o insumo'}</span>
+                                  </div>
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => toggleMasterComboItem(item)}
+                                className={`rounded-full px-4 py-2 text-[11px] font-black shadow-sm transition ${
+                                  isSelected
+                                    ? 'bg-slate-950 text-white hover:bg-slate-800'
+                                    : 'bg-[#ff8f1f] text-white hover:bg-[#ea7c10]'
+                                }`}
+                              >
+                                {isSelected ? 'Quitar' : 'Sumar al presupuesto'}
+                              </button>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {!loadingMasterItems && visibleMasterItems.length < filteredMasterItems.length && (
+                    <div className="flex flex-col items-center gap-2 py-2">
+                      <p className="text-xs font-semibold text-slate-500">
+                        Mostrando {formatNumber(visibleMasterItems.length)} de {formatNumber(filteredMasterItems.length)}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setMasterVisibleCount((current) => current + 40)}
+                        className="h-10 rounded-lg border border-slate-300 bg-white px-5 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
+                      >
+                        Mostrar 40 mas
+                      </button>
+                    </div>
+                  )}
                 </section>
               </div>
             )}

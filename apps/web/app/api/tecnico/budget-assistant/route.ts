@@ -303,7 +303,7 @@ const buildPricedAnalysis = ({
     priceContext: {
       catalogUpdatedAt: latestCatalogDate,
       laborIndexLabel: includesDirectAaiericPrices
-        ? `AAIERIC julio 2026; otros rubros: ${laborPriceIndex.periodLabel} (+${laborPriceIndex.accumulatedPercent}%)`
+        ? `Lista vigente de electricidad; otros rubros: ${laborPriceIndex.periodLabel} (+${laborPriceIndex.accumulatedPercent}%)`
         : `${laborPriceIndex.activeLabel}: ${laborPriceIndex.periodLabel} (+${laborPriceIndex.accumulatedPercent}%)`,
     },
   };
