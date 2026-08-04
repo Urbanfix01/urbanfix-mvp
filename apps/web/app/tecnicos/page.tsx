@@ -109,8 +109,9 @@ import BudgetAiAssistant from '../../components/quote/BudgetAiAssistant';
 import type { BudgetAiApplyPayload } from '../../lib/ai/budget-assistant-types';
 import { collectAssistantPendingConcepts, replaceProposalItems } from '../../lib/ai/budget-assistant-core';
 import {
+  getCatalogLaborPrice,
   getLaborPriceUpdatePercentLabel,
-  getUpdatedLaborPrice,
+  isDirectLaborPriceSource,
   laborPriceIndex,
 } from '../../lib/labor-price-index';
 import { parseTechnicianLocation } from '../../lib/technician-location';
@@ -1921,7 +1922,7 @@ const getMasterItemBasePrice = (item: MasterItemRow | null | undefined) => {
 const getMasterItemSuggestedPrice = (item: MasterItemRow | null | undefined) => {
   const basePrice = getMasterItemBasePrice(item);
   if (!basePrice) return 0;
-  return item?.type === 'labor' ? getUpdatedLaborPrice(basePrice) : basePrice;
+  return item?.type === 'labor' ? getCatalogLaborPrice(basePrice, item.source_ref) : basePrice;
 };
 
 const formatSuggestedPriceInput = (price: number) => {
@@ -1935,6 +1936,7 @@ const formatCatalogSourceLabel = (source: string | null | undefined) => {
   const value = String(source || '').trim();
   if (!value) return 'sin fuente';
   const knownLabels: Record<string, string> = {
+    aaieric_electricidad_2026_07: 'AAIERIC julio 2026',
     mo_rubro_mamposteria_tabiqueria: 'MO mamposteria',
     mo_rubro_revoques: 'MO revoques',
   };
@@ -2368,6 +2370,9 @@ const formatNumber = (value: number) => Number(value || 0).toLocaleString('es-AR
 
 const buildLaborPriceUpdateNote = (item: MasterItemRow | null | undefined) => {
   if (item?.type !== 'labor') return '';
+  if (isDirectLaborPriceSource(item.source_ref)) {
+    return 'Precio vigente AAIERIC julio 2026 para CABA y GBA.';
+  }
   const basePrice = getMasterItemBasePrice(item);
   const updatedPrice = getMasterItemSuggestedPrice(item);
   if (!basePrice || !updatedPrice || pricesAreEquivalent(basePrice, updatedPrice)) return '';

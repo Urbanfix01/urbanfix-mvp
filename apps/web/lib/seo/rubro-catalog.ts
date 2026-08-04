@@ -36,7 +36,7 @@ export const rubroCatalog: RubroCatalogItem[] = [
   {
     slug: 'electricidad',
     label: 'ELECTRICIDAD',
-    sources: ['mo_rubro_electricidad', 'mo_rubro_elecdtricidad'],
+    sources: ['aaieric_electricidad_2026_07', 'mo_rubro_electricidad', 'mo_rubro_elecdtricidad'],
     aliases: ['elecdtricidad'],
   },
   { slug: 'agua-incendio', label: 'AGUA/INCENDIO', sources: ['mo_rubro_agua_incendio'] },

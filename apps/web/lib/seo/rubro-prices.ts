@@ -4,7 +4,7 @@ import {
   formatMasterItemUnitLabel,
   normalizeTechnicalNotesText,
 } from '../master-items';
-import { getUpdatedLaborPrice, laborPriceIndex } from '../labor-price-index';
+import { getCatalogLaborPrice } from '../labor-price-index';
 import { formatLaborCurrency, getLaborCountrySettings } from '../labor-country-config';
 import { hasSupabaseConfig, supabase } from '../supabase/supabase';
 import { rubros, type CiudadKey, type RubroKey } from './urbanfix-data';
@@ -98,6 +98,7 @@ const STOPWORDS = new Set([
 ]);
 
 const SOURCE_LABEL_ALIASES: Record<string, string> = {
+  aaieric_electricidad_2026_07: 'AAIERIC julio 2026',
   mo_rubro_elecdtricidad: 'mo rubro electricidad',
   mo_rubro_electricidad: 'mo rubro electricidad',
   mo_rubro_demolicions: 'mo rubro demoliciones',
@@ -222,13 +223,14 @@ const getLatestDate = (rows: MasterItemRow[]) => {
   return new Date(Math.max(...dates)).toISOString();
 };
 
-const getAverageSuggestedPrice = (rows: MasterItemRow[]) => {
-  const prices = rows
-    .map((row) => Number(row.suggested_price || 0))
-    .filter((value) => Number.isFinite(value) && value > 0);
+const getAveragePrice = (values: number[]) => {
+  const prices = values.filter((value) => Number.isFinite(value) && value > 0);
   if (!prices.length) return 0;
   return Math.round(prices.reduce((sum, value) => sum + value, 0) / prices.length);
 };
+
+const getAverageSuggestedPrice = (rows: MasterItemRow[]) =>
+  getAveragePrice(rows.map((row) => Number(row.suggested_price || 0)));
 
 const resolveUnit = (row: Pick<MasterItemRow, 'name' | 'unit'>) => {
   const explicitUnit = canonicalizeMasterItemUnit(row.unit);
@@ -241,7 +243,7 @@ const toRubroPriceReference = (row: MasterItemRow): RubroPriceReference => ({
   label: cleanText(row.name),
   technicalNotes: normalizeTechnicalNotesText(row.technical_notes),
   unit: resolveUnit(row),
-  reference: getUpdatedLaborPrice(Number(row.suggested_price || 0)),
+  reference: getCatalogLaborPrice(Number(row.suggested_price || 0), row.source_ref),
   source: formatSource(row.source_ref, row.category),
   updatedAt: row.created_at || null,
 });
@@ -448,7 +450,9 @@ export const getCatalogRubrosOverview = cache(async (country?: string): Promise<
   return Promise.all(rubroCatalog.map(async (rubro) => {
     const selected = await getCatalogRows(rubro);
     const baseReference = getAverageSuggestedPrice(selected);
-    const currentReference = getUpdatedLaborPrice(baseReference);
+    const currentReference = getAveragePrice(
+      selected.map((row) => getCatalogLaborPrice(Number(row.suggested_price || 0), row.source_ref))
+    );
     return {
       slug: rubro.slug,
       label: rubro.label,
@@ -456,7 +460,8 @@ export const getCatalogRubrosOverview = cache(async (country?: string): Promise<
       lastUpdatedAt: getLatestDate(selected),
       baseReference,
       currentReference,
-      movementPercent: baseReference > 0 ? laborPriceIndex.accumulatedPercent : 0,
+      movementPercent:
+        baseReference > 0 ? Math.round(((currentReference / baseReference - 1) * 100) * 10) / 10 : 0,
     };
   }));
 });

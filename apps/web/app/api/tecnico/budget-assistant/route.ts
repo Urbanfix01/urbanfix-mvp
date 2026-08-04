@@ -20,7 +20,7 @@ import type {
   BudgetAssistantEngine,
   BudgetAssistantTrade,
 } from '@/lib/ai/budget-assistant-types';
-import { getUpdatedLaborPrice, laborPriceIndex } from '@/lib/labor-price-index';
+import { getCatalogLaborPrice, isDirectLaborPriceSource, laborPriceIndex } from '@/lib/labor-price-index';
 import { getServiceRoleClient } from '@/lib/supabase/server';
 
 export const maxDuration = 45;
@@ -224,7 +224,8 @@ const buildPricedAnalysis = ({
     }
     seen.add(selected.catalogItemId);
     const basePrice = Number(catalogItem.suggested_price || 0);
-    const unitPrice = catalogItem.type === 'labor' ? getUpdatedLaborPrice(basePrice) : basePrice;
+    const unitPrice =
+      catalogItem.type === 'labor' ? getCatalogLaborPrice(basePrice, catalogItem.source_ref) : basePrice;
     const quantity = roundQuantity(selected.quantity);
     const status = selected.optional ? 'optional' : quantity ? 'confirmed' : 'pending';
     return [{
@@ -273,6 +274,7 @@ const buildPricedAnalysis = ({
   const latestCatalogDate = catalog.reduce<string | null>((latest, item) => (
     item.created_at && (!latest || item.created_at > latest) ? item.created_at : latest
   ), null);
+  const includesDirectAaiericPrices = catalog.some((item) => isDirectLaborPriceSource(item.source_ref));
   const confirmed = roundMoney(pricedItems.reduce((total, item) => total + (item.status === 'confirmed' ? Number(item.total || 0) : 0), 0));
   const optional = roundMoney(pricedItems.reduce((total, item) => total + (item.status === 'optional' ? Number(item.total || 0) : 0), 0));
   const missingInputs = selection.questions.map(({ key, question, reason }) => ({ key, question, reason }));
@@ -300,7 +302,9 @@ const buildPricedAnalysis = ({
     },
     priceContext: {
       catalogUpdatedAt: latestCatalogDate,
-      laborIndexLabel: `${laborPriceIndex.activeLabel}: ${laborPriceIndex.periodLabel} (+${laborPriceIndex.accumulatedPercent}%)`,
+      laborIndexLabel: includesDirectAaiericPrices
+        ? `AAIERIC julio 2026; otros rubros: ${laborPriceIndex.periodLabel} (+${laborPriceIndex.accumulatedPercent}%)`
+        : `${laborPriceIndex.activeLabel}: ${laborPriceIndex.periodLabel} (+${laborPriceIndex.accumulatedPercent}%)`,
     },
   };
 };

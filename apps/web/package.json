@@ -13,6 +13,7 @@
     "cookies:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-cookie-policy.js",
     "community-flow:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-community-flow.js",
     "labor-price-flow:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-labor-price-flow.js",
+    "labor-price-index:test": "node scripts/test-labor-price-index.js",
     "account-retention:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-account-retention.js",
     "world-growth:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-world-growth.js",
     "env-template:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-env-template.js",
