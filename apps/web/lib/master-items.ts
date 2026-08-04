@@ -5,6 +5,19 @@ type MasterItemDisplayInput = {
   unit?: string | null;
 };
 
+export const resolveMasterItemUnit = (item: MasterItemDisplayInput) => {
+  const name = String(item?.name || '').trim();
+  const normalizedName = normalizeUnitToken(name);
+  if (/\(\s*metros?\s*\)/i.test(name)) return 'metro';
+  if (
+    (normalizedName.includes('cable ') || normalizedName.includes('cano ') || normalizedName.includes('caneria ')) &&
+    normalizedName.includes('metro')
+  ) {
+    return 'metro';
+  }
+  return canonicalizeMasterItemUnit(item?.unit);
+};
+
 const normalizeUnitToken = (value: string | null | undefined) =>
   String(value || '')
     .trim()

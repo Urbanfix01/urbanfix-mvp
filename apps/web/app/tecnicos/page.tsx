@@ -88,6 +88,7 @@ import {
   canonicalizeMasterItemUnit,
   compactTechnicalNotesText,
   normalizeTechnicalNotesText,
+  resolveMasterItemUnit,
 } from '../../lib/master-items';
 import {
   COUNTRY_NAMES,
@@ -104,6 +105,9 @@ import { normalizePublicWhatsappPhone } from '../../lib/public-phone';
 import LocalitySelect from '../../components/LocalitySelect';
 import TechnicianLocationPicker, { type LocationPickerResult } from '../../components/TechnicianLocationPicker';
 import TechnicianClientHistoryMap from '../../components/TechnicianClientHistoryMap';
+import BudgetAiAssistant from '../../components/quote/BudgetAiAssistant';
+import type { BudgetAiApplyPayload } from '../../lib/ai/budget-assistant-types';
+import { collectAssistantPendingConcepts, replaceProposalItems } from '../../lib/ai/budget-assistant-core';
 import {
   getLaborPriceUpdatePercentLabel,
   getUpdatedLaborPrice,
@@ -222,7 +226,7 @@ const DEFAULT_WORKING_HOURS_CONFIG: WorkingHoursConfig = {
 };
 
 type QuoteWorkEstimatorMode = 'manual' | 'revoques' | 'mamposteria' | 'pisos' | 'pintura';
-type QuoteLaborLoadMode = 'calculator' | 'catalog' | 'manual';
+type QuoteLaborLoadMode = 'ai' | 'calculator' | 'catalog' | 'manual';
 type RevoqueWorkTypeKey = 'grueso' | 'fino' | 'grueso-fino' | 'exterior';
 type MamposteriaWorkTypeKey = 'ladrillo-hueco-8' | 'ladrillo-hueco-12' | 'ladrillo-hueco-18' | 'ladrillo-comun' | 'bloque-cemento';
 type PisoWorkTypeKey = 'ceramico' | 'porcelanato' | 'revestimiento';
@@ -2691,6 +2695,14 @@ const buildItemsSignature = (items: ItemForm[]) =>
         syncDriverId: source.syncDriverId,
         syncQuantityPerUnit: Number(source.syncQuantityPerUnit) || 0,
       })),
+      assistantProposalId: item.assistantProposalId || '',
+      assistantRevision: item.assistantRevision || '',
+      assistantTrade: item.assistantTrade || '',
+      assistantTemplateKey: item.assistantTemplateKey || '',
+      assistantEngine: item.assistantEngine || '',
+      assistantPending: item.assistantPending || [],
+      assistantExclusions: item.assistantExclusions || [],
+      assistantPricingSource: item.assistantPricingSource || '',
     }))
   );
 
@@ -2720,7 +2732,8 @@ const getQuoteMaterialMergeKey = (item: ItemForm) => {
   if (!descriptionKey) return '';
   const identityKey = item.masterItemId ? `master:${item.masterItemId}` : `label:${descriptionKey}`;
   const unitKey = canonicalizeMasterItemUnit(item.unit || '') || normalizeText(item.unit || '').trim();
-  return `${identityKey}|unit:${unitKey}`;
+  const proposalKey = item.assistantProposalId ? `|proposal:${item.assistantProposalId}` : '';
+  return `${identityKey}|unit:${unitKey}${proposalKey}`;
 };
 
 const mergeUniqueItemImages = (base: ItemImageForm[] = [], extra: ItemImageForm[] = []) => {
@@ -4874,6 +4887,7 @@ export default function TechniciansPage() {
   const [masterSelectionHydratedUserId, setMasterSelectionHydratedUserId] = useState('');
   const [quoteCatalogSearch, setQuoteCatalogSearch] = useState('');
   const [quoteCatalogCategory, setQuoteCatalogCategory] = useState('all');
+  const [quoteCatalogVisibleCount, setQuoteCatalogVisibleCount] = useState(40);
   const [isDesktopNavExpanded, setIsDesktopNavExpanded] = useState(false);
   const uiTheme = UI_THEME;
   const savingRef = useRef(false);
@@ -4907,6 +4921,7 @@ export default function TechniciansPage() {
   const [viewerError, setViewerError] = useState('');
   const [quoteFilter, setQuoteFilter] = useState<QuoteFilter>('all');
   const [openQuoteStep, setOpenQuoteStep] = useState<'client' | 'items' | 'materials' | 'settings'>('client');
+  const [quoteCreationMode, setQuoteCreationMode] = useState<'quick' | 'complete' | null>(null);
   const [editingQuoteItemId, setEditingQuoteItemId] = useState('');
   const [showQuoteDraftPrompt, setShowQuoteDraftPrompt] = useState(false);
   const [quoteLaborLoadMode, setQuoteLaborLoadMode] = useState<QuoteLaborLoadMode>('catalog');
@@ -6341,6 +6356,7 @@ export default function TechniciansPage() {
     setFormError('');
     setInfoMessage('');
     setOpenQuoteStep('client');
+    setQuoteCreationMode(null);
     setShowQuoteDraftPrompt(false);
     setQuoteLaborLoadMode('catalog');
     setQuoteWorkEstimatorMode(DEFAULT_QUOTE_ESTIMATOR_MODE);
@@ -6348,6 +6364,7 @@ export default function TechniciansPage() {
     setMamposteriaForm(DEFAULT_MAMPOSTERIA_FORM);
     setPisoForm(DEFAULT_PISO_FORM);
     setPinturaForm(DEFAULT_PINTURA_FORM);
+    setQuoteCatalogVisibleCount(40);
     lastSavedItemsSignatureRef.current = '';
     lastSavedItemsCountRef.current = 0;
   };
@@ -6367,6 +6384,7 @@ export default function TechniciansPage() {
     setShowQuoteDraftPrompt(false);
     if (targetTab === 'nuevo') {
       setOpenQuoteStep('client');
+      setQuoteCreationMode('complete');
       setQuoteLaborLoadMode('catalog');
       setQuoteWorkEstimatorMode(DEFAULT_QUOTE_ESTIMATOR_MODE);
       setRevoqueForm(DEFAULT_REVOQUE_FORM);
@@ -6433,6 +6451,18 @@ export default function TechniciansPage() {
           item?.metadata?.sync_quantity_per_unit ?? item?.metadata?.syncQuantityPerUnit ?? 0
         ),
         syncSources: normalizeQuoteItemSyncSources(item?.metadata?.sync_sources || item?.metadata?.syncSources || []),
+        assistantProposalId: String(item?.metadata?.assistant_proposal_id || ''),
+        assistantRevision: String(item?.metadata?.assistant_revision || ''),
+        assistantTrade: item?.metadata?.assistant_trade || undefined,
+        assistantTemplateKey: String(item?.metadata?.assistant_template_key || ''),
+        assistantEngine: item?.metadata?.assistant_engine || undefined,
+        assistantPending: Array.isArray(item?.metadata?.assistant_pending)
+          ? item.metadata.assistant_pending.map((value: unknown) => String(value)).filter(Boolean)
+          : [],
+        assistantExclusions: Array.isArray(item?.metadata?.assistant_exclusions)
+          ? item.metadata.assistant_exclusions.map((value: unknown) => String(value)).filter(Boolean)
+          : [],
+        assistantPricingSource: item?.metadata?.assistant_pricing_source || undefined,
         type: normalizedType as 'labor' | 'material',
       };
     });
@@ -6453,7 +6483,7 @@ export default function TechniciansPage() {
     description: item.name,
     quantity: 1,
     unitPrice: getMasterItemSuggestedPrice(item),
-    unit: item.unit || '',
+    unit: resolveMasterItemUnit(item) || '',
     workArea: '',
     itemImages: [],
     technicalNotes: mergeUniqueText(
@@ -6515,6 +6545,102 @@ export default function TechniciansPage() {
     });
     focusQuoteItemsEditor();
   };
+
+  const handleApplyBudgetAiItems = ({ analysis, items: suggestions }: BudgetAiApplyPayload) => {
+    const masterItemsById = new Map(masterItems.map((item) => [item.id, item]));
+    const batchKey = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const nextItems = suggestions.flatMap((suggestion, index) => {
+      const masterItem = suggestion.catalogItemId ? masterItemsById.get(suggestion.catalogItemId) : null;
+      const quantity = Number(suggestion.quantity || 0);
+      if (!Number.isFinite(quantity) || quantity <= 0 || suggestion.unitPrice <= 0) return [];
+      const quoteItem: ItemForm = masterItem
+        ? buildQuoteItemFromMasterItem(masterItem, `item-ai-${batchKey}-${index}`)
+        : {
+            id: `item-ai-${batchKey}-${index}`,
+            description: suggestion.name,
+            quantity,
+            unitPrice: suggestion.unitPrice,
+            unit: suggestion.unit,
+            workArea: '',
+            itemImages: [],
+            technicalNotes: suggestion.technicalNotes || '',
+            masterItemId: suggestion.catalogItemId || '',
+            masterItemCategory: suggestion.category || '',
+            masterItemSourceRef: suggestion.sourceRef || '',
+            type: suggestion.type === 'labor' ? 'labor' : 'material',
+          };
+      const pending = [
+        ...analysis.questions.map((question) => question.question),
+        ...analysis.items.filter((item) => item.status === 'pending').map((item) => item.name),
+      ].filter((value, pendingIndex, all) => all.indexOf(value) === pendingIndex);
+      return [{
+        ...quoteItem,
+        quantity,
+        unitPrice: suggestion.unitPrice,
+        unit: suggestion.unit,
+        technicalNotes: mergeUniqueText(
+          [quoteItem.technicalNotes || '', `Propuesta ${analysis.engine}: ${suggestion.purpose}`],
+          '\n\n'
+        ),
+        assistantProposalId: analysis.proposalId,
+        assistantRevision: analysis.revision,
+        assistantTrade: analysis.trade,
+        assistantTemplateKey: analysis.templateKey || '',
+        assistantEngine: analysis.engine,
+        assistantPending: pending,
+        assistantExclusions: analysis.exclusions,
+        assistantPricingSource: (suggestion.pricingSource === 'manual' ? 'manual' : 'catalog') as ItemForm['assistantPricingSource'],
+      }];
+    });
+
+    if (!nextItems.length) {
+      setFormError('No hay conceptos confirmados con importe para agregar.');
+      return;
+    }
+
+    setActiveTab('nuevo');
+    setOpenQuoteStep('items');
+    setItems((current) => mergeQuoteMaterialItems(
+      replaceProposalItems(current, nextItems, analysis.proposalId) as ItemForm[]
+    ));
+    setEditingQuoteItemId(nextItems[0]?.id || '');
+    setFormError('');
+    setInfoMessage(
+      `${nextItems.length} item(s) de la propuesta ${analysis.engine} aplicados sin duplicar el bloque. Revisa cantidades, alcance y precios antes de guardar.${
+        analysis.summary ? ` ${analysis.summary}` : ''
+      }`
+    );
+    trackFunnelEvent('budget_ai_items_added_to_quote', {
+      item_count: nextItems.length,
+      trade: analysis.trade,
+      engine: analysis.engine,
+    });
+    focusQuoteItemsEditor();
+  };
+
+  const handleOpenAssistantCalculatorTemplate = (
+    trade: 'electricidad' | 'sanitarios' | 'pintura' | 'mamposteria',
+    templateKey: string
+  ) => {
+    if (trade === 'pintura') {
+      const workType = templateKey as PinturaWorkTypeKey;
+      if (!['interior', 'exterior', 'cielorraso'].includes(workType)) return;
+      setPinturaForm((current) => ({ ...current, workType }));
+      setQuoteWorkEstimatorMode('pintura');
+      setQuoteLaborLoadMode('calculator');
+      setInfoMessage('Plantilla de pintura abierta con los coeficientes actuales de materiales.');
+      return;
+    }
+    if (trade === 'mamposteria') {
+      const workType = templateKey.replace(/_/g, '-') as MamposteriaWorkTypeKey;
+      if (!['ladrillo-hueco-8', 'ladrillo-hueco-12', 'ladrillo-hueco-18', 'ladrillo-comun', 'bloque-cemento'].includes(workType)) return;
+      setMamposteriaForm((current) => ({ ...current, workType }));
+      setQuoteWorkEstimatorMode('mamposteria');
+      setQuoteLaborLoadMode('calculator');
+      setInfoMessage('Plantilla de mamposteria abierta con los coeficientes actuales de materiales.');
+    }
+  };
+
   const handleAddItem = (type: 'labor' | 'material' = 'labor') => {
     const nextItemId = `item-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     setOpenQuoteStep(type === 'material' ? 'materials' : 'items');
@@ -7358,6 +7484,10 @@ export default function TechniciansPage() {
         return String(a.name || '').localeCompare(String(b.name || ''));
       });
   }, [laborMasterItems, quoteCatalogCategory, quoteCatalogSearch]);
+  const visibleQuoteLaborCatalogItems = useMemo(
+    () => filteredQuoteLaborCatalogItems.slice(0, quoteCatalogVisibleCount),
+    [filteredQuoteLaborCatalogItems, quoteCatalogVisibleCount]
+  );
   const laborMasterById = useMemo(() => {
     const map = new Map<string, MasterItemRow>();
     laborMasterItems.forEach((item) => {
@@ -10224,6 +10354,7 @@ export default function TechniciansPage() {
     );
     const cleanedItems = preparedItems.filter((item) => item.description.trim());
     const isDraft = nextStatus === 'draft';
+    const pendingAssistantConcepts = collectAssistantPendingConcepts(cleanedItems);
     if (!isDraft) {
       if (!clientName.trim()) {
         setFormError('Ingresa el nombre del cliente.');
@@ -10239,6 +10370,17 @@ export default function TechniciansPage() {
       }
       if (cleanedItems.length === 0 || total <= 0) {
         setFormError('Agrega al menos un item con importe.');
+        setOpenQuoteStep('items');
+        savingRef.current = false;
+        return null;
+      }
+      if (
+        pendingAssistantConcepts.length > 0 &&
+        !window.confirm(
+          `Este presupuesto tiene ${pendingAssistantConcepts.length} concepto${pendingAssistantConcepts.length === 1 ? '' : 's'} pendiente${pendingAssistantConcepts.length === 1 ? '' : 's'} que no se incluye${pendingAssistantConcepts.length === 1 ? '' : 'n'} en el total. ¿Queres enviarlo igualmente?`
+        )
+      ) {
+        setFormError('Envio cancelado. Completa o revisa los conceptos pendientes.');
         setOpenQuoteStep('items');
         savingRef.current = false;
         return null;
@@ -10334,6 +10476,14 @@ export default function TechniciansPage() {
                 sync_driver_id: source.syncDriverId,
                 sync_quantity_per_unit: source.syncQuantityPerUnit,
               })),
+              assistant_proposal_id: item.assistantProposalId || null,
+              assistant_revision: item.assistantRevision || null,
+              assistant_trade: item.assistantTrade || null,
+              assistant_template_key: item.assistantTemplateKey || null,
+              assistant_engine: item.assistantEngine || null,
+              assistant_pending: item.assistantPending || [],
+              assistant_exclusions: item.assistantExclusions || [],
+              assistant_pricing_source: item.assistantPricingSource || null,
             },
           }));
           const { error: itemsError } = await supabase.from('quote_items').insert(itemsPayload);
@@ -14508,6 +14658,11 @@ export default function TechniciansPage() {
                         Nuevo presupuesto
                       </h2>
                       <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-semibold">
+                      {quoteCreationMode ? (
+                        <span className="rounded-full bg-violet-50 px-3 py-1 text-violet-700 shadow-sm ring-1 ring-violet-100">
+                          {quoteCreationMode === 'quick' ? 'Cotizacion rapida' : 'Presupuesto completo'}
+                        </span>
+                      ) : null}
                       <span className="rounded-full bg-white px-3 py-1 text-slate-600 shadow-sm ring-1 ring-slate-200">
                           {completedQuoteSteps}/4 pasos
                         </span>
@@ -14536,7 +14691,39 @@ export default function TechniciansPage() {
                       </button>
                 </div>
 
-                <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+                {quoteCreationMode === null && !activeQuoteId ? (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setQuoteCreationMode('quick');
+                        setOpenQuoteStep('items');
+                        setQuoteLaborLoadMode('ai');
+                      }}
+                      className="group rounded-[28px] border border-violet-200 bg-gradient-to-br from-violet-600 to-violet-700 p-6 text-left text-white shadow-[0_22px_60px_-38px_rgba(124,58,237,0.9)] transition hover:-translate-y-0.5"
+                    >
+                      <span className="inline-flex rounded-full bg-white/15 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em]">Rapido y editable</span>
+                      <h3 className={`${spaceGrotesk.className} mt-4 text-2xl font-black`}>Cotizacion rapida</h3>
+                      <p className="mt-2 text-sm font-semibold leading-6 text-white/75">Empeza por el trabajo, agrega bloques asistidos y guarda el borrador sin cargar cliente ni ubicacion.</p>
+                      <span className="mt-5 inline-flex items-center gap-2 text-xs font-black">Empezar por el trabajo <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" /></span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setQuoteCreationMode('complete');
+                        setOpenQuoteStep('client');
+                      }}
+                      className="group rounded-[28px] border border-slate-200 bg-white p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
+                    >
+                      <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Flujo completo</span>
+                      <h3 className={`${spaceGrotesk.className} mt-4 text-2xl font-black text-slate-950`}>Presupuesto completo</h3>
+                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">Carga primero cliente y ubicacion, luego trabajo, materiales, condiciones y envio.</p>
+                      <span className="mt-5 inline-flex items-center gap-2 text-xs font-black text-slate-900">Completar todos los pasos <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" /></span>
+                    </button>
+                  </div>
+                ) : null}
+
+                <div className={`${quoteCreationMode === null && !activeQuoteId ? 'hidden' : 'grid'} gap-5 xl:grid-cols-[minmax(0,1fr)_360px]`}>
                   <div className="space-y-3">
                     {showQuoteDraftPrompt && draftQuotes.length > 0 && !activeQuoteId && (
                       <div className="rounded-[26px] border border-amber-200 bg-amber-50/80 p-4 shadow-sm">
@@ -14781,7 +14968,18 @@ export default function TechniciansPage() {
                                 Calculá por medidas, buscá un precio o agregá una tarea simple.
                               </p>
                             </div>
-                            <div className="grid gap-2 sm:grid-cols-3 lg:w-auto">
+                            <div className="grid gap-2 sm:grid-cols-4 lg:w-auto">
+                              <button
+                                type="button"
+                                onClick={() => setQuoteLaborLoadMode('ai')}
+                                className={`rounded-2xl px-4 py-2 text-xs font-black transition ${
+                                  quoteLaborLoadMode === 'ai'
+                                    ? 'bg-violet-600 text-white shadow-sm'
+                                    : 'bg-violet-50 text-violet-700 ring-1 ring-violet-200 hover:bg-white'
+                                }`}
+                              >
+                                Asistente IA
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => setQuoteLaborLoadMode('catalog')}
@@ -14817,6 +15015,14 @@ export default function TechniciansPage() {
                               </button>
                             </div>
                           </div>
+
+                          {quoteLaborLoadMode === 'ai' && (
+                            <BudgetAiAssistant
+                              accessToken={session?.access_token}
+                              onApply={handleApplyBudgetAiItems}
+                              onOpenCalculator={handleOpenAssistantCalculatorTemplate}
+                            />
+                          )}
 
                           {quoteLaborLoadMode === 'calculator' && (
                             <label className="mt-3 block max-w-md text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
@@ -15843,14 +16049,20 @@ export default function TechniciansPage() {
                               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                               <input
                                 value={quoteCatalogSearch}
-                                onChange={(event) => setQuoteCatalogSearch(event.target.value)}
+                                onChange={(event) => {
+                                  setQuoteCatalogSearch(event.target.value);
+                                  setQuoteCatalogVisibleCount(40);
+                                }}
                                 placeholder="Buscar tarea o rubro"
                                 className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-9 pr-4 text-sm font-semibold text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
                               />
                             </label>
                             <select
                               value={quoteCatalogCategory}
-                              onChange={(event) => setQuoteCatalogCategory(event.target.value)}
+                              onChange={(event) => {
+                                setQuoteCatalogCategory(event.target.value);
+                                setQuoteCatalogVisibleCount(40);
+                              }}
                               className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-black text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
                             >
                               <option value="all">Todos los rubros</option>
@@ -15874,8 +16086,9 @@ export default function TechniciansPage() {
                               </div>
                             )}
                             {!loadingMasterItems &&
-                              filteredQuoteLaborCatalogItems.map((item) => {
+                              visibleQuoteLaborCatalogItems.map((item) => {
                                 const rubro = resolveMasterRubro(item);
+                                const displayUnit = resolveMasterItemUnit(item) || 'unidad';
                                 const basePrice = getMasterItemBasePrice(item);
                                 const activePrice = getMasterItemSuggestedPrice(item);
                                 const hasLaborUpdate =
@@ -15893,12 +16106,12 @@ export default function TechniciansPage() {
                                       </span>
                                       <span className="mt-1 block truncate text-[11px] font-semibold text-slate-500">
                                         {formatRubroLabel(rubro)}
-                                        {item.unit ? ` - ${item.unit}` : ''}
+                                        {displayUnit ? ` - ${displayUnit}` : ''}
                                         {item.source_ref ? ` - ${formatCatalogSourceLabel(item.source_ref)}` : ''}
                                       </span>
                                     </span>
                                     <span className="self-center rounded-full bg-slate-100 px-3 py-1 text-center text-[11px] font-black text-slate-600">
-                                      {item.unit || 'unidad'}
+                                      {displayUnit}
                                     </span>
                                     <span className="self-center rounded-2xl bg-slate-950 px-3 py-1.5 text-center text-[11px] font-black text-white">
                                       <span className="block">{formatCurrency(activePrice)}</span>
@@ -15911,6 +16124,17 @@ export default function TechniciansPage() {
                                   </button>
                                 );
                               })}
+                            {!loadingMasterItems && filteredQuoteLaborCatalogItems.length > visibleQuoteLaborCatalogItems.length ? (
+                              <div className="sticky bottom-0 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
+                                <button
+                                  type="button"
+                                  onClick={() => setQuoteCatalogVisibleCount((current) => current + 40)}
+                                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs font-black text-slate-700 transition hover:border-slate-400 hover:bg-white"
+                                >
+                                  Mostrar 40 mas ({filteredQuoteLaborCatalogItems.length - visibleQuoteLaborCatalogItems.length} restantes)
+                                </button>
+                              </div>
+                            ) : null}
                           </div>
                         </div>
                         )}

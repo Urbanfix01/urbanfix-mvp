@@ -241,6 +241,24 @@ const styles = StyleSheet.create({
     padding: 16,
     color: brand.muted,
   },
+  pendingNotice: {
+    marginTop: 18,
+    borderWidth: 1,
+    borderColor: '#f5c76a',
+    borderRadius: 12,
+    backgroundColor: '#fff8e8',
+    padding: 12,
+    color: '#7a4b00',
+  },
+  pendingTitle: {
+    fontSize: 9,
+    fontWeight: 900,
+  },
+  pendingItem: {
+    marginTop: 4,
+    fontSize: 8,
+    lineHeight: 1.35,
+  },
 });
 
 interface Props {
@@ -323,6 +341,12 @@ const renderItemsTable = (title: string, rows: any[]) => {
 
 export const QuoteDocument = ({ quote, items, profile }: Props) => {
   const safeItems = Array.isArray(items) ? items : [];
+  const pendingAssistantConcepts = Array.from(new Set(
+    safeItems
+      .flatMap((item) => Array.isArray(item?.metadata?.assistant_pending) ? item.metadata.assistant_pending : [])
+      .map((value) => String(value || '').trim())
+      .filter(Boolean)
+  ));
   const laborItems = safeItems.filter((item) => normalizeItemType(item) !== 'material');
   const materialItems = safeItems.filter((item) => normalizeItemType(item) === 'material');
   const subtotal = safeItems.reduce((acc, item) => acc + getLineTotal(item), 0);
@@ -372,6 +396,13 @@ export const QuoteDocument = ({ quote, items, profile }: Props) => {
             <Text style={styles.totalAmount}>{formatCurrency(total)}</Text>
           </View>
         </View>
+
+        {pendingAssistantConcepts.length ? (
+          <View style={styles.pendingNotice}>
+            <Text style={styles.pendingTitle}>Conceptos pendientes no incluidos en el total</Text>
+            {pendingAssistantConcepts.map((item) => <Text key={item} style={styles.pendingItem}>- {item}</Text>)}
+          </View>
+        ) : null}
 
         {renderItemsTable('Mano de obra', laborItems)}
         {materialItems.length ? renderItemsTable('Materiales', materialItems) : null}

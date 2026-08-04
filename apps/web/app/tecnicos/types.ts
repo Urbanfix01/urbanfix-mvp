@@ -36,6 +36,14 @@ export type ItemForm = {
   syncDriverId?: string;
   syncQuantityPerUnit?: number;
   syncSources?: QuoteItemSyncSource[];
+  assistantProposalId?: string;
+  assistantRevision?: string;
+  assistantTrade?: 'electricidad' | 'sanitarios' | 'pintura' | 'mamposteria';
+  assistantTemplateKey?: string;
+  assistantEngine?: 'ai' | 'guided' | 'template';
+  assistantPending?: string[];
+  assistantExclusions?: string[];
+  assistantPricingSource?: 'catalog' | 'manual';
 };
 
 export type QuoteItemSyncSource = {

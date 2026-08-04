@@ -5,6 +5,7 @@ const appRoot = path.resolve(__dirname, '..');
 const apiDir = path.join(appRoot, 'app', 'api');
 
 const protectedRoutes = new Set([
+  'account/welcome-whatsapp/route.ts',
   'billing/checkout/route.ts',
   'billing/coupon/validate/route.ts',
   'billing/subscription/route.ts',
@@ -13,23 +14,35 @@ const protectedRoutes = new Set([
   'client/technicians/map/route.ts',
   'client/technicians/nearby/route.ts',
   'tecnico/dashboard/route.ts',
+  'tecnico/budget-assistant/route.ts',
   'tecnico/registration-whatsapp/route.ts',
   'tecnico/quotes/[id]/feedback-link/route.ts',
+  'tecnico/quotes/[id]/route.ts',
   'tecnico/requests/nearby/route.ts',
   'tecnico/requests/[id]/offer/route.ts',
   'tecnicos/[id]/likes/route.ts',
 ]);
 
 const protectedRouteGuards = new Map([
+  ['account/welcome-whatsapp/route.ts', ['readLimitedJsonBody', 'enforceRateLimit']],
   ['billing/checkout/route.ts', ['readLimitedJsonBody']],
   ['billing/coupon/validate/route.ts', ['readLimitedJsonBody']],
   ['client/requests/route.ts', ['readLimitedJsonBody']],
   ['client/requests/[id]/route.ts', ['readLimitedJsonBody']],
   ['tecnico/registration-whatsapp/route.ts', ['readLimitedJsonBody']],
+  ['tecnico/budget-assistant/route.ts', ['readLimitedJsonBody', 'enforceRateLimit']],
+  ['tecnico/quotes/[id]/route.ts', ['readLimitedJsonBody']],
   ['tecnico/requests/[id]/offer/route.ts', ['readLimitedJsonBody']],
 ]);
 
 const tokenGuardedRoutes = new Map([
+  [
+    'cron/labor-price-index/route.ts',
+    {
+      label: 'token de cron',
+      guards: ['CRON_SECRET', 'authorization', 'isAuthorizedCronRequest'],
+    },
+  ],
   [
     'notify/route.ts',
     {
@@ -47,6 +60,13 @@ const tokenGuardedRoutes = new Map([
 ]);
 
 const publicRoutes = new Map([
+  [
+    'auth/validate-email/route.ts',
+    {
+      label: 'publica por diseno con body limitado y rate limit',
+      guards: ['readLimitedJsonBody', 'enforceRateLimit', 'EMAIL_PATTERN'],
+    },
+  ],
   [
     'analytics/track/route.ts',
     {
@@ -78,6 +98,13 @@ const publicRoutes = new Map([
     },
   ],
   [
+    'location/provinces/route.ts',
+    {
+      label: 'publica por diseno con pais normalizado',
+      guards: ['normalizeCountryParam', 'getCountryCode', 'fetchCountriesNowJson'],
+    },
+  ],
+  [
     'public/quote-feedback/[token]/route.ts',
     {
       label: 'publica por link con body limitado',
@@ -96,6 +123,27 @@ const publicRoutes = new Map([
     {
       label: 'publica por diseno con estado compartible',
       guards: ['PUBLIC_QUOTE_STATUSES', 'isPublicQuoteStatus', 'quote.status'],
+    },
+  ],
+  [
+    'tecnicos/[id]/comments/route.ts',
+    {
+      label: 'publica por perfil con cookie, body limitado y rate limit',
+      guards: ['readLimitedJsonBody', 'enforceRateLimit', 'getPublishedProfile'],
+    },
+  ],
+  [
+    'tecnicos/[id]/shares/route.ts',
+    {
+      label: 'publica por perfil con cookie, body limitado y rate limit',
+      guards: ['readLimitedJsonBody', 'enforceRateLimit', 'getPublishedProfile'],
+    },
+  ],
+  [
+    'tecnicos/[id]/visits/route.ts',
+    {
+      label: 'publica por perfil con cookie y rate limit',
+      guards: ['enforceRateLimit', 'getPublishedProfile', 'hasVisitorSeenProfile'],
     },
   ],
 ]);

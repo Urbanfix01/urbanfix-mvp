@@ -379,7 +379,8 @@ export default function QuotePage() {
 
       const materialName = getMaterialDisplayName(item);
       const unitKey = normalizeMergeKey(String(item?.metadata?.unit || item?.unit || '').trim());
-      const mergeKey = `${normalizeMergeKey(materialName)}|${unitKey}`;
+      const proposalKey = String(item?.metadata?.assistant_proposal_id || '').trim();
+      const mergeKey = `${normalizeMergeKey(materialName)}|${unitKey}|${proposalKey}`;
       const quantity = Number(item?.quantity || 0);
       const unitPrice = Number(item?.unit_price || 0);
       const lineTotal = quantity * unitPrice;
@@ -423,6 +424,11 @@ export default function QuotePage() {
   };
 
   const publicItems = mergePublicQuoteItems(items);
+  const pendingAssistantConcepts = Array.from(new Set(
+    items.flatMap((item) => Array.isArray(item?.metadata?.assistant_pending) ? item.metadata.assistant_pending : [])
+      .map((value) => String(value || '').trim())
+      .filter(Boolean)
+  ));
 
   // --- CÁLCULOS ---
   const normalizeTaxRate = (value: any) => {
@@ -790,6 +796,14 @@ export default function QuotePage() {
             </div>
           </section>
 
+          {pendingAssistantConcepts.length > 0 ? (
+            <div className="mx-4 mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 sm:mx-7">
+              <p className="text-xs font-black">Conceptos pendientes no incluidos en el total</p>
+              <p className="mt-1 text-[11px] font-semibold leading-5">Este presupuesto contiene {pendingAssistantConcepts.length} concepto{pendingAssistantConcepts.length === 1 ? '' : 's'} que el tecnico debe confirmar por separado.</p>
+              <ul className="mt-2 space-y-1 text-[11px] font-semibold">{pendingAssistantConcepts.map((item) => <li key={item}>- {item}</li>)}</ul>
+            </div>
+          ) : null}
+
           <section className="px-4 py-5 sm:px-7 sm:py-6">
             <div className="mb-3 flex items-end justify-between gap-4">
               <div>
@@ -1052,6 +1066,14 @@ export default function QuotePage() {
             </div>
           </div>
         </div>
+
+        {pendingAssistantConcepts.length > 0 ? (
+          <section className="border-t border-amber-200 bg-amber-50 px-5 py-5 text-amber-950 sm:px-8 md:px-10">
+            <p className="text-sm font-black">Conceptos pendientes no incluidos en el total</p>
+            <p className="mt-1 text-xs font-semibold leading-5">El importe final no contempla los siguientes puntos:</p>
+            <ul className="mt-2 grid gap-1 text-xs font-semibold sm:grid-cols-2">{pendingAssistantConcepts.map((item) => <li key={item}>- {item}</li>)}</ul>
+          </section>
+        ) : null}
 
         <section className="border-t border-slate-200 bg-white px-5 py-6 sm:px-8 sm:py-8 md:px-10">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
