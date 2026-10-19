@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useProjectOwner } from './ProjectSession';
 import { Country, PROJECT_TOOLS, ProjectMeta, ProjectScope } from './projectWorkspace';
 import { useProjects } from './useProjects';
-import { Action, BORDER, Field, IconButton, Notice, ProjectHeader, TEAL, ui } from './ProjectUI';
+import { Action, Field, IconButton, Notice, ProjectHeader, TEAL, ui } from './ProjectUI';
 
 const searchable = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es');
 export default function ProjectsScreen() {

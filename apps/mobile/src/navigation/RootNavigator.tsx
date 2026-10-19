@@ -134,8 +134,6 @@ const withTabSwipe = (Component: React.ComponentType<any>) => {
 const JobsScreenWithSwipe = withTabSwipe(JobsScreen);
 const AgendaScreenWithSwipe = withTabSwipe(AgendaScreen);
 const OperationalScreenWithSwipe = withTabSwipe(OperationalScreen);
-const NotificationsScreenWithSwipe = withTabSwipe(NotificationsScreen);
-const ProfileScreenWithSwipe = withTabSwipe(ProfileScreen);
 
 const ClientRequestsScreenWithSwipe = withTabSwipe(ClientRequestsScreen);
 const ClientPublishScreenWithSwipe = withTabSwipe(ClientPublishScreen);
@@ -214,7 +212,6 @@ const useTabScreenOptions = (variant: 'tech' | 'client' = 'tech') => {
 
   return ({ route }: any) => {
     const isTechVariant = variant === 'tech';
-    const isPrimaryTab = route.name === 'Operativo';
 
     if (!isTechVariant) {
       return {

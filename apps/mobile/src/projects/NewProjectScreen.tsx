@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { useProjectOwner } from './ProjectSession';
 import { loadProjectClients, ProjectClient, projectRepository } from './projectServices';
-import { Country, createProjectDraft, EMPTY_PROJECT_FORM, NewProjectForm, normalizePoint, PROJECT_STEPS, validateProjectForm } from './projectWorkspace';
+import { Country, createProjectDraft, EMPTY_PROJECT_FORM, metadata, NewProjectForm, normalizePoint, PROJECT_STEPS, validateProjectForm } from './projectWorkspace';
 import { Action, Field, IconButton, Notice, ProjectHeader, TEAL, ui } from './ProjectUI';
 import ProjectPlanPreview from './ProjectPlanPreview';
 
@@ -70,7 +70,7 @@ export default function NewProjectScreen({ navigation, route }: any) {
       try { await projectRepository.sync(scope); } catch (error) { syncMessage = (error as Error).message; }
       if (!active.current) return;
       const row = await projectRepository.get(scope, saved.id).catch(() => saved);
-      navigation.replace('ProjectDetail', { row: { ...row, document: undefined }, initialMessage: syncMessage });
+      navigation.replace('ProjectDetail', { row: metadata(row), initialMessage: syncMessage });
     } catch (error) { if (active.current) setMessage((error as Error).message); }
     finally { saving.current = false; if (active.current) setBusy(false); }
   };

@@ -17,7 +17,7 @@ export default function ProjectDetailScreen({ navigation, route }: any) {
   const [versionsOpen, setVersionsOpen] = useState(false), [versions, setVersions] = useState<ProjectMeta[]>([]), [versionsBusy, setVersionsBusy] = useState(false);
   const [versionMessage, setVersionMessage] = useState(''), [page, setPage] = useState(0), [more, setMore] = useState(false);
   const generation = useRef(0), mounted = useRef(true), scope = { owner, countryCode: selected.countryCode };
-  useEffect(() => () => { mounted.current = false; generation.current++; }, []);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; generation.current++; }; }, []);
   const load = async () => {
     const request = ++generation.current; setLoading(true); setRecord(null);
     try { validateMeta(selected, scope); const saved = await projectRepository.get(scope, selected.id); if (mounted.current && generation.current === request) setRecord(saved); }
@@ -31,7 +31,9 @@ export default function ProjectDetailScreen({ navigation, route }: any) {
       const result = await projectRepository.versions(scope, selected, nextPage);
       if (!mounted.current) return;
       const all = nextPage ? [...versions, ...result.remote, ...result.local] : [...result.remote, ...result.local];
-      setVersions([...new Map(all.map((row) => [row.id, row])).values()].sort((a, b) => b.capturedAt.localeCompare(a.capturedAt)));
+      const byId = new Map<string, ProjectMeta>();
+      for (const row of all) byId.set(row.id, { ...row, synced: row.synced || Boolean(byId.get(row.id)?.synced) });
+      setVersions([...byId.values()].sort((a, b) => b.capturedAt.localeCompare(a.capturedAt)));
       setPage(nextPage); setMore(result.hasMore);
     } catch (error) {
       if (!mounted.current) return;

@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createHash, randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
+import path from 'node:path';
 
 const require = createRequire(import.meta.url), ts = require('typescript');
 const source = await readFile(new URL('../src/projects/projectWorkspace.ts', import.meta.url), 'utf8');
@@ -72,9 +74,20 @@ test('opened cloud versions are verified and cached for offline access', async (
   assert.equal((await f.repo.get(scope, row.id)).synced, true); f.remote.clear();
   assert.equal((await f.repo.get(scope, row.id)).id, row.id);
 });
-test('corrupt cloud document cannot be cached', async () => {
-  const f = fixture(), row = await f.repo.create(scope, form); await f.repo.sync(scope); f.storage.clear(); f.remote.get(row.id).document.draft.name = 'Alterado';
+test('a cloud document from another account cannot be cached', async () => {
+  const f = fixture(), row = await f.repo.create(scope, form); await f.repo.sync(scope); f.storage.clear(); f.remote.get(row.id).owner = other;
   await assert.rejects(f.repo.get(scope, row.id)); assert.equal(f.storage.size, 0);
+});
+test('JSONB key reordering preserves web version identity and establishes an independent device checksum', async () => {
+  const f = fixture(), row = await f.repo.create(scope, form); await f.repo.sync(scope); f.storage.clear();
+  const remote = f.remote.get(row.id), doc = remote.document;
+  remote.document = { auxiliary: doc.auxiliary, draft: doc.draft, version: 1 };
+  assert.notEqual(await digest(JSON.stringify(remote.document)), remote.digest);
+  const cached = await f.repo.get(scope, row.id); assert.equal(cached.digest, row.digest);
+  assert.equal((await f.repo.get(scope, row.id)).id, row.id);
+  const key = [...f.storage.keys()].find((key) => key.includes(':document:')), raw = JSON.parse(f.storage.get(key));
+  raw.document.draft.name = 'Alterado'; f.storage.set(key, JSON.stringify(raw));
+  await assert.rejects(f.repo.get(scope, row.id));
 });
 test('the web destination is project-filtered, HTTPS, allowlisted and contains no session token', async () => {
   const f = fixture(), row = await f.repo.create(scope, form), url = new URL(core.projectWebUrl(row));
@@ -87,4 +100,13 @@ test('grouping retains latest snapshots and cloud sync confirmation', async () =
   const f = fixture(), row = core.metadata(await f.repo.create(scope, form));
   assert.equal(core.mergeProjects([row], [{ ...row, synced: true }])[0].synced, true);
   assert.equal(core.mergeProjects([{ ...row, id: randomUUID(), capturedAt: '2027-01-01T00:00:00.000Z' }], [row]).length, 1);
+});
+test('the canonical web normalizer accepts the native plan and history contract', { skip: !process.env.URBANFIX_WEB_ROOT }, async () => {
+  const root = process.env.URBANFIX_WEB_ROOT, f = fixture();
+  const { normalizeHouseDrawing } = await import(pathToFileURL(path.join(root, 'src/lib/houseDrawing.js')));
+  const { validateHistoryRecord } = await import(pathToFileURL(path.join(root, 'src/lib/projectHistory.js')));
+  const row = await f.repo.create(scope, { ...form, clientName: 'Prueba', location: 'Pilar', siteLocation: { lat: -34.6, lng: -58.38, source: 'manual', accuracy: null }, clientReference: { contactId: randomUUID(), owner } });
+  const draft = normalizeHouseDrawing(row.document.draft);
+  assert.equal(draft.settings.lotDepth, 33); assert.deepEqual(draft.projectInfo, row.document.draft.projectInfo);
+  validateHistoryRecord(row, scope);
 });

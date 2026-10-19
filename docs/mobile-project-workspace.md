@@ -45,7 +45,10 @@ Each local snapshot has an independent AsyncStorage key partitioned by owner
 UUID and country. Full snapshots are immutable and SHA-256 verified; lightweight
 indexes track backup status. An interrupted index write can be recovered from
 the durable snapshot. No old history is pruned or overwritten. Opened cloud
-versions are verified and cached for later offline use. Device storage remains
+versions are scope/format validated and cached for later offline use. PostgreSQL
+JSONB can reorder object keys: the web's original digest remains a version
+identifier, and a separate device checksum protects the retrieved local copy.
+It is not a cryptographic signature of remote contents. Device storage remains
 finite and can be lost if the app is uninstalled; backup status and private
 export matter. Local storage is app-private storage, not encrypted archival
 storage and not a replacement for a confirmed cloud backup.
@@ -96,7 +99,8 @@ of a physical-device test.
 ## Preview And Production
 
 The `preview` EAS profile uses `APP_VARIANT=preview`, internal distribution and
-an Android APK. `app.config.js` derives separate preview identifiers:
+an Android APK. The existing `app.config.ts` derives separate preview identifiers
+while preserving Supabase and Google Maps configuration:
 
 - Android: `com.urbanfix.app.preview`
 - iOS: `com.urbanfix.urbanfix.preview`

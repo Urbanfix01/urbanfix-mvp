@@ -73,6 +73,9 @@ La configuracion de Expo/EAS para iOS y Android vive en `apps/mobile`.
 
 ## Flujo de trabajo web
 
+Esta seccion describe la web historica del monorepo. No ejecutar su deploy
+para actualizar la web actual; usar el repositorio `Urbanfix01/urbanfix_web`.
+
 Antes de empezar una tarea:
 
 ```bash

@@ -98,9 +98,10 @@ export function createProjectRepository(ports: ProjectPorts) {
   const localRecord = async (scope: ProjectScope, id: string) => {
     if (!uuid.test(id)) throw new Error('Identificador de versión inválido.');
     const raw = await ports.storage.getItem(documentKey(scope, id)); if (raw === null) return null;
-    let row: ProjectRecord;
-    try { row = validateRecord(JSON.parse(raw), scope); } catch { throw new Error('Copia local ilegible. Se conserva sin modificar; revisá el respaldo de la cuenta.'); }
-    if (row.id !== id || await ports.digest(JSON.stringify(row.document)) !== row.digest) throw new Error('La copia local cambió o no se pudo verificar. Se conserva sin modificar.');
+    let row: ProjectRecord, deviceDigest: string | undefined;
+    try { const { deviceDigest: checksum, ...saved } = JSON.parse(raw); row = validateRecord(saved, scope); deviceDigest = checksum; } catch { throw new Error('Copia local ilegible. Se conserva sin modificar; revisá el respaldo de la cuenta.'); }
+    if (deviceDigest !== undefined && !/^[a-f0-9]{64}$/.test(deviceDigest)) throw new Error('Verificación local inválida.');
+    if (row.id !== id || await ports.digest(JSON.stringify(row.document)) !== (deviceDigest || row.digest)) throw new Error('La copia local cambió o no se pudo verificar. Se conserva sin modificar.');
     const index = await ports.storage.getItem(metaKey(scope, id));
     if (index) {
       const meta = validateMeta(JSON.parse(index), scope);
@@ -164,11 +165,12 @@ export function createProjectRepository(ports: ProjectPorts) {
       await requireOwner(scope);
       const record = validateRecord(await ports.cloud.get(scope, id), scope);
       await requireOwner(scope);
-      if (record.id !== id || await ports.digest(JSON.stringify(record.document)) !== record.digest) throw new Error('No se pudo verificar el documento de la cuenta.');
-      // Keep opened cloud versions available offline without replacing any local snapshot.
+      if (record.id !== id) throw new Error('La versión recuperada no coincide con la solicitada.');
+      // JSONB can reorder keys, so the web's original digest is a version identifier,
+      // not a checksum of the retrieved serialization. Establish a separate local checksum.
       if (await ports.storage.getItem(documentKey(scope, id)) === null) {
         try {
-          await ports.storage.setItem(documentKey(scope, id), JSON.stringify(record));
+          await ports.storage.setItem(documentKey(scope, id), JSON.stringify({ ...record, deviceDigest: await ports.digest(JSON.stringify(record.document)) }));
           await ports.storage.setItem(metaKey(scope, id), JSON.stringify(metadata(record)));
         } catch { /* Cloud copy remains intact if the device is full. */ }
       }
