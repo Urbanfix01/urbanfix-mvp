@@ -1,9 +1,19 @@
 # UrbanFix MVP
 
+## Actualizaciones
+
+- 2026-10-19: espacio movil de proyectos, nuevo proyecto en cuatro pasos,
+  historial compatible con la web y perfil interno de prueba separado.
+
 ## Fuente de verdad
 
-La web activa vive en `apps/web`.
+La web actual vive en el repositorio `Urbanfix01/urbanfix_web`.
+`apps/web` en este monorepo es la web anterior; no desplegarla como parte de esta actualizacion movil.
 La app movil activa vive en `apps/mobile`.
+
+El espacio nativo de proyectos, sus pruebas y el alcance de la version interna
+estan documentados en [Mobile Project Workspace](docs/mobile-project-workspace.md).
+Para esta funcion usar `main`, no la rama predeterminada antigua `master`.
 
 No trabajar ni desplegar desde estas carpetas:
 

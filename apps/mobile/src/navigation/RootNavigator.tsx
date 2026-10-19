@@ -13,6 +13,11 @@ import { COLORS, FONTS } from '../utils/theme';
 import { getStoredAudience, MobileAudience, setStoredAudience } from '../utils/audience';
 import SwipeableTabScreen from './SwipeableTabScreen';
 import { registerForPushNotificationsAsync, showLocalNotification } from '../utils/notifications';
+import ProjectsScreen from '../projects/ProjectsScreen';
+import NewProjectScreen from '../projects/NewProjectScreen';
+import ProjectDetailScreen from '../projects/ProjectDetailScreen';
+import MoreScreen from '../projects/MoreScreen';
+import { ProjectOwnerContext } from '../projects/ProjectSession';
 
 // Auth
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -187,6 +192,8 @@ function AccountLoadingScreen() {
 }
 
 const getTabIconName = (routeName: string, focused: boolean) => {
+  if (routeName === 'Proyectos') return focused ? 'folder-open' : 'folder-open-outline';
+  if (routeName === 'Más') return 'ellipsis-horizontal';
   if (routeName === 'Panel') return focused ? 'grid' : 'grid-outline';
   if (routeName === 'Agenda') return focused ? 'today' : 'today-outline';
   if (routeName === 'Operativo') return focused ? 'map' : 'map-outline';
@@ -231,46 +238,20 @@ const useTabScreenOptions = (variant: 'tech' | 'client' = 'tech') => {
 
     return {
       headerShown: false,
-      tabBarShowLabel: false,
+      tabBarShowLabel: true,
       tabBarHideOnKeyboard: true,
-      tabBarActiveTintColor: '#FFFFFF',
-      tabBarInactiveTintColor: '#7F8A99',
+      tabBarActiveTintColor: '#006e68',
+      tabBarInactiveTintColor: '#536e76',
       tabBarStyle: {
-        height: 72 + insets.bottom,
-        paddingBottom: Math.max(10, insets.bottom),
-        paddingTop: 10,
-        paddingHorizontal: 12,
-        backgroundColor: '#09111B',
-        borderTopWidth: 0,
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
+        height: 64 + insets.bottom,
+        paddingBottom: Math.max(8, insets.bottom),
+        paddingTop: 8,
+        backgroundColor: '#FFFFFF',
+        borderTopWidth: 1,
+        borderTopColor: '#d5dfdf',
       },
-      tabBarBackground: () => (
-        <View style={styles.techTabBarBackground}>
-          <View style={styles.techTabBarSheen} />
-          <View style={styles.techTabBarGlowCenter} />
-        </View>
-      ),
-      tabBarItemStyle: isPrimaryTab ? styles.primaryTabItem : styles.techTabItem,
-      tabBarIcon: ({ focused }: any) =>
-        isPrimaryTab ? (
-          <View style={[styles.primaryTabButton, focused ? styles.primaryTabButtonFocused : styles.primaryTabButtonIdle]}>
-            <View style={styles.primaryTabInnerRing}>
-              <Ionicons name={getTabIconName(route.name, focused) as any} size={26} color="#FFFFFF" />
-            </View>
-          </View>
-        ) : (
-          <View style={styles.techTabIconSlot}>
-            <View style={[styles.techTabIconWrap, focused && styles.techTabIconWrapFocused]}>
-              <Ionicons
-                name={getTabIconName(route.name, focused) as any}
-                size={21}
-                color={focused ? '#FFFFFF' : '#9AA4B2'}
-              />
-            </View>
-            <View style={[styles.techTabDot, focused && styles.techTabDotFocused]} />
-          </View>
-        ),
+      tabBarLabelStyle: { fontFamily: FONTS.body, fontSize: 10 },
+      tabBarIcon: ({ focused, color }: any) => <Ionicons name={getTabIconName(route.name, focused) as any} size={22} color={color} />,
     };
   };
 };
@@ -280,11 +261,11 @@ function TechTabs() {
 
   return (
     <Tab.Navigator screenOptions={screenOptions}>
+      <Tab.Screen name="Proyectos" component={ProjectsScreen} />
       <Tab.Screen name="Panel" component={JobsScreenWithSwipe} options={{ title: 'Dashboard' }} />
       <Tab.Screen name="Agenda" component={AgendaScreenWithSwipe} options={{ title: 'Orden del dia' }} />
       <Tab.Screen name="Operativo" component={OperationalScreenWithSwipe} options={{ title: 'Mapa operativo' }} />
-      <Tab.Screen name="Notificaciones" component={NotificationsScreenWithSwipe} />
-      <Tab.Screen name="Perfil" component={ProfileScreenWithSwipe} />
+      <Tab.Screen name="Más" component={MoreScreen} />
     </Tab.Navigator>
   );
 }
@@ -544,6 +525,10 @@ export default function RootNavigator() {
     rootContent = (
       <>
         <Stack.Screen name="Main" component={TechTabs} />
+        <Stack.Screen name="NewProject" component={NewProjectScreen} />
+        <Stack.Screen name="ProjectDetail" component={ProjectDetailScreen} />
+        <Stack.Screen name="Notificaciones" component={NotificationsScreen} options={{ headerShown: true, title: 'Notificaciones' }} />
+        <Stack.Screen name="Perfil" component={ProfileScreen} options={{ headerShown: true, title: 'Perfil' }} />
 
         <Stack.Screen name="JobConfig" component={JobConfigScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen
@@ -581,11 +566,13 @@ export default function RootNavigator() {
   }
 
   return (
+    <ProjectOwnerContext.Provider value={session?.user?.id || null}>
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator key={`${session?.user?.id || 'signed-out'}:${audience}`} screenOptions={{ headerShown: false }}>
         {rootContent}
       </Stack.Navigator>
     </NavigationContainer>
+    </ProjectOwnerContext.Provider>
   );
 }
 
