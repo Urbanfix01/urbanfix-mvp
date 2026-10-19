@@ -23,6 +23,11 @@ history without overwriting an existing browser draft.
 - Expo public configuration: preview uses `UrbanFix Prueba`,
   `com.urbanfix.app.preview`, `com.urbanfix.urbanfix.preview`,
   `urbanfix-preview`; production identifiers remain unchanged.
+- Read-only live database metadata audit: history and technician clients have
+  RLS enabled, authenticated reads are restricted to the owning user, history
+  inserts require that same owner, and `design_project_latest` uses
+  `security_invoker=true`. Required history/table and client-column privileges
+  are present. No customer rows were read and no policies or grants changed.
 - Preview initially had no environment configuration. The existing canonical
   backend URL and verified public anonymous key were configured for the Preview
   environment only. No service-role key, signing key, private data or production
