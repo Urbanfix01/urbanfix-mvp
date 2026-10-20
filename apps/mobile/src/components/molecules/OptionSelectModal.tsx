@@ -11,7 +11,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS, FONTS } from '../../utils/theme';
+import { COLORS, FONTS, LAYOUT } from '../../utils/theme';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScreenHeader, HeaderIconButton } from './ScreenHeader';
 import type { GeoOption } from '../../utils/argentinaGeo';
 
 type Props = {
@@ -62,18 +64,14 @@ export function OptionSelectModal({
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>{title}</Text>
-          <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-            <Text style={styles.closeText}>Cerrar</Text>
-          </TouchableOpacity>
-        </View>
+      <SafeAreaView edges={['bottom']} style={styles.container}>
+        <ScreenHeader title={title} rightAction={<HeaderIconButton name="close" label="Cerrar" onPress={onClose} />} />
 
         <View style={styles.searchBox}>
           <Ionicons name="search" size={18} color="#7F8792" />
           <TextInput
             ref={inputRef}
+            accessibilityLabel={searchPlaceholder}
             value={search}
             onChangeText={setSearch}
             placeholder={searchPlaceholder}
@@ -107,7 +105,7 @@ export function OptionSelectModal({
             ListEmptyComponent={<Text style={styles.helperText}>{emptyText}</Text>}
           />
         )}
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 }
@@ -115,59 +113,32 @@ export function OptionSelectModal({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#090A0C',
-    paddingTop: 16,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    paddingHorizontal: 18,
-    paddingBottom: 14,
-  },
-  title: {
-    flex: 1,
-    color: '#F8FAFC',
-    fontFamily: FONTS.title,
-    fontSize: 22,
-  },
-  closeBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    backgroundColor: '#141518',
-  },
-  closeText: {
-    color: '#F8FAFC',
-    fontFamily: FONTS.subtitle,
-    fontSize: 12,
+    backgroundColor: COLORS.background,
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginHorizontal: 18,
+    marginHorizontal: LAYOUT.pageInset,
+    marginTop: 16,
     marginBottom: 12,
     paddingHorizontal: 14,
-    borderRadius: 16,
+    borderRadius: LAYOUT.controlRadius,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: '#131417',
-    minHeight: 50,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.white,
+    minHeight: LAYOUT.controlHeight,
   },
   input: {
     flex: 1,
-    color: '#F8FAFC',
+    color: COLORS.text,
     fontFamily: FONTS.body,
     fontSize: 15,
     paddingVertical: 12,
   },
   listContent: {
-    paddingHorizontal: 18,
-    paddingBottom: 32,
+    paddingHorizontal: LAYOUT.pageInset,
+    paddingBottom: LAYOUT.pageBottom,
   },
   optionRow: {
     flexDirection: 'row',
@@ -177,14 +148,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 15,
     marginBottom: 10,
-    borderRadius: 18,
+    borderRadius: LAYOUT.controlRadius,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: '#131417',
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.white,
   },
   optionText: {
     flex: 1,
-    color: '#F8FAFC',
+    color: COLORS.text,
     fontFamily: FONTS.subtitle,
     fontSize: 15,
   },

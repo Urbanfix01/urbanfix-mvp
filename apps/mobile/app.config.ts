@@ -45,6 +45,7 @@ const resolvePlacesKey = () =>
   );
 
 export default (): ExpoConfig => {
+  const preview = process.env.APP_VARIANT === 'preview';
   const androidMapsKey = resolveAndroidMapsKey();
   const iosMapsKey = resolveIosMapsKey();
   const placesKey = resolvePlacesKey();
@@ -64,8 +65,18 @@ export default (): ExpoConfig => {
 
   return {
     ...baseConfig,
+    name: preview ? 'UrbanFix Prueba' : baseConfig.name,
+    scheme: preview ? 'urbanfix-preview' : baseConfig.scheme,
+    plugins: [...(baseConfig.plugins || []), ['expo-location', {
+      locationWhenInUsePermission: 'UrbanFix usa tu ubicación únicamente cuando elegís ubicar la obra.',
+      isIosBackgroundLocationEnabled: false,
+      isAndroidBackgroundLocationEnabled: false,
+      isAndroidForegroundServiceEnabled: false,
+    }]],
     android: {
       ...baseAndroid,
+      package: preview ? 'com.urbanfix.app.preview' : baseAndroid.package,
+      intentFilters: preview ? baseAndroid.intentFilters?.map((filter) => ({ ...filter, data: [{ scheme: 'urbanfix-preview' }] })) : baseAndroid.intentFilters,
       config: androidMapsKey
         ? {
             ...baseAndroidConfig,
@@ -77,6 +88,7 @@ export default (): ExpoConfig => {
     },
     ios: {
       ...baseIos,
+      bundleIdentifier: preview ? 'com.urbanfix.urbanfix.preview' : baseIos.bundleIdentifier,
       config: iosMapsKey
         ? {
             ...baseIosConfig,

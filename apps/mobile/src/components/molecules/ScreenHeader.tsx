@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { COLORS, FONTS } from '../../utils/theme';
+import { COLORS, FONTS, LAYOUT } from '../../utils/theme';
 
 interface Props {
   title: string;
@@ -11,34 +11,34 @@ interface Props {
   showBack?: boolean;
   rightAction?: React.ReactNode; // Por si queremos poner un icono a la derecha
   centerTitle?: boolean;
+  onBack?: () => void;
 }
 
-export const ScreenHeader = memo(({ title, subtitle, showBack, rightAction, centerTitle }: Props) => {
+export const ScreenHeader = memo(({ title, subtitle, showBack, rightAction, onBack }: Props) => {
   const navigation = useNavigation();
-  const isCentered = centerTitle && !showBack && !rightAction;
 
   return (
-    <View style={styles.headerContainer}>
+    <View style={styles.headerContainer} testID="screen-header">
       <SafeAreaView edges={['top']}>
-        <View style={[styles.headerContent, isCentered && styles.headerContentCentered]}>
+        <View style={styles.headerContent}>
           
-          <View style={[styles.leftContainer, isCentered && styles.leftContainerCentered]}>
+          <View style={styles.leftContainer}>
             {showBack && (
-              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Volver" onPress={onBack || (() => navigation.goBack())} style={styles.backBtn}>
                 <Ionicons name="arrow-back" size={24} color="#FFF" />
               </TouchableOpacity>
             )}
-            <View>
-              <Text style={[styles.title, isCentered && styles.titleCentered]}>{title}</Text>
+            <View style={styles.headingText}>
+              <Text accessibilityRole="header" style={styles.title}>{title}</Text>
               {subtitle && (
-                <Text style={[styles.subtitle, isCentered && styles.titleCentered]}>
+                <Text style={styles.subtitle}>
                   {subtitle}
                 </Text>
               )}
             </View>
           </View>
 
-          {!isCentered && rightAction && <View style={styles.rightContainer}>{rightAction}</View>}
+          {rightAction && <View style={styles.rightContainer}>{rightAction}</View>}
           
         </View>
       </SafeAreaView>
@@ -46,12 +46,16 @@ export const ScreenHeader = memo(({ title, subtitle, showBack, rightAction, cent
   );
 });
 
+export function HeaderIconButton({ name, label, onPress, disabled = false }: { name: React.ComponentProps<typeof Ionicons>['name']; label: string; onPress: () => void; disabled?: boolean }) {
+  return <TouchableOpacity accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={[styles.headerAction, disabled && { opacity: .45 }]}><Ionicons name={name} size={22} color={COLORS.white} /></TouchableOpacity>;
+}
+
 const styles = StyleSheet.create({
   headerContainer: {
     backgroundColor: COLORS.secondary,
-    paddingBottom: 24,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    paddingBottom: 18,
+    borderBottomLeftRadius: LAYOUT.headerRadius,
+    borderBottomRightRadius: LAYOUT.headerRadius,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
@@ -60,43 +64,44 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   headerContent: {
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'android' ? 10 : 0,
+    paddingHorizontal: LAYOUT.pageInset,
+    paddingTop: Platform.OS === 'android' ? 10 : 8,
+    minHeight: 60,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  headerContentCentered: {
-    justifyContent: 'center',
   },
   leftContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-  },
-  leftContainerCentered: {
-    justifyContent: 'center',
-    alignItems: 'center',
+    minWidth: 0,
   },
   rightContainer: {
-    marginLeft: 10,
+    marginLeft: 8,
+    flexShrink: 0,
   },
+  headingText: { flex: 1, minWidth: 0 },
   backBtn: {
-    marginRight: 16,
-    padding: 4,
+    marginRight: 8,
+    width: LAYOUT.touchTarget,
+    minHeight: LAYOUT.touchTarget,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   title: {
     fontFamily: FONTS.title,
     fontSize: 22,
+    lineHeight: 28,
+    letterSpacing: 0,
     color: '#FFF',
-  },
-  titleCentered: {
-    textAlign: 'center',
   },
   subtitle: {
     fontFamily: FONTS.body,
     fontSize: 12,
+    lineHeight: 18,
     color: 'rgba(255,255,255,0.7)',
     marginTop: 2,
   },
+  headerAction: { width: LAYOUT.touchTarget, minHeight: LAYOUT.touchTarget, alignItems: 'center', justifyContent: 'center', borderRadius: LAYOUT.controlRadius, backgroundColor: 'rgba(255,255,255,.1)' },
 });

@@ -2,7 +2,18 @@
 
 Este documento resume el estado y el flujo para publicar UrbanFix en tiendas.
 
-## Estado actual
+## Preparacion 1.5.0 (20/10/2026)
+
+La version movil 1.5.0 se preparo para pruebas fisicas, con builds firmados
+Android (19) e iOS (38), ambos terminados. Android fue enviado correctamente a
+la pista interna de Google Play. La publicacion publica Android sigue detenida por
+decision del usuario hasta probarla. El envio iOS a TestFlight fue bloqueado
+por un acuerdo de Apple pendiente; no equivale a una actualizacion disponible.
+Android tiene pendiente configurar la clave nativa de Maps antes de probar el
+mapa o publicar al publico. Ver IDs, resultados y pasos en
+[Mobile Release 1.5.0](mobile-release-1.5.0.md).
+
+## Registro anterior (no es estado vigente de tiendas)
 
 - App: UrbanFix
 - Android package: `com.urbanfix.app`

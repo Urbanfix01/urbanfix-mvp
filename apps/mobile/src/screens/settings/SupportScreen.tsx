@@ -15,8 +15,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../lib/supabase';
-import { ScreenHeader } from '../../components/molecules/ScreenHeader';
-import { COLORS, FONTS } from '../../utils/theme';
+import { ScreenHeader, HeaderIconButton } from '../../components/molecules/ScreenHeader';
+import { COLORS, FONTS, FORM, LAYOUT } from '../../utils/theme';
 
 type SupportMessage = {
   id: string;
@@ -191,9 +191,7 @@ export default function SupportScreen() {
   };
 
   const headerAction = (
-    <TouchableOpacity onPress={fetchMessages} style={styles.refreshBtn}>
-      <Ionicons name="refresh" size={20} color="#FFF" />
-    </TouchableOpacity>
+    <HeaderIconButton name="refresh" label="Actualizar mensajes" onPress={() => void fetchMessages()} />
   );
 
   const renderMessage = ({ item }: { item: SupportMessage }) => {
@@ -283,7 +281,7 @@ export default function SupportScreen() {
             multiline
           />
           <TouchableOpacity onPress={sendMessage} style={[styles.sendBtn, sending && { opacity: 0.7 }]} disabled={sending}>
-            {sending ? <ActivityIndicator color="#FFF" /> : <Ionicons name="send" size={18} color="#FFF" />}
+            {sending ? <ActivityIndicator color={COLORS.text} /> : <Ionicons name="send" size={18} color={COLORS.text} />}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -346,23 +344,14 @@ const styles = StyleSheet.create({
   },
   attachBtn: { padding: 10, borderRadius: 12, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0' },
   input: {
+    ...FORM.input,
     flex: 1,
-    minHeight: 42,
     maxHeight: 110,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
-    fontFamily: FONTS.body,
-    fontSize: 14,
-    color: '#0F172A',
   },
   sendBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: LAYOUT.controlHeight,
+    height: LAYOUT.controlHeight,
+    borderRadius: LAYOUT.controlRadius,
     backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',

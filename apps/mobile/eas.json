@@ -55,11 +55,16 @@
       }
     },
     "preview": {
+      "distribution": "internal",
+      "env": {
+        "APP_VARIANT": "preview"
+      },
       "android": {
         "buildType": "apk"
       }
     },
     "production": {
+      "environment": "production",
       "autoIncrement": true,
       "android": {
         "buildType": "app-bundle"

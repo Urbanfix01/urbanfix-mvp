@@ -4,7 +4,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker'; 
 import { supabase } from '../../lib/supabase';
-import { COLORS, FONTS } from '../../utils/theme';
+import { COLORS, FONTS, FORM, LAYOUT } from '../../utils/theme';
 import { ScreenHeader } from '../../components/molecules/ScreenHeader';
 
 export default function EditProfileScreen() {
@@ -169,7 +169,7 @@ export default function EditProfileScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  content: { padding: 20 },
+  content: { padding: LAYOUT.pageInset, paddingBottom: LAYOUT.pageBottom },
   sectionLabel: { fontFamily: FONTS.subtitle, fontSize: 12, color: COLORS.textLight, marginBottom: 8, letterSpacing: 1 },
   sectionLabelCenter: { fontFamily: FONTS.subtitle, fontSize: 10, color: COLORS.textLight, marginTop: 8, letterSpacing: 1 },
   
@@ -193,11 +193,8 @@ const styles = StyleSheet.create({
   formContainer: { backgroundColor: '#FFF', padding: 20, borderRadius: 16, marginTop: 10, shadowColor: '#000', shadowOpacity: 0.05, elevation: 2 },
   formGroup: { marginBottom: 16 },
   label: { fontFamily: FONTS.body, fontSize: 12, color: COLORS.textLight, marginBottom: 4 },
-  input: { fontFamily: FONTS.subtitle, fontSize: 16, color: COLORS.text, borderBottomWidth: 1, borderBottomColor: '#EEE', paddingVertical: 8 },
+  input: FORM.input,
 
-  saveBtn: {
-    backgroundColor: COLORS.primary, paddingVertical: 16, borderRadius: 12, marginTop: 24,
-    alignItems: 'center', shadowColor: COLORS.primary, shadowOpacity: 0.3, elevation: 4
-  },
-  saveText: { color: '#FFF', fontFamily: FONTS.title, fontSize: 16 }
+  saveBtn: { ...FORM.button, marginTop: 24 },
+  saveText: FORM.buttonText,
 });

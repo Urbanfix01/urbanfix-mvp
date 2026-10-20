@@ -16,7 +16,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { NearbyRequest, submitRequestApplication } from '../../api/marketplace';
 import { ScreenHeader } from '../../components/molecules/ScreenHeader';
-import { COLORS, FONTS } from '../../utils/theme';
+import { COLORS, FONTS, FORM } from '../../utils/theme';
 
 type RouteParams = {
   request: NearbyRequest;
@@ -77,7 +77,7 @@ export default function RequestApplicationScreen() {
 
   return (
     <View style={styles.container}>
-      <ScreenHeader title="Postularme" subtitle="Respuesta sin presupuesto" centerTitle />
+      <ScreenHeader title="Postularme" subtitle="Respuesta sin presupuesto" showBack />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.heroCard}>
@@ -237,17 +237,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#334155',
   },
-  input: {
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 14,
-    paddingHorizontal: 13,
-    paddingVertical: 12,
-    fontFamily: FONTS.body,
-    color: COLORS.text,
-    fontSize: 14,
-    backgroundColor: '#FFFFFF',
-  },
+  input: FORM.input,
   textArea: {
     minHeight: 120,
     textAlignVertical: 'top',
@@ -258,16 +248,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
   },
-  submitBtn: {
-    backgroundColor: '#0F172A',
-    borderRadius: 16,
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  submitBtnText: {
-    color: '#FFFFFF',
-    fontFamily: FONTS.title,
-    fontSize: 14,
-  },
+  submitBtn: FORM.button,
+  submitBtnText: FORM.buttonText,
 });

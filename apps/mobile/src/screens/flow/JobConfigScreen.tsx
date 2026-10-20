@@ -1516,14 +1516,14 @@ export default function JobConfigScreen() {
 }
 
 const styles = StyleSheet.create({
-  mainContainer: { flex: 1, backgroundColor: '#EEF2F6' },
+  mainContainer: { flex: 1, backgroundColor: COLORS.background },
   centerWebContainer: { 
     flex: 1, 
     width: '100%', 
     alignSelf: 'center',
   },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 24 },
-  scrollContentWeb: { paddingHorizontal: 20 },
+  scrollContentWeb: { paddingHorizontal: 16 },
   addressWrapper: {
     paddingTop: 16,
     paddingBottom: 4,

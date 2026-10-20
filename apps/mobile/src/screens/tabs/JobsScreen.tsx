@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, 
-  StatusBar, ActivityIndicator, Alert, Share, Platform, Modal, Pressable, LayoutAnimation, UIManager,
+  ActivityIndicator, Alert, Share, Platform, Modal, Pressable, LayoutAnimation, UIManager,
   type DimensionValue, type ViewStyle
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScreenHeader } from '../../components/molecules/ScreenHeader';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Polyline, Circle, Line, Text as SvgText } from 'react-native-svg';
 import { FlashList } from '@shopify/flash-list';
@@ -1244,19 +1244,7 @@ export default function JobsScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F5F4F0" />
-      <View style={styles.headerCompact}>
-        <SafeAreaView edges={['top']}>
-          <View style={styles.headerCompactRow}>
-            <View style={styles.headerCompactCopy}>
-              <Text style={styles.headerCompactTitle}>Dashboard</Text>
-              <Text style={styles.headerCompactMeta}>
-                {lastUpdatedLabel ? `Actualizado ${lastUpdatedLabel}` : 'Panel general'}
-              </Text>
-            </View>
-          </View>
-        </SafeAreaView>
-      </View>
+      <ScreenHeader title="Dashboard" subtitle={lastUpdatedLabel ? `Actualizado ${lastUpdatedLabel}` : 'Panel general'} />
 
       {/* LISTA */}
       {isDashboardLoading ? (
@@ -1747,36 +1735,9 @@ const MapDetailSheet = ({
 );
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F4F0' },
+  container: { flex: 1, backgroundColor: COLORS.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 50 },
   
-  // Header
-  headerCompact: {
-    backgroundColor: '#F5F4F0',
-    paddingHorizontal: 18,
-    paddingBottom: 6,
-  },
-  headerCompactRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 14,
-  },
-  headerCompactCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  headerCompactTitle: {
-    fontSize: 24,
-    fontFamily: FONTS.title,
-    color: '#0F172A',
-    letterSpacing: 0.1,
-  },
-  headerCompactMeta: {
-    fontSize: 11,
-    fontFamily: FONTS.body,
-    color: '#8D8270',
-  },
   dashboardWrapper: { gap: 16, marginTop: 2, marginBottom: 6 },
   dashboardShortcutCard: {
     backgroundColor: '#FFFFFF',

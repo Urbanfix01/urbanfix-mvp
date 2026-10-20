@@ -925,7 +925,7 @@ export default function PublicTechnicianProfileView({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F3F5F8' },
+  container: { flex: 1, backgroundColor: COLORS.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10 },
   loadingText: { fontFamily: FONTS.body, color: COLORS.textSecondary },
   content: { padding: 16, gap: 14, paddingBottom: 30 },

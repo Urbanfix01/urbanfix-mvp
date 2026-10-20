@@ -38,6 +38,8 @@ export default function TechnicianLocationPicker({
   const handleSelect = (data: LocationData) => {
     const lat = Number(data.lat);
     const lng = Number(data.lng);
+    // Invalidate the old query before confirming the newly selected point.
+    onQueryChange?.(String(data.address || '').trim());
     onChange({
       lat: hasValidCoordinates(lat, lng) ? lat : 0,
       lng: hasValidCoordinates(lat, lng) ? lng : 0,
@@ -47,7 +49,6 @@ export default function TechnicianLocationPicker({
       city: data.city,
       province: data.province,
     });
-    onQueryChange?.(String(data.address || '').trim());
   };
 
   return (

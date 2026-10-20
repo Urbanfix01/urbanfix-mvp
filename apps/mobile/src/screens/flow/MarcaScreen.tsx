@@ -1,23 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, StyleSheet, 
-  Image, Alert, ActivityIndicator, ScrollView, Platform, StatusBar, SafeAreaView 
+  Image, Alert, ActivityIndicator, ScrollView, Platform
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons'; 
 import { supabase } from '../../lib/supabase';
 import { uploadImageToSupabase } from '../../services/StorageService'; // ✅ Tu nuevo servicio
 
-// Colores del Tema (Mismos que tu diseño original)
-const COLORS = {
-  headerBg: '#172B4D',
-  primary: '#FB6340',
-  bg: '#F8F9FE',
-  card: '#FFFFFF',
-  text: '#32325D',
-  muted: '#8898AA',
-  border: '#E9ECEF'
-};
+import { COLORS, FONTS, LAYOUT } from '../../utils/theme';
+import { ScreenHeader } from '../../components/molecules/ScreenHeader';
 
 export default function MarcaScreen({ navigation }: any) {
   // Estados de carga independientes para mejor UX
@@ -134,20 +126,7 @@ export default function MarcaScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
-      
-      {/* HEADER */}
-      <View style={styles.headerBackground}>
-        <SafeAreaView>
-          <View style={styles.headerContent}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={24} color="#FFF" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Diseña tu Marca</Text>
-            <View style={{width: 24}} /> 
-          </View>
-        </SafeAreaView>
-      </View>
+      <ScreenHeader title="Diseña tu Marca" subtitle="Identidad del negocio" showBack />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
@@ -216,7 +195,7 @@ export default function MarcaScreen({ navigation }: any) {
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>NOMBRE DE FANTASÍA (EMPRESA)</Text>
             <View style={styles.inputWrapper}>
-              <Ionicons name="business-outline" size={20} color={COLORS.muted} style={styles.inputIcon} />
+              <Ionicons name="business-outline" size={20} color={COLORS.textLight} style={styles.inputIcon} />
               <TextInput 
                 style={styles.input}
                 value={fantasyName}
@@ -230,7 +209,7 @@ export default function MarcaScreen({ navigation }: any) {
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>TU NOMBRE REAL</Text>
             <View style={styles.inputWrapper}>
-              <Ionicons name="person-outline" size={20} color={COLORS.muted} style={styles.inputIcon} />
+              <Ionicons name="person-outline" size={20} color={COLORS.textLight} style={styles.inputIcon} />
               <TextInput 
                 style={styles.input}
                 value={fullName}
@@ -261,27 +240,15 @@ export default function MarcaScreen({ navigation }: any) {
   );
 }
 
-// ESTILOS INTACTOS (Mismos que tu versión original)
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg },
-  headerBackground: {
-    backgroundColor: COLORS.headerBg,
-    paddingBottom: 50, 
-    paddingTop: Platform.OS === 'android' ? 40 : 0,
-  },
-  headerContent: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingVertical: 15,
-  },
-  backButton: { padding: 5 },
-  headerTitle: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
-  scrollContent: { paddingHorizontal: 20, marginTop: -40 }, 
+  container: { flex: 1, backgroundColor: COLORS.background },
+  scrollContent: { padding: LAYOUT.pageInset, paddingBottom: LAYOUT.pageBottom },
   mainCard: {
-    backgroundColor: COLORS.card, borderRadius: 12, padding: 20, paddingBottom: 35,
+    backgroundColor: COLORS.card, borderRadius: LAYOUT.cardRadius, padding: 20, paddingBottom: 35,
     marginBottom: 50, shadowColor: '#000', shadowOpacity: 0.1,
     shadowRadius: 10, shadowOffset: { width: 0, height: 5 }, elevation: 5,
   },
-  sectionLabel: { fontSize: 11, fontWeight: 'bold', color: COLORS.muted, marginBottom: 15, letterSpacing: 1 },
+  sectionLabel: { fontSize: 12, fontFamily: FONTS.subtitle, color: COLORS.textLight, marginBottom: 15, letterSpacing: 0 },
   logoContainer: {
     height: 140, borderRadius: 8, backgroundColor: '#F6F9FC',
     overflow: 'hidden', position: 'relative',
@@ -290,7 +257,7 @@ const styles = StyleSheet.create({
   logoImage: { width: '100%', height: '100%' },
   emptyStateLogo: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   centerSpinner: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  uploadText: { marginTop: 8, fontSize: 12, color: COLORS.muted },
+  uploadText: { marginTop: 8, fontSize: 12, fontFamily: FONTS.body, color: COLORS.textLight },
   cameraBtn: {
     position: 'absolute', bottom: 10, right: 10,
     backgroundColor: 'rgba(0,0,0,0.6)', padding: 8, borderRadius: 20
@@ -309,20 +276,20 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.headerBg, width: 24, height: 24, borderRadius: 12,
     justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#FFF'
   },
-  avatarLabel: { fontSize: 10, fontWeight: 'bold', color: COLORS.muted, marginTop: 4 },
+  avatarLabel: { fontSize: 12, fontFamily: FONTS.subtitle, color: COLORS.textLight, marginTop: 4 },
   formContainer: { marginBottom: 30 },
   inputGroup: { marginBottom: 20 },
-  inputLabel: { fontSize: 12, fontWeight: 'bold', color: COLORS.muted, marginBottom: 8, letterSpacing: 0.5 },
+  inputLabel: { fontSize: 12, fontFamily: FONTS.subtitle, color: COLORS.textLight, marginBottom: 8, letterSpacing: 0 },
   inputWrapper: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF',
-    borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, paddingHorizontal: 15, height: 50
+    borderWidth: 1, borderColor: COLORS.border, borderRadius: LAYOUT.controlRadius, paddingHorizontal: 12, minHeight: LAYOUT.controlHeight
   },
   inputIcon: { marginRight: 10 },
-  input: { flex: 1, fontSize: 16, color: COLORS.text, fontWeight: '500' },
+  input: { flex: 1, minWidth: 0, minHeight: LAYOUT.controlHeight, fontSize: 16, color: COLORS.text, fontFamily: FONTS.body },
   saveButton: {
-    backgroundColor: COLORS.primary, borderRadius: 8, height: 55,
+    backgroundColor: COLORS.primary, borderRadius: LAYOUT.controlRadius, minHeight: LAYOUT.controlHeight,
     justifyContent: 'center', alignItems: 'center', shadowColor: COLORS.primary,
     shadowOpacity: 0.3, shadowRadius: 10, elevation: 4, marginBottom: 40
   },
-  saveButtonText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' }
+  saveButtonText: { color: COLORS.text, fontSize: 14, fontFamily: FONTS.subtitle }
 });

@@ -1,0 +1,898 @@
+[
+  {
+    "id": "273eba6c-7fce-49c5-8df2-9d52c47a1926",
+    "name": "Arena fina - 25 kg (Aremat)",
+    "source_ref": "cifras-367-2026-10:material:sand-bag",
+    "unit": "bolsa",
+    "type": "material"
+  },
+  {
+    "id": "0031c058-8a6d-4dd5-a40a-82785d5778af",
+    "name": "Arena fina camionada - 5 m3 (Aremat)",
+    "source_ref": "cifras-367-2026-10:material:sand-truck",
+    "unit": "camionada",
+    "type": "material"
+  },
+  {
+    "id": "fd1999bf-115d-4996-9555-f1eec5bed752",
+    "name": "Arena fina puesta en obra (Aremat)",
+    "source_ref": "cifras-367-2026-10:material:sand-delivered",
+    "unit": "m3",
+    "type": "material"
+  },
+  {
+    "id": "682be36a-5ae6-4642-ae67-2b00f5c3c01e",
+    "name": "Bastidor + Tapa",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "22222222-2222-2222-2222-222222222222",
+    "name": "Bastidor + Tapa",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "fdaa1dd3-6cb2-4554-a0da-444194c952d0",
+    "name": "Bastidor + Tapa (Genérico)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "25e2614c-008d-476c-8680-1df10254f274",
+    "name": "Bastidor + Tapa (Jeluz/Sica)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "e8bc878e-c29a-4eed-9487-45b1e772b1b1",
+    "name": "Bastidor + Tapa (Jeluz/Sica)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "ce283b50-9fc4-4311-ac5c-878f9c926d3f",
+    "name": "Bastidor + Tapa (Jeluz/Sica)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "1aa4f003-f6c5-4a7f-b75c-247e479309a9",
+    "name": "Bastidor Rectangular 10x5 (Plástico)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "32901ce0-6a82-4c07-b87d-26baf43a31cb",
+    "name": "Bastidor Rectangular 10x5 (Plástico)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "d08fddad-a4ec-4329-8a8d-7c2629c9d6cd",
+    "name": "Bastidor Rectangular 10x5 (Plástico)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "5582aabf-814c-4917-aef0-76de46cc0cf3",
+    "name": "Bloque de hormigon 20 x 20 x 40 cm (Aremat)",
+    "source_ref": "cifras-367-2026-10:material:concrete-block-retail",
+    "unit": "unidad",
+    "type": "material"
+  },
+  {
+    "id": "0d718d32-38c6-45d4-ab75-3d46a582979f",
+    "name": "Cable 1.5mm (rollo 100m)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "f9ad073a-21ed-4f0b-88ec-65bfc192a91b",
+    "name": "Cable 2.5mm (metros)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "44444444-4444-4444-4444-444444444444",
+    "name": "Cable 2.5mm (metros)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "95b79531-8f18-4fe3-8dcd-dd6d758909da",
+    "name": "Cable 2.5mm (rollo 100m)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "ad8d16a1-9238-4839-b741-bb3181df3ea9",
+    "name": "Cable 4mm (rollo 100m)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "c69fdd04-2109-4be5-ab87-23fe50166279",
+    "name": "Cable 6mm (rollo 100m)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "a26417f9-c6f2-4446-a223-1bf75450d66c",
+    "name": "Cable Canal 20x10 con Adhesivo (Metro)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "fad34f1f-7291-4912-8742-bcbd5bb853f3",
+    "name": "Cable Unipolar 1.5mm Normalizado (Metro)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "cd007f28-579c-48e2-b7be-b8eddc0effaa",
+    "name": "Cable Unipolar 2.5mm Normalizado (Metro)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "3747cd00-95d4-4c7d-81be-fc0246313ea7",
+    "name": "Cable Unipolar 4.0mm Normalizado (Metro)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "e67c2529-2d35-493e-9fb1-5d2bb8987da5",
+    "name": "Cable Unipolar 6.0mm Normalizado (Metro)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "afd2e273-be17-4039-84b4-c7a769c35786",
+    "name": "Caja medidor monofasico con conexion (Electricidad DER)",
+    "source_ref": "cifras-367-2026-10:material:meter-box",
+    "unit": "unidad",
+    "type": "material"
+  },
+  {
+    "id": "b3f9f094-ce83-4fcc-8747-6a0cf5ec5e24",
+    "name": "Caja Octogonal Chica/Grande (Chapa)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "828beee2-2c66-49ed-b83a-472406f2a8db",
+    "name": "Caja Rectangular 10x5 (Chapa 18/20)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "b5cc667f-1ead-4b20-bbbb-57187ccc7aad",
+    "name": "Caja Rectangular PVC",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "fab0ff0b-fce6-4344-a12b-31dab40e85d3",
+    "name": "Caja Rectangular PVC",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "11111111-1111-1111-1111-111111111111",
+    "name": "Caja Rectangular PVC",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "91e3ee5d-d5a8-431a-ab71-0385aa26ddfc",
+    "name": "Caja Tablero Embutir (8 bocas)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "77c17448-d5db-40da-82a9-196e8aadcf65",
+    "name": "Cal hidratada Andina - 25 kg (Santa Fe Materiales)",
+    "source_ref": "cifras-367-2026-10:material:lime-hydrated-andina",
+    "unit": "bolsa",
+    "type": "material"
+  },
+  {
+    "id": "20881959-35c6-4295-97d3-3b6e3552ac9c",
+    "name": "Cal hidratada Santa Elena - 25 kg (Aremat)",
+    "source_ref": "cifras-367-2026-10:material:lime-hydrated",
+    "unit": "bolsa",
+    "type": "material"
+  },
+  {
+    "id": "b9f8974f-fa38-4ade-a20c-fd441b0c4a6b",
+    "name": "Cal viva molida Andina - 25 kg (Santa Fe Materiales)",
+    "source_ref": "cifras-367-2026-10:material:lime-quick-andina",
+    "unit": "bolsa",
+    "type": "material"
+  },
+  {
+    "id": "c720d707-284a-41fc-855b-3a53e0cf7da3",
+    "name": "Canilla para riego FV 436-13-c cromada (Colome)",
+    "source_ref": "cifras-367-2026-10:material:garden-faucet-retail",
+    "unit": "unidad",
+    "type": "material"
+  },
+  {
+    "id": "56fa143f-a471-49a7-9d9a-a136783c2790",
+    "name": "Caño Corrugado Blanco 3/4 (Metro)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "f06bae7f-17df-45b0-a3c6-81c633798829",
+    "name": "Cano galvanizado de bajada 1 1/4 pulgadas - 3,2 m de largo (Electricidad DER)",
+    "source_ref": "cifras-367-2026-10:material:entry-pipe",
+    "unit": "barra",
+    "type": "material"
+  },
+  {
+    "id": "d534f0ec-dea1-4425-ac05-7f3ba480afc0",
+    "name": "Cano PVC Clasico 40 mm x 3.2 mm - 4 m de largo, 40 mm de diametro, 3,2 mm de pared (Colome)",
+    "source_ref": "cifras-367-2026-10:material:pvc-40",
+    "unit": "barra",
+    "type": "material"
+  },
+  {
+    "id": "d5cfcef7-a23f-4b11-af3a-549eca548b54",
+    "name": "Cano PVC Clasico 50 mm x 3.2 mm - 4 m de largo, 50 mm de diametro, 3,2 mm de pared (Colome)",
+    "source_ref": "cifras-367-2026-10:material:pvc-50",
+    "unit": "barra",
+    "type": "material"
+  },
+  {
+    "id": "3a8b83a5-bb7a-4139-a806-227b2073a9f9",
+    "name": "Cano PVC Clasico 63 mm x 3.2 mm - 4 m de largo, 63 mm de diametro, 3,2 mm de pared (Colome)",
+    "source_ref": "cifras-367-2026-10:material:pvc-63",
+    "unit": "barra",
+    "type": "material"
+  },
+  {
+    "id": "4e2b3c1c-4738-462f-9e66-76a8ed9bcb4f",
+    "name": "Caño Rígido PVC 20mm (Tira 3m)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "9cf27c8a-a4a9-44bb-b93e-a67cbcc334c5",
+    "name": "Cemento de albanileria Plasticor - 25 kg (Santa Fe Materiales)",
+    "source_ref": "cifras-367-2026-10:material:masonry-cement-plasticor",
+    "unit": "bolsa",
+    "type": "material"
+  },
+  {
+    "id": "f580b25a-2bcc-4fe3-898b-6ddfd75905d9",
+    "name": "Cemento de albanileria Revofacil - 25 kg (Aremat)",
+    "source_ref": "cifras-367-2026-10:material:masonry-cement-revofacil",
+    "unit": "bolsa",
+    "type": "material"
+  },
+  {
+    "id": "812efdc6-a1d7-4d63-b774-c09a5b2f9f93",
+    "name": "Cemento Holcim - 25 kg (Aremat)",
+    "source_ref": "cifras-367-2026-10:material:cement-holcim",
+    "unit": "bolsa",
+    "type": "material"
+  },
+  {
+    "id": "4160a2e3-4c10-4538-a0e8-4488f97ee83c",
+    "name": "Cemento Loma Negra - 25 kg (Santa Fe Materiales)",
+    "source_ref": "cifras-367-2026-10:material:cement-loma-sfm",
+    "unit": "bolsa",
+    "type": "material"
+  },
+  {
+    "id": "895095ce-35e3-43e5-a489-82292b0e5832",
+    "name": "Cemento Loma Negra - 25 kg (Spahn)",
+    "source_ref": "cifras-367-2026-10:material:cement-loma-spahn",
+    "unit": "bolsa",
+    "type": "material"
+  },
+  {
+    "id": "9ad95e10-26ea-43f6-a3aa-d56dd2404777",
+    "name": "Chapa acanalada Cincalum - 1,1 m de ancho declarado (Fisa Metal)",
+    "source_ref": "cifras-367-2026-10:material:sheet-aluzinc",
+    "unit": "metro",
+    "type": "material"
+  },
+  {
+    "id": "a452b708-bcb7-459e-a0d9-d6b2fb327e10",
+    "name": "Chapa acanalada galvanizada - 1,1 m de ancho declarado (Fisa Metal)",
+    "source_ref": "cifras-367-2026-10:material:sheet-galvanized",
+    "unit": "metro",
+    "type": "material"
+  },
+  {
+    "id": "e425b999-f33f-4a15-9490-5ac99f9f16c5",
+    "name": "Chapa color N25 sinusoidal / trapezoidal T101 - 1,1 m de ancho declarado (Fisa Metal)",
+    "source_ref": "cifras-367-2026-10:material:sheet-color",
+    "unit": "metro",
+    "type": "material"
+  },
+  {
+    "id": "9bbadcf6-71d6-4475-8d8e-52e9b7d9ce01",
+    "name": "Chapa T101 trapezoidal Cincalum N25 (Fisa Metal)",
+    "source_ref": "cifras-367-2026-10:material:sheet-t101",
+    "unit": "metro",
+    "type": "material"
+  },
+  {
+    "id": "f406f81f-2fa1-4e3b-916e-949cc1cf84eb",
+    "name": "Cinta Aisladora PVC 20mts (Tacsa/3M)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "consumable"
+  },
+  {
+    "id": "034c15fe-1f5a-4b3a-be0e-594165ec2d68",
+    "name": "Cinta de papel microperforada - 150 m de largo",
+    "source_ref": "cifras-367-2026-10:material:paper-tape-150",
+    "unit": "rollo",
+    "type": "material"
+  },
+  {
+    "id": "51c2be57-4034-47ed-8c52-eb5a897b72af",
+    "name": "Cinta de papel microperforada - 75 m de largo",
+    "source_ref": "cifras-367-2026-10:material:paper-tape-75",
+    "unit": "rollo",
+    "type": "material"
+  },
+  {
+    "id": "226a2723-8aa7-4d06-b067-0e86321bf353",
+    "name": "Conector PVC 3/4 o 20mm (Unidad)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "3df824c7-5801-44b0-9f3d-e8ebe5dfe91e",
+    "name": "Cubrecanto 32 x 32 mm - 2,6 m de largo",
+    "source_ref": "cifras-367-2026-10:material:corner",
+    "unit": "barra",
+    "type": "material"
+  },
+  {
+    "id": "6172ac6e-a16e-4997-aec4-22d96b4882d6",
+    "name": "Disyuntor Diferencial 2x40A",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "35e18bdf-3765-4410-aea5-615b52713beb",
+    "name": "Disyuntor Diferencial 2x40A (Schneider/Primera)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "49b3e3a3-ff95-436b-9f62-37626656332a",
+    "name": "Disyuntor Diferencial 2x40A (SICA/Similar)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "4ab6052a-55e6-4916-a08f-76cd054e4cd9",
+    "name": "Flete / Logística",
+    "source_ref": "generales",
+    "unit": null,
+    "type": "consumable"
+  },
+  {
+    "id": "6a119276-e88f-4d0a-80bf-eda400e2b6f1",
+    "name": "Flete / Logística",
+    "source_ref": "generales",
+    "unit": null,
+    "type": "consumable"
+  },
+  {
+    "id": "0deedbe1-2eee-4942-bf42-f43ff74abfa8",
+    "name": "Gabinete Tablero Embutir/Exterior 4 a 8 Bocas (Plástico)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "f78ae078-f060-4d4b-92b6-3a341609944c",
+    "name": "Gastos Varios / Otros",
+    "source_ref": "generales",
+    "unit": null,
+    "type": "consumable"
+  },
+  {
+    "id": "5a75bf81-b93f-40f0-b9bb-0c71ca97013f",
+    "name": "Gastos Varios / Otros",
+    "source_ref": "generales",
+    "unit": null,
+    "type": "consumable"
+  },
+  {
+    "id": "f6b1aaaa-0830-4f34-933c-8212ef5161a1",
+    "name": "Hidrofugo Sika 1 - 20 kg (Mariutti)",
+    "source_ref": "cifras-367-2026-10:material:waterproof-additive",
+    "unit": "unidad",
+    "type": "material"
+  },
+  {
+    "id": "cf9ed4e6-cd02-4ac5-bfdb-fac2a461f1e0",
+    "name": "Hierro conformado 10 mm - 12 m de largo, 10 mm de diametro",
+    "source_ref": "cifras-367-2026-10:material:rebar-10",
+    "unit": "barra",
+    "type": "material"
+  },
+  {
+    "id": "3bb5aaa5-955d-4bf9-a21e-a2ae2c8c6a87",
+    "name": "Hierro conformado 12 mm - 12 m de largo, 12 mm de diametro",
+    "source_ref": "cifras-367-2026-10:material:rebar-12",
+    "unit": "barra",
+    "type": "material"
+  },
+  {
+    "id": "8c4c756c-94c3-47ef-a72e-8ebb51a38286",
+    "name": "Hierro conformado 16 mm - 12 m de largo, 16 mm de diametro",
+    "source_ref": "cifras-367-2026-10:material:rebar-16",
+    "unit": "barra",
+    "type": "material"
+  },
+  {
+    "id": "0a1174b4-d260-4c30-a3af-705df38d21f7",
+    "name": "Hierro conformado 8 mm - 12 m de largo, 8 mm de diametro",
+    "source_ref": "cifras-367-2026-10:material:rebar-8",
+    "unit": "barra",
+    "type": "material"
+  },
+  {
+    "id": "9e070015-d4f2-4a9e-8344-264804d5d825",
+    "name": "Interruptor diferencial 2 x 40 A (Electricidad DER)",
+    "source_ref": "cifras-367-2026-10:material:rcd-2-40",
+    "unit": "unidad",
+    "type": "material"
+  },
+  {
+    "id": "1fc03d2e-4bae-4a6d-a12b-4a16ede3c6ce",
+    "name": "Jabalina 1.5m + Morseto",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "66666666-6666-6666-6666-666666666666",
+    "name": "Jabalina 1.5m + Morseto",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "5f5e486a-96e5-48c0-83e2-36e566a64874",
+    "name": "Jabalina Facbsa 1/2 pulgada - 1,5 m de largo (Electricidad DER)",
+    "source_ref": "cifras-367-2026-10:material:ground-rod",
+    "unit": "unidad",
+    "type": "material"
+  },
+  {
+    "id": "aedb6e92-61ea-439b-a3a9-11db75042d71",
+    "name": "Kit Armado Punto y Toma (Bast+Tapa+Modulos)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "642a4f73-08a6-4db8-8b60-1dc138ce42ec",
+    "name": "Ladrillo ceramico hueco 12 x 18 x 33 cm (Aremat)",
+    "source_ref": "cifras-367-2026-10:material:hollow-brick-12-retail",
+    "unit": "unidad",
+    "type": "material"
+  },
+  {
+    "id": "1d64d4f2-1b09-4867-b895-3795ffd05ea2",
+    "name": "Ladrillo ceramico hueco 18 x 18 x 33 cm (Aremat)",
+    "source_ref": "cifras-367-2026-10:material:hollow-brick-18-retail",
+    "unit": "unidad",
+    "type": "material"
+  },
+  {
+    "id": "a44b4167-417c-47de-be36-fa6ae6b0ddac",
+    "name": "Ladrillo ceramico hueco 8 x 18 x 33 cm (Aremat)",
+    "source_ref": "cifras-367-2026-10:material:hollow-brick-8-retail",
+    "unit": "unidad",
+    "type": "material"
+  },
+  {
+    "id": "1fcfee58-a515-4050-bc4d-f820931f7cdd",
+    "name": "Ladrillo comun (Aremat)",
+    "source_ref": "cifras-367-2026-10:material:common-brick",
+    "unit": "unidad",
+    "type": "material"
+  },
+  {
+    "id": "b3aad0f9-ecb9-47a1-999c-6714bbe61113",
+    "name": "Lámpara LED 9W (E27)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "a20a9b74-5fe5-48fd-a04a-ff09c02753a1",
+    "name": "Lana de vidrio Isover con papel aluminio 50 mm - 14,4 m2, 50 mm de espesor",
+    "source_ref": "cifras-367-2026-10:material:insulation-aluminum-50",
+    "unit": "rollo",
+    "type": "material"
+  },
+  {
+    "id": "fac66dce-690f-45e7-9ad8-df9040ab051c",
+    "name": "Lana de vidrio Isover con papel aluminio 80 mm - 9,6 m2, 80 mm de espesor",
+    "source_ref": "cifras-367-2026-10:material:insulation-aluminum-80",
+    "unit": "rollo",
+    "type": "material"
+  },
+  {
+    "id": "259c2c1e-e6a3-4a2c-b61d-d71ec1b28290",
+    "name": "Lana de vidrio Isover sin papel aluminio 38 mm - 21,6 m2, 38 mm de espesor",
+    "source_ref": "cifras-367-2026-10:material:insulation-plain-38",
+    "unit": "rollo",
+    "type": "material"
+  },
+  {
+    "id": "e0b35267-52ff-49bf-a6d1-568c8b431063",
+    "name": "Llave de paso 13 Hh hierro 471b (Colome)",
+    "source_ref": "cifras-367-2026-10:material:valve-13",
+    "unit": "unidad",
+    "type": "material"
+  },
+  {
+    "id": "d7e538e0-0e4d-42b6-9dfa-5cd734d373f6",
+    "name": "Llave de paso bronce Hh19 H 471b (Colome)",
+    "source_ref": "cifras-367-2026-10:material:valve-19-bronze",
+    "unit": "unidad",
+    "type": "material"
+  },
+  {
+    "id": "8732e2b6-bc3f-40f3-9269-981e29107790",
+    "name": "Llave Termomagnética Bipolar 2x10A a 2x32A (Schneider/Primera)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "87cce756-c13a-4c6f-bdcd-6adb60fdba79",
+    "name": "Llave Termomagnética Bipolar 2x10A a 2x32A (SICA/Similar)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "52f5f729-a49b-40dd-8f35-4011bbe8b8c6",
+    "name": "Malla SIMA 150 x 150 mm, diametro 5 mm - 2,4 x 6 m",
+    "source_ref": "cifras-367-2026-10:material:mesh-5",
+    "unit": "panel",
+    "type": "material"
+  },
+  {
+    "id": "fffba55a-2c12-4d37-af96-17dd0fdd81f0",
+    "name": "Masilla Durlock en polvo - 25 kg",
+    "source_ref": "cifras-367-2026-10:material:compound-powder-25",
+    "unit": "bolsa",
+    "type": "material"
+  },
+  {
+    "id": "c9603003-b540-4955-a782-0fb2a685f26a",
+    "name": "Masilla Durlock Multiuso, envase - 18 kg",
+    "source_ref": "cifras-367-2026-10:material:compound-ready-18",
+    "unit": "unidad",
+    "type": "material"
+  },
+  {
+    "id": "6f80400d-357c-44c0-a0e2-8e6171e74c78",
+    "name": "Masilla Durlock Multiuso, envase - 32 kg",
+    "source_ref": "cifras-367-2026-10:material:compound-ready-32",
+    "unit": "unidad",
+    "type": "material"
+  },
+  {
+    "id": "66877959-e7d1-4cd0-a7d2-0112edccc8be",
+    "name": "Masilla Durlock Multiuso, envase - 7 kg",
+    "source_ref": "cifras-367-2026-10:material:compound-ready-7",
+    "unit": "unidad",
+    "type": "material"
+  },
+  {
+    "id": "32548bc9-9257-4f53-a0c3-776493c43c00",
+    "name": "Módulo Punto (Interruptor)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "55ca07f5-2096-45e1-9e0e-9dba51bc6669",
+    "name": "Módulo Punto / Interruptor (Jeluz/Sica)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "5a2d864a-df96-439f-97a6-55938403c507",
+    "name": "Módulo Toma 10A (Jeluz/Sica)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "33333333-3333-3333-3333-333333333333",
+    "name": "Módulo Tomacorriente",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "4cfe160e-f337-43fe-b754-22fa85887687",
+    "name": "Módulo Tomacorriente",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "08cf14fa-20c5-4903-ba46-8c1c8091de72",
+    "name": "Módulo Tomacorriente (10A)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "a7100ab5-bbee-4c3a-b280-a4748f4ccc61",
+    "name": "Montante 34 x 35 mm - 2,6 m de largo",
+    "source_ref": "cifras-367-2026-10:material:stud-34",
+    "unit": "barra",
+    "type": "material"
+  },
+  {
+    "id": "4cf788b9-5c11-4dab-9a52-8665108c941e",
+    "name": "Montante 69 x 35 mm - 2,6 m de largo",
+    "source_ref": "cifras-367-2026-10:material:stud-69",
+    "unit": "barra",
+    "type": "material"
+  },
+  {
+    "id": "75faf47f-b270-4161-9952-cd1e5edd29bb",
+    "name": "Omega 70 x 13 mm - 2,6 m de largo",
+    "source_ref": "cifras-367-2026-10:material:omega",
+    "unit": "barra",
+    "type": "material"
+  },
+  {
+    "id": "9b9c7e79-0b17-4d14-993f-9509b175f7c6",
+    "name": "Piedra granitica 1 a 2 (Germat)",
+    "source_ref": "cifras-367-2026-10:material:gravel-germat",
+    "unit": "m3",
+    "type": "material"
+  },
+  {
+    "id": "682672cf-2461-4124-9c82-26eb72adfce6",
+    "name": "Piedra granitica 1:2 puesta en obra (Aremat)",
+    "source_ref": "cifras-367-2026-10:material:gravel-delivered",
+    "unit": "m3",
+    "type": "material"
+  },
+  {
+    "id": "189a0bad-bc60-4528-9fbc-7290714a58c6",
+    "name": "Placa de yeso Placo - 1,2 x 2,4 m, 12,5 mm de espesor (Tecnoperfil)",
+    "source_ref": "cifras-367-2026-10:material:board-placo",
+    "unit": "placa",
+    "type": "material"
+  },
+  {
+    "id": "a2350400-9e24-4e8a-9300-5dcb61a41120",
+    "name": "Placa Durlock STD - 1,2 x 2,4 m, 12,5 mm de espesor",
+    "source_ref": "cifras-367-2026-10:material:board-std-240-125",
+    "unit": "placa",
+    "type": "material"
+  },
+  {
+    "id": "b0f7bfba-aa76-4053-8420-e7ad2887e415",
+    "name": "Placa Durlock STD - 1,2 x 2,4 m, 9,5 mm de espesor",
+    "source_ref": "cifras-367-2026-10:material:board-std-240-95",
+    "unit": "placa",
+    "type": "material"
+  },
+  {
+    "id": "d79fae51-8528-4dd4-9652-8e5fd947e508",
+    "name": "Placa Durlock STD - 1,2 x 2,6 m, 12,5 mm de espesor",
+    "source_ref": "cifras-367-2026-10:material:board-std-260",
+    "unit": "placa",
+    "type": "material"
+  },
+  {
+    "id": "34ca15f0-8cc2-47d5-9637-5dcaf40a0abe",
+    "name": "Placa Durlock STD - 1,2 x 3 m, 12,5 mm de espesor",
+    "source_ref": "cifras-367-2026-10:material:board-std-300",
+    "unit": "placa",
+    "type": "material"
+  },
+  {
+    "id": "a62f5b70-63c9-4f47-a731-ca7d030b9f03",
+    "name": "Porcelanato Carrara 120 x 120 cm (Colome)",
+    "source_ref": "cifras-367-2026-10:material:porcelain-carrara-retail",
+    "unit": "m2",
+    "type": "material"
+  },
+  {
+    "id": "61a0e1d8-2485-403f-a0ad-b1933142509c",
+    "name": "Porcelanato London 59 x 59 cm (Colome)",
+    "source_ref": "cifras-367-2026-10:material:porcelain-london-retail",
+    "unit": "m2",
+    "type": "material"
+  },
+  {
+    "id": "d9a670f3-3b24-4ac6-9975-38e47044605e",
+    "name": "Portalámpara Cerámico",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "7528bc20-7579-4e94-9f5e-bcf8dc8c9e1b",
+    "name": "Precintos Plásticos 20cm (Paquete x100)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "consumable"
+  },
+  {
+    "id": "0a82cd55-a510-4e2f-8829-9240075e3fcd",
+    "name": "Reflector LED 50W",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "652999c1-fd7b-4b27-9277-f671f4795997",
+    "name": "Solera 35 x 30 mm - 2,6 m de largo",
+    "source_ref": "cifras-367-2026-10:material:track-35",
+    "unit": "barra",
+    "type": "material"
+  },
+  {
+    "id": "8d159358-589b-4181-82fc-5c74637e306b",
+    "name": "Solera 70 x 30 mm - 2,6 m de largo",
+    "source_ref": "cifras-367-2026-10:material:track-70",
+    "unit": "barra",
+    "type": "material"
+  },
+  {
+    "id": "7a157c67-3257-4863-ad91-822767585c71",
+    "name": "Tanque tricapa Rotoplast - 1.100 L (Colome)",
+    "source_ref": "cifras-367-2026-10:material:tank-retail",
+    "unit": "unidad",
+    "type": "material"
+  },
+  {
+    "id": "f94c530f-fb47-413e-9a37-acafdb722ee2",
+    "name": "Tapa Bastidor 10x5 (Blanca)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "5c4227de-2c5e-4e20-857f-64a49d171cc2",
+    "name": "Tarugos + Tornillos 8mm (Bolsita x 10)",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "consumable"
+  },
+  {
+    "id": "4b3ef2e7-bed9-4042-ba7e-afdff6ce6abc",
+    "name": "Termomagnética Bipolar 25A",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "77777777-7777-7777-7777-777777777777",
+    "name": "Termomagnética Bipolar 25A",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "7c6080a8-812b-4b02-b8a3-6c227e68a77b",
+    "name": "Termomagnética Bipolar 2x16A",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "e5c5eec8-a867-46da-99ee-ebb3e1b4f777",
+    "name": "Termomagnética Bipolar 2x25A",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "527b6724-8be1-4d08-89a3-ede3a2aded24",
+    "name": "Tornillo T1 punta aguja - 100 piezas",
+    "source_ref": "cifras-367-2026-10:material:screw-t1-needle",
+    "unit": "paquete",
+    "type": "material"
+  },
+  {
+    "id": "e0d61357-f373-4a6f-94c6-4d95f33c4b49",
+    "name": "Tornillo T1 punta mecha - 100 piezas",
+    "source_ref": "cifras-367-2026-10:material:screw-t1-drill",
+    "unit": "paquete",
+    "type": "material"
+  },
+  {
+    "id": "7c87afd9-0cb8-4994-b342-e75d39b3d101",
+    "name": "Tornillo T2 punta aguja - 100 piezas",
+    "source_ref": "cifras-367-2026-10:material:screw-t2-needle",
+    "unit": "paquete",
+    "type": "material"
+  },
+  {
+    "id": "b18839f2-9a9c-4b16-8369-b87ac3d9f1d6",
+    "name": "Tornillo T2 punta mecha - 100 piezas",
+    "source_ref": "cifras-367-2026-10:material:screw-t2-drill",
+    "unit": "paquete",
+    "type": "material"
+  },
+  {
+    "id": "5944d3fd-001c-4d15-ac5d-97e6da588737",
+    "name": "Tortuga LED Exterior",
+    "source_ref": "electricidad",
+    "unit": null,
+    "type": "material"
+  },
+  {
+    "id": "fa75757a-74c9-4e55-bbfe-b98704f73791",
+    "name": "Vidrio float incoloro 3 mm",
+    "source_ref": "cifras-367-2026-10:material:glass-clear-3",
+    "unit": "m2",
+    "type": "material"
+  },
+  {
+    "id": "e828ee4d-d27c-45b7-8040-feb287513578",
+    "name": "Vidrio templado incoloro 10 mm",
+    "source_ref": "cifras-367-2026-10:material:glass-tempered-10",
+    "unit": "m2",
+    "type": "material"
+  },
+  {
+    "id": "f68572f3-0b9c-4bac-b9e8-7b472445ce5a",
+    "name": "Yeso Tuyango AP - 25 kg",
+    "source_ref": "cifras-367-2026-10:material:plaster-bag",
+    "unit": "bolsa",
+    "type": "material"
+  }
+]

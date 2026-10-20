@@ -389,7 +389,8 @@ export default function AuthScreen() {
       return AuthSession.makeRedirectUri({ useProxy: true } as any);
     }
 
-    return 'urbanfix://auth/callback';
+    const scheme = Constants.expoConfig?.scheme;
+    return `${Array.isArray(scheme) ? scheme[0] : scheme || 'urbanfix'}://auth/callback`;
   };
 
   const parseAuthParams = (url: string) => {

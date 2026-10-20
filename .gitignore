@@ -1,6 +1,17 @@
 node_modules/
 
 # Local tooling/runtime artifacts
+node_modules/
+apps/mobile/dist/
+**/.env
+**/.env.*
+!**/.env.example
+**/credentials.json
+*.jks
+*.keystore
+*.p12
+*.p8
+*.mobileprovision
 .codex-logs/
 .expo/
 .vercel/

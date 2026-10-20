@@ -139,6 +139,8 @@ export default function TechnicianLocationPicker({
     const isValid = hasValidCoordinates(lat, lng) && isCoordinateWithinCountry(lat, lng, countryHint);
     const safeAddress = String(data.address || '').trim();
 
+    // Invalidate the old query before confirming the newly selected point.
+    onQueryChange?.(safeAddress);
     onChange({
       lat: isValid ? lat : 0,
       lng: isValid ? lng : 0,
@@ -148,10 +150,8 @@ export default function TechnicianLocationPicker({
       city: data.city,
       province: data.province,
     });
-    onQueryChange?.(safeAddress);
     setShowMap(true);
     setMapError('');
-    setIsMapModalVisible(true);
   };
 
   const handleMapPress = (event: MapPressEvent) => {
@@ -181,7 +181,7 @@ export default function TechnicianLocationPicker({
           <View style={styles.mapHeader}>
             <View style={styles.mapTitleWrap}>
               <Ionicons name="map-outline" size={16} color="#0F172A" />
-              <Text style={styles.mapTitle}>Confirma tu punto en el mapa</Text>
+              <Text style={styles.mapTitle}>Ubicación en el mapa</Text>
             </View>
             <Text style={styles.mapBadge}>{value?.precision === 'exact' ? 'Exacto' : 'Pendiente'}</Text>
           </View>
