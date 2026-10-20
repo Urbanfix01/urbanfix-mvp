@@ -1,0 +1,2872 @@
+[
+  {
+    "id": "17373d72-a902-4bb7-986e-c89691e47a2b",
+    "name": "Accesorios de baño loza blanca (9 pzas.)",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "juego",
+    "type": "labor"
+  },
+  {
+    "id": "e901f30d-54ae-4b7f-9763-98db2aba982d",
+    "name": "Acometida en pilar o muro - Gabinete para 1 medidor monofásico",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "5eaa610b-a41a-474e-aaee-e9bdfacde330",
+    "name": "Acometida en pilar o muro - Gabinete para 2 medidores monofásicos",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "ec3b01d4-c991-423e-becb-33883a8f1ad8",
+    "name": "Acometida en pilar o muro - Gabinete para 3 medidores monofásicos",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "1989206c-1b2b-44e2-85c6-99362d9e657c",
+    "name": "Acometida en pilar o muro - Gabinete para 4 medidores monofásicos",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "5c364209-5d2c-4d83-a3fc-9e3821b68435",
+    "name": "Acrílica transparente para muros exteriores",
+    "source_ref": "mo_rubro_pinturas",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "64a205e9-6bbf-42e1-b86d-340315f06f9b",
+    "name": "Adicional por caja de paso para cable subterráneo en piso",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "9de98b0d-6ce2-4468-aedd-7377e4d513c1",
+    "name": "Adicional por caja de paso para cable subterráneo en tierra",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "f3eb6013-ff8d-4050-9a4c-7c49d2f9b029",
+    "name": "Agregado de gabinete de medidor y tablero principal",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "46768982-a5dd-4477-826b-dccff5d50922",
+    "name": "Aislante acústico lana en rollo tipo Acustiver",
+    "source_ref": "mo_rubro_aislaciones",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "c9571944-52f7-42b2-8ee0-694f086e7134",
+    "name": "Aislante acústico panel fonoabsorbente tipo Fonac",
+    "source_ref": "mo_rubro_aislaciones",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "ae926887-63f0-4233-b7c9-0900d8e6c71f",
+    "name": "Alfombra alto tránsito 8mm",
+    "source_ref": "mo_rubro_pisos",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "9928aa65-dda5-470e-a13e-85da9b131d91",
+    "name": "Amoblamiento fijo: bajo mesada y alacena (incluye mesada granito)",
+    "source_ref": "mo_rubro_equipamiento",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "ee5d3f3a-6541-4b7f-a521-9dc6184cc75c",
+    "name": "Amoblamiento fijo: bajo mesada y alacena (incluye mesada)",
+    "source_ref": "mo_rubro_equipamiento",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "f3c421f7-244b-4d8a-ac28-581e1821575c",
+    "name": "Amoblamiento fijo: puertas de placares",
+    "source_ref": "mo_rubro_equipamiento",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "e1ac581d-7fb4-447b-9a97-9b95f639c04c",
+    "name": "Amoblamiento fijo: puertas e interiores de placares",
+    "source_ref": "mo_rubro_equipamiento",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "e873422c-df91-456f-bee2-47610b027d8c",
+    "name": "Amurado de cañería en mampostería de ladrillo común",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "24ebed6f-9b11-4af7-825e-ae8dcb5f087a",
+    "name": "Amurado de cañería en mampostería de ladrillo común",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "boca",
+    "type": "labor"
+  },
+  {
+    "id": "7937bf26-b725-4ac3-8c9a-1a6c90690851",
+    "name": "Amurado de cañería en mampostería de ladrillo hueco",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "boca",
+    "type": "labor"
+  },
+  {
+    "id": "b6e11b1c-2203-4449-ad47-31a7a7451b44",
+    "name": "Amurado de cañería en mampostería de ladrillo hueco",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "df5bbe08-e081-49a9-aa2d-63c1f9f4fc37",
+    "name": "Armado de bastidor metálico para tabique de placa de yeso",
+    "source_ref": "mo_rubro_mamposteria_tabiqueria_bastidor",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "0c3a8d36-8d4e-4392-ab65-1a0014e764e9",
+    "name": "Armado y colocación de Bidet",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "cf955972-d7fc-488c-80e9-e76d99202e0c",
+    "name": "Armado y colocación de Inodoro con mochila",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "a60b0d64-47c0-42ae-909a-5742084ba06b",
+    "name": "Armado y colocación de Vanitory",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "52a1d0b8-e559-480a-ad06-efd2a24e4446",
+    "name": "Artefacto aplique simple",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "f13f47df-de09-4abf-bf59-49e01fc0e039",
+    "name": "Artefacto aplique simple o Spot Led",
+    "source_ref": "mo_rubro_electricidad",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "e2322d3d-2979-42d0-b626-91b6e35c5881",
+    "name": "Artefacto colgante - Adicional por efecto",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "97b82333-0b28-46dc-8715-3506cf2570c6",
+    "name": "Artefacto colgante liviano de 3 luces y 1 efecto",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "db7e4fa1-be2f-4fcd-9d66-5fd2a6ee5f11",
+    "name": "Artefacto colgante liviano de 5 luces y 1 efecto",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "ce36c9ea-0dc8-41ee-980e-e79c91a8b2d4",
+    "name": "Artefacto colgante pesado (mínimo)",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "e0bea316-d862-4af1-9b50-ceb75c6636b8",
+    "name": "Ayuda de gremio",
+    "source_ref": "mo_rubro_varios",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "3ccf03c4-c920-45a4-9d6f-9a653a7a315e",
+    "name": "Ayudante Montador Sanitarista (8 hs)",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "jornada",
+    "type": "labor"
+  },
+  {
+    "id": "3e061f08-e3eb-454f-a7b6-9430afe1bf58",
+    "name": "Azotado impermeable",
+    "source_ref": "cifras-367-2026-10:labor:waterproof-dash",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "1366ad02-adf0-4c79-a038-e044a1617142",
+    "name": "Azotado impermeable en muro doble",
+    "source_ref": "mo_rubro_revoques",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "e7dbe7b5-1ea5-4a18-a7b8-ea74af574b6b",
+    "name": "Bacha de cocina - acero inoxidable con grifería",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "b340c214-3e33-40e7-9722-e5ef662fbaee",
+    "name": "Bajada pluvial exterior Ø 110",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "db3d620a-e19d-4e94-a94f-950659322002",
+    "name": "Bandeja de 200/300 mm - Otros accesorios (H < 3 m)",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "4a4e0c83-15ad-4146-abec-3ad2236b72b5",
+    "name": "Bandeja de 200/300 mm - Otros accesorios (H > 3 m)",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "16d08471-4521-41f6-a608-4d3aa0ffada9",
+    "name": "Bandeja de 200/300 mm - Por accesorio: curva plana o unión T (H < 3 m)",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "55d16cb6-205a-43c7-9c15-a482686965c3",
+    "name": "Bandeja de 200/300 mm - Por accesorio: curva plana o unión T (H > 3 m)",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "52542f75-560b-4a19-972f-2674a3652e88",
+    "name": "Bandeja de 200/300 mm - Por metro lineal (H < 3 m)",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "ca255633-b519-4483-97ef-da1f75489efd",
+    "name": "Bandeja de 200/300 mm - Por metro lineal (H > 3 m)",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "69655128-143b-4baa-9a20-3d6fd06994b3",
+    "name": "Bandeja de 450/600 mm - Otros accesorios (H < 3 m)",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "ec0c7d60-0117-4393-8683-1f5a8e2d532a",
+    "name": "Bandeja de 450/600 mm - Otros accesorios (H > 3 m)",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "431deb50-3cc9-486d-b648-1626b30a1d2e",
+    "name": "Bandeja de 450/600 mm - Por accesorio: curva plana o unión T (H < 3 m)",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "5a86d87d-9efa-4b00-8f75-9e0ab6ebc68c",
+    "name": "Bandeja de 450/600 mm - Por accesorio: curva plana o unión T (H > 3 m)",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "5213fd64-7ad4-48b6-9c8f-0fd83ab7cd2c",
+    "name": "Bandeja de 450/600 mm - Por metro lineal (H < 3 m)",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "a0473fe5-0b6e-4f4d-a2ed-1e55a3966657",
+    "name": "Bandeja de 450/600 mm - Por metro lineal (H > 3 m)",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "dd80e533-3875-4d3e-b494-ae14b066863a",
+    "name": "Bandeja hasta 150 mm - Otros accesorios (H < 3 m)",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "af12e7e2-d0fd-404c-b5c0-12bdbd63bb55",
+    "name": "Bandeja hasta 150 mm - Otros accesorios (H > 3 m)",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "5cc86f32-dc14-4d43-81d3-2a7f058b14ea",
+    "name": "Bandeja hasta 150 mm - Por accesorio: curva plana o unión T (H < 3 m)",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "cc3c74a2-06f7-46d6-a38c-c362a6dc4651",
+    "name": "Bandeja hasta 150 mm - Por accesorio: curva plana o unión T (H > 3 m)",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "16189950-4dac-4598-ba8d-3f17682a96f9",
+    "name": "Bandeja hasta 150 mm - Por metro lineal (H < 3 m)",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "e2f32ac9-3ea6-4d10-b41f-32f1c3f60de3",
+    "name": "Bandeja hasta 150 mm - Por metro lineal (H > 3 m)",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "a594f9f3-f08c-4e36-b834-3ff3dc6aff8d",
+    "name": "Bañera metálica enlozada blanca con grifería",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "3c9be069-4408-4253-8748-950f3274fdc4",
+    "name": "Barniz para carpintería madera",
+    "source_ref": "mo_rubro_pinturas",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "5dfd4a3d-b12b-4893-aa75-2697cb03c64e",
+    "name": "Bases H°A° - H21/50kg",
+    "source_ref": "cifras-367-2026-10:labor:concrete-bases-installed",
+    "unit": "m3",
+    "type": "labor"
+  },
+  {
+    "id": "febfec15-92a4-4d5c-94d6-a806494f24e7",
+    "name": "Bidet - loza blanca con grifería",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "14927a47-d1f0-4d08-861f-fe76a74b9b09",
+    "name": "Bloques HCCA 10 x 25 x 50 cm",
+    "source_ref": "cifras-367-2026-10:labor:hcca-wall-10",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "4cac08c0-ad92-4ecf-86c6-a78f03eefb6c",
+    "name": "Bloques HCCA 15 x 25 x 50 cm",
+    "source_ref": "cifras-367-2026-10:labor:hcca-wall-15",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "8659d13e-f6da-4b07-bdd9-3c079cdb6cd0",
+    "name": "Bloques HCCA 20 x 25 x 50 cm",
+    "source_ref": "cifras-367-2026-10:labor:hcca-wall-20",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "033e7244-0929-4ba3-bd5a-f0c19b207209",
+    "name": "Bloques hormigón 10 x 20 x 40 cm",
+    "source_ref": "mo_rubro_mamposteria_tabiqueria",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "9df05266-bf64-4ebf-885f-d73362863eb3",
+    "name": "Bloques hormigón 20 x 20 x 40 cm",
+    "source_ref": "cifras-367-2026-10:labor:concrete-block-wall",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "ad5e98ec-7841-46b8-b485-54af5ea043d3",
+    "name": "Boca de Acceso de PVC",
+    "source_ref": "mo_rubro_cloaca_pluvial_ventilacion",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "6eb3344f-b52a-4846-b961-08b589068f45",
+    "name": "Boca de Desagüe Abierta de PVC",
+    "source_ref": "mo_rubro_cloaca_pluvial_ventilacion",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "4889e259-e71b-4649-8c21-b1fb5d45c638",
+    "name": "Boca de incendio",
+    "source_ref": "mo_rubro_agua_incendio",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "e27e821c-4c40-43fc-a683-5bac1976e7cc",
+    "name": "Bomba centrífuga 1/2 HP",
+    "source_ref": "mo_rubro_agua_incendio",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "c93c32be-9209-448a-86a4-c3a930706c0f",
+    "name": "Bomba de agua, purificador piscina (Hasta 1 HP)",
+    "source_ref": "mo_rubro_electricidad",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "f607a4c7-83a1-4ead-806b-0efc9c8d2d64",
+    "name": "Cable subterráneo en piso",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "2cd98a9a-1931-4b52-82e7-94524b02f7de",
+    "name": "Cable subterráneo en tierra",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "c18d3c6f-f315-4ae2-b5b9-72c48163441c",
+    "name": "Cableado en obra nueva - Canalización realizada por el profesional",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "boca",
+    "type": "labor"
+  },
+  {
+    "id": "e115847e-ef4d-40d9-8a4a-d217f9a8e7fc",
+    "name": "Cableado en obra nueva - Canalización realizada por otro profesional",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "boca",
+    "type": "labor"
+  },
+  {
+    "id": "bd6c3484-ffa9-41c7-a494-073bee7f8f02",
+    "name": "Caja de toma con fusilera NH 00",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "7e0a918e-45a2-49cf-817b-e58e30f7ac7d",
+    "name": "Calado de muro para cañería eléctrica (romper pared)",
+    "source_ref": "mo_rubro_electricidad",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "207be3de-f4c9-410c-b78e-5d8c4999c145",
+    "name": "Calado de muro para caños (romper pared)",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "995bfc52-26e2-4736-be5a-57185de6dea3",
+    "name": "Calefactor GN 2000 cal",
+    "source_ref": "mo_rubro_gas",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "96939830-8088-4bdd-ab90-2513187a4d0d",
+    "name": "Calefactor GN 3000 cal",
+    "source_ref": "mo_rubro_gas",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "dddeb132-ecc3-4263-939b-dea604e04126",
+    "name": "Calefón GN 12 lt",
+    "source_ref": "mo_rubro_gas",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "50702fbb-4ec7-44a9-931b-de02ed9a338f",
+    "name": "Calefón GN 14 lt",
+    "source_ref": "mo_rubro_gas",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "fb61e9e1-9055-4527-a614-f44c77803510",
+    "name": "Cámara de Inspección H°A° 60x60 cm",
+    "source_ref": "mo_rubro_cloaca_pluvial_ventilacion",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "27c7a9e1-1ca5-4cd6-a7ec-8beeb1752128",
+    "name": "Cambio cabezal / cuerito grifería con frezado",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "96f71038-fbf3-4b79-b561-a669f9c59bde",
+    "name": "Cambio cartucho monocomando",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "2dee261c-7fb3-477f-bf39-d55f41a753fa",
+    "name": "Cambio de flexible",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "d5ed0e16-43e8-46a7-aa81-0a771d4bef32",
+    "name": "Cambio de flotante en tanque de reserva",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "bc7d2cf4-529a-4bd7-a691-4bfbbe7f7b07",
+    "name": "Cambio de flotante en tanque elevado",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "7aaac124-9058-4a76-b715-4212d41da3c6",
+    "name": "Cambio grifería embutida",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "49f34c22-9d5d-4a18-9d3f-545cc1dc5d48",
+    "name": "Cambio llave de paso embutida",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "95653d04-f2a3-4cc0-bec7-9554b03ef394",
+    "name": "Canalización a la vista en metal, PVC o cablecanal 14 x 30",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "boca",
+    "type": "labor"
+  },
+  {
+    "id": "f68d003b-9451-416e-a19b-4e4f40705072",
+    "name": "Canalización en losa con caño metálico",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "boca",
+    "type": "labor"
+  },
+  {
+    "id": "287ea421-20ca-4d17-a106-6becf3a7119f",
+    "name": "Canalización en loseta con caño metálico",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "boca",
+    "type": "labor"
+  },
+  {
+    "id": "a05c4002-86e3-4d47-9d60-43b0eac742bf",
+    "name": "Cañería de PVC 3,2 Ø 040 mm",
+    "source_ref": "cifras-367-2026-10:labor:pvc-installed-40",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "a6faca0c-7d9b-463e-a5bd-8e6fc619523a",
+    "name": "Cañería de PVC 3,2 Ø 050 mm",
+    "source_ref": "mo_rubro_cloaca_pluvial_ventilacion",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "3087dae8-f607-4619-83d3-47bf4b4f72ed",
+    "name": "Cañería de PVC 3,2 Ø 060 mm",
+    "source_ref": "mo_rubro_cloaca_pluvial_ventilacion",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "1e5ee6c5-14fa-48f8-88ec-3b229e24bf19",
+    "name": "Cañería de PVC 3,2 Ø 110 mm",
+    "source_ref": "cifras-367-2026-10:labor:pvc-installed-110",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "f2eafaf3-aab5-4bd9-a629-3927228b7528",
+    "name": "Cañería EPOXI Ø 013 mm",
+    "source_ref": "mo_rubro_gas",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "a64013ce-d190-4254-8fde-d0314e893d8a",
+    "name": "Cañería EPOXI Ø 019 mm",
+    "source_ref": "mo_rubro_gas",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "071c0bb2-bdb3-402e-ad93-de2335a7cfff",
+    "name": "Cañería EPOXI Ø 025 mm",
+    "source_ref": "mo_rubro_gas",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "b8a0e4c1-7333-4774-ae1f-395234fb8056",
+    "name": "Cañería EPOXI Ø 050 mm",
+    "source_ref": "mo_rubro_gas",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "3a06fc80-2adc-401f-8e39-08334d4d29c8",
+    "name": "Cañería PP TF Ø 13 mm",
+    "source_ref": "cifras-367-2026-10:labor:pp-installed-13",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "b7b07cc1-f4a2-4218-a4c9-7caa6d933d26",
+    "name": "Cañería PP TF Ø 19 mm",
+    "source_ref": "mo_rubro_agua_incendio",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "de80b170-ea94-4ea0-9a20-ea78fd12e626",
+    "name": "Cañería PP TF Ø 25 mm",
+    "source_ref": "cifras-367-2026-10:labor:pp-installed-25",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "82d5a31a-916a-45ca-8026-41a2271c7070",
+    "name": "Cañería PP TF Ø 38 mm",
+    "source_ref": "mo_rubro_agua_incendio",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "57a88d62-9545-45ec-a691-d76c3d0b4fb0",
+    "name": "Cañería PP TF Ø 50 mm",
+    "source_ref": "mo_rubro_agua_incendio",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "fd19558b-5320-4b49-966a-f7bbc65fa975",
+    "name": "Canilla de servicio Ø 13 mm con pico manguera",
+    "source_ref": "cifras-367-2026-10:labor:garden-faucet-installed",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "a7adf7d9-1aa8-4c33-b6a2-503f8cbd06f9",
+    "name": "Canilla de servicio Ø 13 mm con pico manguera en nicho acero inoxidable",
+    "source_ref": "mo_rubro_agua_incendio",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "d43a0852-e54a-4768-9df6-c7afabd26fd3",
+    "name": "Caño de acometida - Amurado y conexión",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "e074799e-4885-44d6-8fdb-b2a84cdfe43f",
+    "name": "Carpeta de cemento bajo pisos",
+    "source_ref": "cifras-367-2026-10:labor:screed",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "b4685c87-5b10-48ee-92ee-61c3b5b3ebd7",
+    "name": "Cartel de Obra",
+    "source_ref": "mo_rubro_preliminares",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "81469d35-3a45-45f5-a518-84a5b2b1514d",
+    "name": "Cementícia doble horizontal en muros",
+    "source_ref": "mo_rubro_aislaciones",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "96251685-f0ac-490c-89fd-8da0d907ea4d",
+    "name": "Cementícia doble vertical en muros",
+    "source_ref": "mo_rubro_aislaciones",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "41b10387-5c38-4b5b-ba4e-34127e963019",
+    "name": "Cementícia vertical con tabique panderete p/subsuelo",
+    "source_ref": "mo_rubro_aislaciones",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "20e93363-25c3-4598-91ea-1ab570155a69",
+    "name": "Cemento alisado",
+    "source_ref": "cifras-367-2026-10:labor:cement-floor-finish",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "d7c9e91a-dedf-45c4-b258-cccc331ac47b",
+    "name": "Cemento alisado",
+    "source_ref": "cifras-367-2026-10:labor:cement-wall-finish",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "39feed20-a95b-4a46-8e1a-f750994e2cd0",
+    "name": "Cemento alisado h=10 cm",
+    "source_ref": "mo_rubro_zocalos",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "2ec1381f-d7e4-4cdc-932e-4bea3789ed41",
+    "name": "Cemento terminación a la llana mecánica, incluye H° e=4cm",
+    "source_ref": "mo_rubro_pisos",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "a634cb99-d8c8-4d76-ac8b-690bceebec0b",
+    "name": "Cemento terminación texturado/raspinado, incluye H° e=4cm",
+    "source_ref": "mo_rubro_pisos",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "aceed1bc-8f42-46e6-8487-9df9de438d66",
+    "name": "Cerámicas esmaltadas",
+    "source_ref": "cifras-367-2026-10:labor:ceramic-floor",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "b2780f33-a79c-46f1-b303-4d7f89f3f825",
+    "name": "Cerámicas rojas",
+    "source_ref": "mo_rubro_pisos",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "89cfef68-c519-4e2f-8b23-2d2d5d44748e",
+    "name": "Cerámico Esmaltado",
+    "source_ref": "mo_rubro_zocalos",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "2b0e9b2d-4c2a-4074-b91d-a414314fb724",
+    "name": "Cerámico Gres",
+    "source_ref": "mo_rubro_zocalos",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "3295d58b-219a-4fc1-b0dd-b2d59d8df70b",
+    "name": "Cerámicos esmaltados",
+    "source_ref": "mo_rubro_revestimientos",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "af6ede35-52d7-4f5b-8f6b-6be167126647",
+    "name": "Cerco de Obra",
+    "source_ref": "cifras-367-2026-10:labor:temporary-site-fence",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "99b09c19-bf25-42bc-b2a0-18e92cc3c0ad",
+    "name": "Certificado DCI-CAIE T1 comercial trifásico",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "01e952c2-22db-4b09-8a25-70843292ac50",
+    "name": "Certificado DCI-CAIE T1 residencial o comercial monofásico",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "03956f22-f2b0-495b-b4ed-d5b12c872b49",
+    "name": "Certificado DCI-CAIE T1 residencial trifásico",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "07980d2d-e045-4a4a-a98e-010dd109d98f",
+    "name": "Certificado DCI-CAIE T2 según potencia instalada",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "1b94db77-51cb-4526-8298-a19ec4691c58",
+    "name": "Certificado DCI-CAIE T3 según potencia instalada",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "d22e9ec0-8009-4494-9d9a-1a201301e615",
+    "name": "Chapas H°G° N°25 color s/ estructura madera",
+    "source_ref": "mo_rubro_cubiertas",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "848aa885-2d65-4714-beca-2d781169c734",
+    "name": "Chapas H°G° N°25 color s/ estructura metálica",
+    "source_ref": "mo_rubro_cubiertas",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "338eaa7d-7393-41e1-9971-e0a4ba6c4085",
+    "name": "Chapas H°G° N°25 color s/ estructura mixta",
+    "source_ref": "mo_rubro_cubiertas",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "16f9ef5b-8f18-44b1-9afb-8cccae8d1d29",
+    "name": "Chapas H°G° N°25 s/ estructura madera",
+    "source_ref": "mo_rubro_cubiertas",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "64f9027c-cde7-4728-addb-9d72be59a1fa",
+    "name": "Chapas H°G° N°25 s/ estructura metálica",
+    "source_ref": "mo_rubro_cubiertas",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "d3578000-214a-4689-9663-52b30259c74e",
+    "name": "Chapas H°G° N°25 s/ estructura mixta",
+    "source_ref": "mo_rubro_cubiertas",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "fbdb1851-0f29-4ad3-96d9-1b692518ae1e",
+    "name": "Cocina GN 4H, H y P",
+    "source_ref": "mo_rubro_gas",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "2cede801-6703-4e73-bfd6-d9a1b3c66edd",
+    "name": "Colocación campana extractora",
+    "source_ref": "mo_rubro_electricidad",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "6fdaa827-9eb1-4a51-b296-5650b8be519d",
+    "name": "Colocación derivadores caja embutida",
+    "source_ref": "mo_rubro_electricidad",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "4831b377-bd17-499c-8896-699d55927bf6",
+    "name": "Columnas H°A° - H21/90 kg",
+    "source_ref": "cifras-367-2026-10:labor:concrete-columns-installed",
+    "unit": "m3",
+    "type": "labor"
+  },
+  {
+    "id": "1a201083-c7c5-4eaa-b1b5-8fc6834f38a1",
+    "name": "Conductos de ventilación, incluye sombrerete y reja",
+    "source_ref": "mo_rubro_varios",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "65fdc390-e5ac-44c7-b9bb-dfb53dc45d74",
+    "name": "Conexión de punto combinación",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "boca",
+    "type": "labor"
+  },
+  {
+    "id": "7776ee39-340c-4c67-8274-b32890e092c6",
+    "name": "Conexión de punto, toma simple o portalámpara",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "boca",
+    "type": "labor"
+  },
+  {
+    "id": "2cc1151b-2fc2-4fa7-b4f2-bd1426d135bc",
+    "name": "Conexión de toma doble",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "boca",
+    "type": "labor"
+  },
+  {
+    "id": "f0ca4048-5f26-4bb3-8a25-52e3b1066e1e",
+    "name": "Contactores / Sensores",
+    "source_ref": "mo_rubro_electricidad",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "96d6bd01-5080-4085-8db0-ff7e3d2a6d23",
+    "name": "Contenedor, volquete 5m³ (alquiler)",
+    "source_ref": "mo_rubro_demoliciones",
+    "unit": "dia",
+    "type": "labor"
+  },
+  {
+    "id": "474e74c5-873c-4b91-ae9a-1abc0119acca",
+    "name": "Corrección de factor de potencia monofásico",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "kVA",
+    "type": "labor"
+  },
+  {
+    "id": "4f6edd81-4439-4bcf-a9b7-dde2cdc87345",
+    "name": "Cristal Templado 10mm",
+    "source_ref": "mo_rubro_vidrieria",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "e49c61dc-c977-4772-bdb8-d92a2a59b6a0",
+    "name": "Demolición de contrapisos y otros solados",
+    "source_ref": "cifras-367-2026-10:labor:subfloor-demolition",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "190f4a8b-2ebd-4d6a-a791-64b3b75eaa0c",
+    "name": "Demolición estructuras de hormigón armado",
+    "source_ref": "mo_rubro_demoliciones",
+    "unit": "m3",
+    "type": "labor"
+  },
+  {
+    "id": "0381a86d-c496-4efb-b84e-064d1d201c54",
+    "name": "Demolición mamposterías ladrillos comunes",
+    "source_ref": "mo_rubro_demoliciones",
+    "unit": "m3",
+    "type": "labor"
+  },
+  {
+    "id": "b8159e96-fec2-44e7-9f60-39d02f97355f",
+    "name": "Demolición mamposterías ladrillos huecos",
+    "source_ref": "mo_rubro_demoliciones",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "2c7b2315-f5d1-4748-9f0e-329284cac45b",
+    "name": "Desinstalación de A. Acond.",
+    "source_ref": "mo_rubro_refrigeracion",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "e853d500-a1b7-4bc5-80a5-05593258f89f",
+    "name": "Destranque de cloacas",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "b91450df-f0b7-42c2-a9cc-46e733e4a343",
+    "name": "Destranque de grasera y sifón de cocina",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "95172a1e-0bbe-4d0a-88ee-a4db8195857b",
+    "name": "Destranque de pluviales",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "7aad3d9f-4fa9-4b46-b0f4-08b324f0cca8",
+    "name": "Destranque de sumidero de baño",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "2c33ddde-2a51-4688-b1a7-7d4fe4290de9",
+    "name": "Doble Vidrio Hermético DVH",
+    "source_ref": "mo_rubro_vidrieria",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "7a93e72f-ab1f-46fa-89c7-874961f85376",
+    "name": "Embudo de PVC",
+    "source_ref": "mo_rubro_cloaca_pluvial_ventilacion",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "958db7bd-0e70-423f-b516-0f420e0b151a",
+    "name": "Emergencia: lunes a sábado de 8 a 20 h (atención inmediata)",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "global",
+    "type": "labor"
+  },
+  {
+    "id": "9cd056fe-cbc3-44db-ae5e-4b90532906d4",
+    "name": "Encadenado H°A° - H21/65 kg",
+    "source_ref": "mo_rubro_estructuras",
+    "unit": "m3",
+    "type": "labor"
+  },
+  {
+    "id": "1dcf870c-ac21-4bf7-9047-ae69890df3ed",
+    "name": "Equipo de tubo LED de 45 W",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "bb13b839-fd6b-4677-a40d-e149af83be15",
+    "name": "Equipo de tubo LED doble de 45 W",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "19cacd4a-b2d5-484c-9a29-5605358e5d29",
+    "name": "Equipo de tubo LED doble de 7 W a 36 W",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "11103b64-b20c-4a46-89c0-684bb3c1b316",
+    "name": "Equipo de tubo LED simple de 7 W a 36 W",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "aa33c929-f059-4d53-97ea-493f552ab25c",
+    "name": "Equipo tubo Led (Simple/Doble)",
+    "source_ref": "mo_rubro_electricidad",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "b8476f77-18c8-4c4c-bc9e-51be6f4d6cd7",
+    "name": "Escalera H°A° - H21/65 kg",
+    "source_ref": "mo_rubro_estructuras",
+    "unit": "m3",
+    "type": "labor"
+  },
+  {
+    "id": "d0b50e7c-c617-4f5d-80ca-e83ff4fba5a7",
+    "name": "Esmalte sintético para carpintería metálica",
+    "source_ref": "mo_rubro_pinturas",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "dfe45c01-7377-4ad1-85fc-63d153e06893",
+    "name": "Espejo Cristal 6mm",
+    "source_ref": "mo_rubro_vidrieria",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "5d23dcc9-8ee1-4c2d-a7c3-7db3a6610a26",
+    "name": "Exterior a la cal común completo",
+    "source_ref": "mo_rubro_revoques",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "a9ae2005-2aad-4fb8-a0e4-cc3f0c7324be",
+    "name": "Exterior completo, terminación material de frente",
+    "source_ref": "mo_rubro_revoques",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "8835cf4f-9a34-402e-b111-d213e1b01f34",
+    "name": "Fino a la cal",
+    "source_ref": "mo_rubro_revoques",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "f855d64e-df5d-4c5d-ab97-f775015408e9",
+    "name": "Fino/Estucado yeso",
+    "source_ref": "mo_rubro_revoques",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "083532bd-5b54-4819-9ac1-afea10b59aac",
+    "name": "Flotante eléctrico (PB cisterna)",
+    "source_ref": "mo_rubro_electricidad",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "d667b503-5335-4ca7-81c9-adfbd288af87",
+    "name": "Flotante eléctrico (Tanque elevado)",
+    "source_ref": "mo_rubro_electricidad",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "3e189820-e452-49d8-bb65-c9d72e93bbf7",
+    "name": "Granito reconstituido en escalones (h/ch/z) e=2,5cm",
+    "source_ref": "mo_rubro_revestimientos",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "1c3216c7-7182-4e13-986d-2b9467c1a7db",
+    "name": "Grueso común",
+    "source_ref": "cifras-367-2026-10:labor:rough-plaster",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "5f4f50e2-6cb8-476f-b79b-65a0c5d3d818",
+    "name": "Hierros redondos",
+    "source_ref": "mo_rubro_estructuras",
+    "unit": "kg",
+    "type": "labor"
+  },
+  {
+    "id": "3e334731-2178-496e-9731-a996a6b81c3c",
+    "name": "Hora de trabajo (mínimo)",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "hora",
+    "type": "labor"
+  },
+  {
+    "id": "a559426e-35cd-468b-af51-677118358c0a",
+    "name": "Hora de Trabajo (Mínimo/Promedio)",
+    "source_ref": "mo_rubro_electricidad",
+    "unit": "hora",
+    "type": "labor"
+  },
+  {
+    "id": "8601e696-a8e5-4484-a5b1-51703d9a8f40",
+    "name": "Hora de trabajo (promedio)",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "hora",
+    "type": "labor"
+  },
+  {
+    "id": "a0b72476-4bae-406b-b76e-f7c544af22d5",
+    "name": "Hormigón alivianado elaborado H8 e=6cm",
+    "source_ref": "mo_rubro_contrapisos",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "96dd1fe3-cd11-4962-8244-6544e4e02faf",
+    "name": "Hormigón alivianado elaborado H8 e=8cm (banquinas)",
+    "source_ref": "mo_rubro_contrapisos",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "02bfbcc8-3b78-44a8-92dc-a8fd7c03fbb1",
+    "name": "Hormigón alivianado poliestireno e=20cm (rellenos)",
+    "source_ref": "mo_rubro_contrapisos",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "ea10fa2c-0338-4b7a-b5d3-b261301be8da",
+    "name": "Hormigón alivianado poliestireno e=6cm",
+    "source_ref": "mo_rubro_contrapisos",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "39a4db6f-ae4c-4bdc-9d70-6331923be9df",
+    "name": "Hormigón alivianado poliestireno e=8cm",
+    "source_ref": "mo_rubro_contrapisos",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "816e9419-bda2-4d0d-9e35-19ab0b45b508",
+    "name": "Hormigón armado e=12cm terminación a la llana",
+    "source_ref": "mo_rubro_contrapisos",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "e8b3ff37-fae5-4788-8ccc-5ab7ee33ef15",
+    "name": "Hormigón de cascotes e=10cm",
+    "source_ref": "cifras-367-2026-10:labor:subfloor-10",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "b24bf874-7be9-44fc-affc-b4979085c852",
+    "name": "Hormigón de cascotes e=12cm",
+    "source_ref": "cifras-367-2026-10:labor:subfloor-12",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "5d51c614-8030-4c3c-a340-4adfe5908bab",
+    "name": "Hormigón de cascotes e=8cm",
+    "source_ref": "cifras-367-2026-10:labor:subfloor-8",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "5ba6fa59-eae9-41a9-be73-b9e9eae20143",
+    "name": "Hormigón visto (terminaciones)",
+    "source_ref": "mo_rubro_cielorrazos",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "b76abe7a-94d7-44e1-a701-b8e560262af0",
+    "name": "Impermeable de cemento",
+    "source_ref": "mo_rubro_revoques",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "36d446ec-cef8-437a-9263-286a9fb56786",
+    "name": "Inodoro pedestal - loza blanca incluye depósito y asiento",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "271da17a-c325-40d2-8cf6-9b41c3d8742c",
+    "name": "Inst. Portero eléctrico c/cerradura",
+    "source_ref": "mo_rubro_electricidad",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "2b1332dd-65ba-4dcf-8330-980c6f03abe2",
+    "name": "Inst. Portero eléctrico s/cerradura",
+    "source_ref": "mo_rubro_electricidad",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "ca2bd569-eb45-416e-a801-39bc354ec5c5",
+    "name": "Instalación accesorios de baño (Set 5 piezas)",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "global",
+    "type": "labor"
+  },
+  {
+    "id": "174452de-9fb0-465e-aa54-a24e12c61e58",
+    "name": "Instalación agua fría/caliente (baño+cocina+lavadero)",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "global",
+    "type": "labor"
+  },
+  {
+    "id": "a8ec8550-b6ea-402b-b571-c061f82c9e77",
+    "name": "Instalación Biodigestor",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "64b263cd-a8a0-4549-9c6d-6041c9bed87f",
+    "name": "Instalación bomba elevadora",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "9aedd02f-6a8e-49fa-b04e-47678251271e",
+    "name": "Instalación bomba presurizadora bajo tanque",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "ddf35dd9-4ea0-4af9-80bf-c8407f67f280",
+    "name": "Instalación bomba presurizadora chica",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "e052b22f-4042-4770-a981-2f25a78d4b68",
+    "name": "Instalación cámara de inspección cementicia",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "a16beb47-ad80-4785-a35d-2d4a147339c6",
+    "name": "Instalación cámara de inspección plástica",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "0f9c2a8b-392d-422d-a445-9d3f274a7ef0",
+    "name": "Instalación cámara séptica",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "25c48e1d-5b93-4aae-8715-eb0260c016ce",
+    "name": "Instalación cañería desagüe PVC Ø 110",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "997c12f2-3eac-420e-abd7-d575bd61dc97",
+    "name": "Instalación cañería desagüe PVC Ø 40/50",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "f11185ea-7828-4cbd-8f5a-1bd29fee963e",
+    "name": "Instalación cañería primaria",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "c378ea23-4eb7-47cb-8988-db70ba7230fa",
+    "name": "Instalación cañería termofusión bajo suelo",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "d4d7570f-ae0b-4a30-bd5f-0b2513255c44",
+    "name": "Instalación cañería termofusión engrampada",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "ec157f00-6b2d-4808-bd5e-a0f483a28305",
+    "name": "Instalación cañería ventilación",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "3f22a018-8ff5-445e-afe0-2f8e2fa82072",
+    "name": "Instalación de artefacto sanitario (mínimo)",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "c9f2bda4-9c80-45f6-a5cf-d1dfc07f7fff",
+    "name": "Instalación de bañera",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "11be3901-729f-4169-b403-9c9fd58bf08a",
+    "name": "Instalación de contactor",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "de2f7747-dc60-4914-ad43-32fbbcbadb98",
+    "name": "Instalación de lecho de infiltración",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "0e1761cc-c61d-450e-940e-6e35001947ef",
+    "name": "Instalación de sensor",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "7742b7c6-a620-485e-bd61-64a3d9c00f64",
+    "name": "Instalación desagües (baño+cocina+lavadero)",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "global",
+    "type": "labor"
+  },
+  {
+    "id": "a1837ab4-c605-4b6e-821d-d27bbc487d45",
+    "name": "Instalación eléctrica de grupo electrógeno monofásico hasta 3,5 kVA",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "eb2e893a-cb4a-4598-a493-f15e046c5a63",
+    "name": "Instalación estándar A. Acond.",
+    "source_ref": "mo_rubro_refrigeracion",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "d7a0d37c-388a-400f-82bd-63a323f7dccd",
+    "name": "Instalación estándar A. Acond.",
+    "source_ref": "mo_rubro_refrigeracion",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "9d2da88f-2732-419e-9da8-70212db15e10",
+    "name": "Instalación estándar A. Acond.",
+    "source_ref": "mo_rubro_refrigeracion",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "7f889b09-f246-41d1-bd5f-a9fb2055e82e",
+    "name": "Instalación estándar A. Acond.",
+    "source_ref": "mo_rubro_refrigeracion",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "9d2c4532-dfed-4ca7-a2d7-f9b0ea402699",
+    "name": "Instalación estándar A. Acond.",
+    "source_ref": "mo_rubro_refrigeracion",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "c11c422a-33bf-438d-9201-c2a0e4dc3611",
+    "name": "Instalación estándar A. Acond.",
+    "source_ref": "mo_rubro_refrigeracion",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "03963438-62b3-4200-887c-a79fd713c45b",
+    "name": "Instalación estándar Roof-Top",
+    "source_ref": "mo_rubro_refrigeracion",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "af6ac344-f2cc-4aa8-803f-818d7b386585",
+    "name": "Instalación grifería monocomando",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "d20752b9-74ba-4ab9-9593-477c25e184a0",
+    "name": "Instalación grifería tradicional",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "6bc6fd87-043b-44c1-8832-5eef74ab3540",
+    "name": "Instalación lavavajillas / lavarropas",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "8182d449-9f4f-4c6b-a76e-78ebc9ee2e45",
+    "name": "Instalación tanque cisterna bajo tierra",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "0525a6bc-90e6-46d7-bbaa-2b42c7b0c5d9",
+    "name": "Instalación tanque elevado",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "75cc730e-ec82-4012-add9-818dcde0a9ef",
+    "name": "Instalación tanque reserva c/conexión agua y flotante",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "3266cd43-dc27-4534-b7ec-1a622c5f5bad",
+    "name": "Instalación/reemplazo termotanque gas o eléctrico",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "66c00db5-1023-474a-84da-10ef1b91fdc7",
+    "name": "Instalación/reemplazo termotanque solar tubular",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "33ac36f1-62f3-49ad-ba77-cb73f002bbbd",
+    "name": "Interior a la cal común completo",
+    "source_ref": "cifras-367-2026-10:labor:interior-plaster-complete",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "4bf47e4a-fa8b-4c43-add1-e5b55cdd9c3d",
+    "name": "Interior azotado y grueso b/ revestimientos",
+    "source_ref": "mo_rubro_revoques",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "f4e54a9e-2e1c-4880-b259-d73d359ec683",
+    "name": "Jornal de ayudante",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "jornada",
+    "type": "labor"
+  },
+  {
+    "id": "6a50677f-a66f-410d-9647-2ee9a6e24d1f",
+    "name": "Jornal de medio oficial electricista",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "jornada",
+    "type": "labor"
+  },
+  {
+    "id": "f4c86772-c3ff-41ea-9724-6823e0b4b75d",
+    "name": "Jornal de oficial electricista",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "jornada",
+    "type": "labor"
+  },
+  {
+    "id": "0b9e21cb-6718-4776-8e26-fd05bf332d5c",
+    "name": "Jornal de oficial especializado",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "jornada",
+    "type": "labor"
+  },
+  {
+    "id": "cc591e4a-d10d-47e5-9c18-4e6f28d340bc",
+    "name": "Ladrillo cerámico hueco 12 x 18 x 33 cm",
+    "source_ref": "cifras-367-2026-10:labor:hollow-brick-wall-12",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "2fbeac26-b719-4250-86c3-9220a29236c5",
+    "name": "Ladrillo cerámico hueco 18 x 18 x 33 cm",
+    "source_ref": "cifras-367-2026-10:labor:hollow-brick-wall-18",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "dbbef28b-787d-4a59-8033-3e2c149c1ef6",
+    "name": "Ladrillo cerámico hueco 8 x 18 x 33 cm",
+    "source_ref": "cifras-367-2026-10:labor:hollow-brick-wall-8",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "1aca307c-a8e0-4aff-a0de-e385b858c0a4",
+    "name": "Ladrillos cerámicos decorativos 12x18x25 cm",
+    "source_ref": "mo_rubro_mamposteria_tabiqueria",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "c93b7f19-7857-4bb2-b2cd-5c89bb8ab968",
+    "name": "Ladrillos comunes a la vista en elevación",
+    "source_ref": "mo_rubro_mamposteria_tabiqueria",
+    "unit": "m3",
+    "type": "labor"
+  },
+  {
+    "id": "1ecf483d-0e1e-4bcf-96ec-7ff2a47f152f",
+    "name": "Ladrillos comunes en cimientos",
+    "source_ref": "mo_rubro_mamposteria_tabiqueria",
+    "unit": "m3",
+    "type": "labor"
+  },
+  {
+    "id": "7e217f60-7cee-4b2b-9de1-758d54b0c158",
+    "name": "Ladrillos comunes en elevación",
+    "source_ref": "cifras-367-2026-10:labor:common-brick-masonry-volume",
+    "unit": "m3",
+    "type": "labor"
+  },
+  {
+    "id": "68c20aa9-4490-428a-b592-f917a5d93d28",
+    "name": "Lana de vidrio con cara aluminio 50 mm",
+    "source_ref": "mo_rubro_aislaciones",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "3ca44697-221d-438b-8f23-1eb957fecc24",
+    "name": "Látex para cielorraso",
+    "source_ref": "mo_rubro_pinturas",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "efc7c850-73de-495b-8dbb-2d6a224b8298",
+    "name": "Látex para muros exteriores",
+    "source_ref": "cifras-367-2026-10:labor:paint-exterior",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "ae4db706-ed39-444c-b532-cac7fef3f70c",
+    "name": "Látex para muros interiores",
+    "source_ref": "cifras-367-2026-10:labor:paint-interior",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "655cb245-9d22-49a6-8ee8-64ea98f9b59e",
+    "name": "Lavatorio - loza blanca con grifería",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "75663278-6001-41a6-87e1-80cf3f38d4c1",
+    "name": "Limpieza de tanque hasta 1100 lts",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "6386319f-9c9c-4f4b-aab6-edbc9b915dc5",
+    "name": "Limpieza inicial terreno, retiros grales.",
+    "source_ref": "mo_rubro_preliminares",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "d18452ec-d384-4b1b-a66f-b74e3059758b",
+    "name": "Limpieza periódica y final de obra",
+    "source_ref": "mo_rubro_varios",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "06290583-de53-4195-bf03-b24c8f1d689a",
+    "name": "Lista de materiales (mínimo para 30 m²)",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "global",
+    "type": "labor"
+  },
+  {
+    "id": "fab95815-5a44-454f-a551-439090133cbe",
+    "name": "Llave de paso Ø 13 mm",
+    "source_ref": "mo_rubro_agua_incendio",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "b903d2e7-3211-4500-9285-857d409ceb3b",
+    "name": "Llave de paso Ø 13 mm",
+    "source_ref": "mo_rubro_gas",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "f87319f8-496d-4d81-9a24-c77162ba3c80",
+    "name": "Llave de paso Ø 19 mm",
+    "source_ref": "mo_rubro_gas",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "0066ae6d-24d9-48e1-a4d0-bdd1a915339e",
+    "name": "Llave de paso Ø 19 mm",
+    "source_ref": "mo_rubro_agua_incendio",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "2e19e3c2-477b-482c-b5a8-5a23b4ff7c3e",
+    "name": "Llave de paso Ø 25 mm",
+    "source_ref": "mo_rubro_agua_incendio",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "5944db09-2602-4728-b583-0b24023ff181",
+    "name": "Llave de paso Ø 38 mm",
+    "source_ref": "mo_rubro_agua_incendio",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "b6f0c46a-317b-431c-ba97-7b526c69f4d6",
+    "name": "Llave de paso Ø 50 mm",
+    "source_ref": "mo_rubro_agua_incendio",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "12938baa-3933-4161-80d0-69c4087270a0",
+    "name": "Losa H°A° con viguetas y ladrillón cerámico 12cm",
+    "source_ref": "mo_rubro_estructuras",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "fb211515-ac63-4c0c-beb4-f1bf717bfc83",
+    "name": "Losa H°A° con viguetas y ladrillón poliestireno (telgopor) 12cm",
+    "source_ref": "mo_rubro_estructuras",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "91d5b4d6-e718-4ef8-bab8-49a98bbea4bf",
+    "name": "Losa H°A° macizas H21/60 kg",
+    "source_ref": "mo_rubro_estructuras",
+    "unit": "m3",
+    "type": "labor"
+  },
+  {
+    "id": "1c15016b-7deb-492e-8f87-27dd5f186d02",
+    "name": "Losetas de H° 40x60cm",
+    "source_ref": "cifras-367-2026-10:labor:concrete-tile",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "56541044-f0fe-421b-b481-8d358624d6e8",
+    "name": "Losetas graníticas 40x40cm",
+    "source_ref": "mo_rubro_pisos",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "b15b2d33-9645-4c9d-861d-2d24fc84cda1",
+    "name": "Madera",
+    "source_ref": "mo_rubro_zocalos",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "6c2399ba-eb96-4982-b4a2-97f12b66b995",
+    "name": "Madera flotante símil algarrobo e=8mm",
+    "source_ref": "mo_rubro_pisos",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "f29a2f08-fcbe-4d00-bad3-2ec86193a8b9",
+    "name": "Madera machimbrada suspendido con estructura madera",
+    "source_ref": "mo_rubro_cielorrazos",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "277e4236-ec62-4339-bada-ddd13fdd55c0",
+    "name": "Madera parquet algarrobo e=19mm",
+    "source_ref": "mo_rubro_pisos",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "8a3f1cb1-b6cc-4b85-b585-d84ae8e9d6b1",
+    "name": "Madera semidura tipo deck",
+    "source_ref": "mo_rubro_pisos",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "8184fa2e-de50-450d-ab21-157b9c4dbb3b",
+    "name": "Mantenimiento split (con desinst.)",
+    "source_ref": "mo_rubro_refrigeracion",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "4941b21b-ffda-4c86-8543-98e1d4ebc235",
+    "name": "Mantenimiento split (sin desinst.)",
+    "source_ref": "mo_rubro_refrigeracion",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "e2ea337f-87b5-41bc-88e5-46cdff8e5e0b",
+    "name": "Matafuegos ABC 10 kg",
+    "source_ref": "mo_rubro_equipamiento",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "082889d5-68a9-43bc-8a1f-9e22d74e5ed3",
+    "name": "Matafuegos ABC 5 kg",
+    "source_ref": "mo_rubro_equipamiento",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "64cec7da-0976-423d-b38f-123262205621",
+    "name": "Medio Oficial / Ayudante",
+    "source_ref": "mo_rubro_electricidad",
+    "unit": "jornada",
+    "type": "labor"
+  },
+  {
+    "id": "3dbc0b28-656a-4984-9551-7c36db1a9840",
+    "name": "Membrana espuma polietileno 10 mm bajo techo",
+    "source_ref": "mo_rubro_aislaciones",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "9346559c-6d88-4beb-a9c0-df66ff7e16c1",
+    "name": "Mesada de granito natural e=2,5cm, comp. (gris mara)",
+    "source_ref": "mo_rubro_revestimientos",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "1381a000-a9a0-49d8-a31a-d7c03ba09ccf",
+    "name": "Mesada de piedra natural e=2,5cm, comp. (travertino)",
+    "source_ref": "mo_rubro_revestimientos",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "9b38e234-37c0-421f-aa6b-883567b1e76c",
+    "name": "Módulo adicional ID tetrapolar",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "08ab2cc5-1900-4d4a-be03-f37cda486860",
+    "name": "Módulo adicional ID, ITM u otro bipolar",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "11f14b99-83c5-4307-b43c-aaf72fa782fc",
+    "name": "Módulo adicional ITM tetrapolar",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "362591d6-8221-471f-b41c-22bae360923b",
+    "name": "Módulo adicional ITM tripolar",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "3f995d31-797c-44ec-a181-acd50cdb00f9",
+    "name": "Montaje split sobre pre-instalación",
+    "source_ref": "mo_rubro_refrigeracion",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "e487dedd-b3b6-4fd4-8786-dd1cfd58b278",
+    "name": "Mortero a la cal aplicado bajo losa",
+    "source_ref": "mo_rubro_cielorrazos",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "612e3e3e-7182-412d-a205-e649caff6e62",
+    "name": "Mortero elaborado RDC (CUC=150kg/m³) e=6 cm",
+    "source_ref": "mo_rubro_contrapisos",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "9bd07ccc-d230-4f38-a420-c0b904561796",
+    "name": "Mosaico granítico 10x30cm",
+    "source_ref": "mo_rubro_zocalos",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "840f2f1c-89b8-4601-97cf-630e16d34f9a",
+    "name": "Mosaicos graníticos 30x30cm",
+    "source_ref": "cifras-367-2026-10:labor:granite-mosaic",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "56fa12ce-93f4-400b-bc53-e3e888668eeb",
+    "name": "Nivelación y replanteo de obra",
+    "source_ref": "mo_rubro_preliminares",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "4595ab29-d575-4dd1-9a73-3e499437fc60",
+    "name": "Obrador, construcciones provisorias",
+    "source_ref": "mo_rubro_preliminares",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "0b9ded31-8422-4bbe-a7e1-c73312d14d4e",
+    "name": "Oficial Especializado / Electricista",
+    "source_ref": "mo_rubro_electricidad",
+    "unit": "jornada",
+    "type": "labor"
+  },
+  {
+    "id": "b4a574e4-b28a-4ed5-96f2-76942278192e",
+    "name": "Oficial Plomero Sanitarista (8 hs)",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "jornada",
+    "type": "labor"
+  },
+  {
+    "id": "e5672f69-1d81-4e15-81d6-c01e2463fae1",
+    "name": "Parquización (césped)",
+    "source_ref": "mo_rubro_varios",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "ab35ea3f-ce6e-4878-bdcd-ca9366fb6b21",
+    "name": "Pase de losa para cañería",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "06939371-d1ad-4152-bfff-3a38dedb0506",
+    "name": "Pase de muro c/broca (15cm espesor / 12mm diám)",
+    "source_ref": "mo_rubro_electricidad",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "7553db5a-cf54-453e-b679-91169636dfd7",
+    "name": "Pase de muro c/broca (15cm espesor / hasta 40mm)",
+    "source_ref": "mo_rubro_electricidad",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "26b7eb67-730a-4968-9040-939dc23d95f3",
+    "name": "Pase de muro c/broca (30cm espesor / 12mm diám)",
+    "source_ref": "mo_rubro_electricidad",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "0dc820a9-8fd6-4e36-9be6-eabed6134a23",
+    "name": "Pase de muro c/broca (30cm espesor / hasta 40mm)",
+    "source_ref": "mo_rubro_electricidad",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "01f75ba5-e62c-4574-9a70-5ef62a0d1157",
+    "name": "Pase de viga y/o columna",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "boca",
+    "type": "labor"
+  },
+  {
+    "id": "8c6b3444-7aea-447e-8b91-b4715c77940e",
+    "name": "PAT de servicio con jabalina y caja de inspección",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "ffff96be-9f75-41a8-9762-de39e71621a7",
+    "name": "Pavimento con adoquín intertrabado e=8cm",
+    "source_ref": "cifras-367-2026-10:labor:paver-installed",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "dc4bcfcc-4eaf-4b6f-8926-f67ef2f2d7c7",
+    "name": "Perfil metálico",
+    "source_ref": "mo_rubro_zocalos",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "c6bb9172-ade0-46c0-9d50-439c0f826d05",
+    "name": "Perfiles ángulo",
+    "source_ref": "mo_rubro_estructuras",
+    "unit": "kg",
+    "type": "labor"
+  },
+  {
+    "id": "0994832e-7e77-4fb8-81b5-f63b4d122d61",
+    "name": "Perfiles normales",
+    "source_ref": "mo_rubro_estructuras",
+    "unit": "kg",
+    "type": "labor"
+  },
+  {
+    "id": "319c3d36-8ed7-43b8-8223-6bc8d255f45e",
+    "name": "Picado de revoques",
+    "source_ref": "mo_rubro_demoliciones",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "7191d73d-1047-4646-b2a2-7b116129c895",
+    "name": "Pilar completo con gabinete, tablero principal, caño y PAT",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "4be2c200-46eb-4753-9604-7acaa3fb15c1",
+    "name": "Pileta de Patio Abierta de PVC",
+    "source_ref": "mo_rubro_cloaca_pluvial_ventilacion",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "85495136-aa13-4459-b959-ca453d3a84bb",
+    "name": "Pintura asfáltica sobre paramentos",
+    "source_ref": "mo_rubro_aislaciones",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "5b188792-e179-4f86-b5a2-f2a226043462",
+    "name": "Pintura impermeabilizante sobre paramentos",
+    "source_ref": "mo_rubro_aislaciones",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "d3d10956-62fe-4de3-9299-463f0eacde4f",
+    "name": "Placa cementícia doble esp.12,5 cm exterior c/aislación",
+    "source_ref": "cifras-367-2026-10:labor:cement-board-exterior",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "a344c7ff-7051-40e3-98fc-bce380fbf718",
+    "name": "Placa de yeso común junta tomada con aislación",
+    "source_ref": "cifras-367-2026-10:labor:ceiling-drywall-insulation",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "c6e144cd-958e-4d4a-a5f2-903b8720a34d",
+    "name": "Placa de yeso común junta tomada sin aislación",
+    "source_ref": "cifras-367-2026-10:labor:ceiling-drywall-no-insulation",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "f1c61ff5-80fb-440b-93b2-00d8ea346160",
+    "name": "Placa de yeso común para cajones, taparrollos",
+    "source_ref": "mo_rubro_cielorrazos",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "f4d85ea1-918b-4eed-97a5-16b794b84693",
+    "name": "Placa de yeso doble esp.12,5 cm c/aislación",
+    "source_ref": "cifras-367-2026-10:labor:drywall-double-insulation",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "39909e69-e075-4a4a-937e-356c7c079f4d",
+    "name": "Placa de yeso resist. a la humedad esp. 9,5 cm",
+    "source_ref": "cifras-367-2026-10:labor:drywall-rh",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "c45f2314-9ab5-41e4-a55f-1b8d2bc394f6",
+    "name": "Placa de yeso resistente a la humedad junta tomada",
+    "source_ref": "mo_rubro_cielorrazos",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "b5c2527d-cf2c-4e11-a356-d9046d4552da",
+    "name": "Placa de yeso simple esp. 8,5 cm medio tabique interior",
+    "source_ref": "cifras-367-2026-10:labor:drywall-half-wall",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "746a0cb8-2911-4888-b8b3-bb9fd788d7db",
+    "name": "Placa de yeso simple esp. 9,5 cm interior c/aislación",
+    "source_ref": "cifras-367-2026-10:labor:drywall-simple-insulation",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "c24cb431-7792-4023-b92c-3119f758962c",
+    "name": "Placa de yeso simple esp. 9,5 cm interior s/aislación",
+    "source_ref": "cifras-367-2026-10:labor:drywall-simple-no-insulation",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "2b75214f-d987-4676-befb-9b05b97df7da",
+    "name": "Placa vinílica texturada desmontable sin aislación",
+    "source_ref": "mo_rubro_cielorrazos",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "5d016068-19dd-483b-a16f-9e5a18528239",
+    "name": "Plana completa terminación azotea verde",
+    "source_ref": "mo_rubro_cubiertas",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "6404e401-7413-4889-aabc-3ace2ff8fb7e",
+    "name": "Plana completa terminación baldosa cerámica",
+    "source_ref": "mo_rubro_cubiertas",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "7d10f1d4-5f65-435f-a466-fec31f5176a1",
+    "name": "Plana completa terminación doblado ladrillos",
+    "source_ref": "mo_rubro_cubiertas",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "a1b8f946-867e-4fba-a132-6a7cf822023b",
+    "name": "Plana completa terminación membrana c/aluminio",
+    "source_ref": "mo_rubro_cubiertas",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "bfcf861b-6658-4677-a068-fd36f62b3b81",
+    "name": "Plana completa terminación membrana geotextil",
+    "source_ref": "mo_rubro_cubiertas",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "e1e48459-ad5b-4dc1-acdf-201f4408e22f",
+    "name": "Plano eléctrico - Adicional por acometida",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "62bdad99-9dd3-4478-afb5-368f7c1e3bf8",
+    "name": "Plano eléctrico - Adicional por boca",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "boca",
+    "type": "labor"
+  },
+  {
+    "id": "358ae975-6ff2-4b82-8a3a-9bb982223b58",
+    "name": "Plano eléctrico - Adicional por tablero",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "e5706d81-fb44-45d4-afa3-edd0c1deb84b",
+    "name": "Plano eléctrico - Superficie (mínimo 30 m²)",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "36b76442-22e7-4cd0-9ada-381adcc00288",
+    "name": "Plano eléctrico (mínimo 30 bocas)",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "global",
+    "type": "labor"
+  },
+  {
+    "id": "7226a2cd-a6ce-44eb-b36c-bed96ab4a73b",
+    "name": "Plástico texturado",
+    "source_ref": "mo_rubro_revestimientos",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "3a5edc9c-5ebe-4a04-a95f-e1953ca0ad19",
+    "name": "Porcelanato canto rectificado",
+    "source_ref": "mo_rubro_revestimientos",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "1515aba3-3f3f-4591-b76d-2fb2585ba773",
+    "name": "Porcelanato pulido",
+    "source_ref": "mo_rubro_zocalos",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "25bac2bd-0f79-4989-80f9-51c436fbdc67",
+    "name": "Porcelanato pulido",
+    "source_ref": "cifras-367-2026-10:labor:porcelain-polished",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "5acd9d6c-99e4-4be9-97cb-1892a245c623",
+    "name": "Porcelanato sin pulir",
+    "source_ref": "cifras-367-2026-10:labor:porcelain-unpolished",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "07f91c85-67a4-471d-a727-78ce600b3e3a",
+    "name": "Porcelanato sin rectificar",
+    "source_ref": "mo_rubro_revestimientos",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "d373d7d3-aa5a-484c-ae64-ad2c623e036e",
+    "name": "Pozo ciego 5 m3 calzado con tapa",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "71b5d7f9-c570-44e5-b2b5-199a1f86ecc9",
+    "name": "Pre-instalación (cañerías, cable, caja)",
+    "source_ref": "mo_rubro_refrigeracion",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "e2bc8eac-e458-4784-a06e-9a14994c4e55",
+    "name": "Premezclado fino exterior (manual)",
+    "source_ref": "mo_rubro_revoques",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "8e3b3302-6c0a-454f-becb-c0c69b913492",
+    "name": "Premezclado fino interior (manual)",
+    "source_ref": "mo_rubro_revoques",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "ee4e6cf2-1f3a-4695-b488-bcd0080be4ff",
+    "name": "Premezclado grueso y fino interior (manual)",
+    "source_ref": "mo_rubro_revoques",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "b9210906-e1af-4a55-a3ae-57f625c04d65",
+    "name": "Premezclado grueso y fino interior (proyectable)",
+    "source_ref": "mo_rubro_revoques",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "9a7fbecd-3fa1-4a5b-a427-c788785fd350",
+    "name": "Premezclado impermeable, grueso y fino exterior (manual)",
+    "source_ref": "mo_rubro_revoques",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "72efd1f7-d0d0-4ff4-beac-e707c2d8d012",
+    "name": "Premezclado impermeable, grueso y fino exterior (proy.)",
+    "source_ref": "mo_rubro_revoques",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "65e84fe4-d57f-44b4-ba66-c836c5b44cf1",
+    "name": "Protocolo de puesta a tierra SRT 900/15 industrial",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "13acb2a8-24d0-42d9-bcfc-ab23d4a134ef",
+    "name": "Protocolo de puesta a tierra SRT 900/15 residencial o comercial",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "17c6fdc5-ab83-4169-9e7d-edcabb83cc35",
+    "name": "Proyecto eléctrico (mínimo)",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "global",
+    "type": "labor"
+  },
+  {
+    "id": "45bee6d0-89de-4fa3-8dbb-b91c754c524c",
+    "name": "Proyecto eléctrico con lista de materiales (mínimo 30 m²)",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "3d5a15b5-7d7a-445d-817a-0ddeecf29b7f",
+    "name": "Prueba hidráulica de cañerías (Agua)",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "global",
+    "type": "labor"
+  },
+  {
+    "id": "6b4cce2e-89d0-452c-bd64-343272ccd4ad",
+    "name": "Puerta ingreso madera maciza",
+    "source_ref": "mo_rubro_carpinterias",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "fc4e9dd9-367f-4e53-9d15-1eead99a52fb",
+    "name": "Puerta interior de madera: placa enchapada en madera",
+    "source_ref": "mo_rubro_carpinterias",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "7c09de9f-92d2-42dc-bd90-2563934c0f7c",
+    "name": "Puerta interior de madera: placa enchapada en mdf",
+    "source_ref": "mo_rubro_carpinterias",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "7c1939ee-c7f4-4095-888a-7b31d96867c9",
+    "name": "Recableado con artefactos",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "boca",
+    "type": "labor"
+  },
+  {
+    "id": "0df3c9f2-8708-48b2-8e16-bb259addc498",
+    "name": "Recableado sin artefactos",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "boca",
+    "type": "labor"
+  },
+  {
+    "id": "04f4718b-5ba1-49a4-992e-3e24b1804eb6",
+    "name": "Recambio de capacitor",
+    "source_ref": "mo_rubro_refrigeracion",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "56f55f8f-06e1-41ff-9efb-adea5c403b62",
+    "name": "Recambio de placa lógica",
+    "source_ref": "mo_rubro_refrigeracion",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "4043b9e9-aa02-464a-accf-9fea670e8ab2",
+    "name": "Reemplazo ánodo de magnesio termotanque",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "0efb6f82-8259-4d0d-b560-b9f51a0f8a98",
+    "name": "Rejas de hierro",
+    "source_ref": "mo_rubro_carpinterias",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "08c8121f-8209-4f92-864e-92d76b0b6474",
+    "name": "Reparación fuga + carga R22",
+    "source_ref": "mo_rubro_refrigeracion",
+    "unit": "global",
+    "type": "labor"
+  },
+  {
+    "id": "bfd6457e-07e7-47e2-be74-8a186bf865b2",
+    "name": "Reparación fuga + carga R410a",
+    "source_ref": "mo_rubro_refrigeracion",
+    "unit": "global",
+    "type": "labor"
+  },
+  {
+    "id": "12684805-edc3-4a0f-b2af-61b2690d0e3f",
+    "name": "Retiro de pisos/revestimientos",
+    "source_ref": "mo_rubro_demoliciones",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "c6cfef74-e8a6-4259-8665-b14708f71d11",
+    "name": "Service - Instalación (mínimo)",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "e771c57d-45cd-40cb-a80f-eed8f08ddd2e",
+    "name": "Service completo calefón",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "ff6781cc-b83f-4e06-a745-ae7cb96df6e9",
+    "name": "Soldadura hidrobronz o plomo",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "union",
+    "type": "labor"
+  },
+  {
+    "id": "089d7c5b-75a4-4a1a-a917-9813eb54098e",
+    "name": "Soporte TV LCD amurado + conexión",
+    "source_ref": "mo_rubro_electricidad",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "d3ea6949-9058-469f-a6db-8a7a184c5ca7",
+    "name": "Spot LED",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "10ff61f4-3d82-4f51-a4f3-7102422ad5fa",
+    "name": "Tabiques H°A° - H21/70 kg",
+    "source_ref": "mo_rubro_estructuras",
+    "unit": "m3",
+    "type": "labor"
+  },
+  {
+    "id": "14abbc1b-8ae2-4859-a1ce-c7fe12f53287",
+    "name": "Tablero principal monofásico - Solo PAT",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "c5656009-c5f2-4e3b-b20e-2750aa0ac277",
+    "name": "Tablero principal monofásico con 1 ID, 1 TM y PAT",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "33d51166-82db-49a7-8b43-19c8718d097f",
+    "name": "Tablero principal trifásico con 1 ID, 1 TM y PAT",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "5e86d7f7-9bdc-449a-90d9-d450aa4e00a0",
+    "name": "Tablero seccional de 36 a 54 polos",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "7df52870-22b4-472c-8b7b-25e040ce31da",
+    "name": "Tablero seccional de 8 a 36 polos",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "586de80a-196b-4a4c-a6f9-c1f6654d2c47",
+    "name": "Tablero seccional hasta 8 polos",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "e2b9da6e-9214-4176-a2a6-8d1df137b186",
+    "name": "Tanque de agua polietileno tricapa 1100 lt",
+    "source_ref": "cifras-367-2026-10:labor:tank-installed",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "531d0bdd-45d5-4aff-ae06-74be5b970938",
+    "name": "Tanque de agua polietileno tricapa 2750 lt",
+    "source_ref": "mo_rubro_agua_incendio",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "1a0a4022-0afb-45c3-87ed-6c17fe6c45ae",
+    "name": "Tanques H°A° - H21/120 kg",
+    "source_ref": "mo_rubro_estructuras",
+    "unit": "m3",
+    "type": "labor"
+  },
+  {
+    "id": "a6b951b1-6cde-4fcd-894a-2d4950347d89",
+    "name": "Tejas franc. esmalt. s/ madera sin cepillar c/ aislación",
+    "source_ref": "mo_rubro_cubiertas",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "c3cd1749-976d-49a2-806d-6ef640943ede",
+    "name": "Tejas franc. esmalt. s/ madera vista c/ aislación",
+    "source_ref": "mo_rubro_cubiertas",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "4cc98566-c7a0-404f-907b-4ed1fcff2f80",
+    "name": "Tejas franc. natural s/ madera sin cepillar c/ aislación",
+    "source_ref": "mo_rubro_cubiertas",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "cafb72d4-8f02-429e-9681-45d936b4da48",
+    "name": "Tejas franc. natural s/ madera vista c/ aislación",
+    "source_ref": "mo_rubro_cubiertas",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "284fcd6b-4774-4236-bf6a-7d17bbf7be9b",
+    "name": "Tejas francesas esmaltadas s/ losa c/ aislación",
+    "source_ref": "mo_rubro_cubiertas",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "93a0c73d-75b5-4e06-848d-f6de93758f07",
+    "name": "Tejas francesas natural s/ losa c/ aislación",
+    "source_ref": "mo_rubro_cubiertas",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "c703bddf-a07a-4f9d-823e-4924e7dd727b",
+    "name": "Tejuelas refractarias",
+    "source_ref": "mo_rubro_revestimientos",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "13741ea7-aab6-4c89-b415-72a0ca82737c",
+    "name": "Termotanque GN 110 lt",
+    "source_ref": "mo_rubro_gas",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "5ce9b8be-7c02-4801-9f4a-bc92eac6e2a8",
+    "name": "Termotanque GN 60 lt",
+    "source_ref": "mo_rubro_gas",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "0747093c-7a92-40ba-a92e-8f49f0e1cd85",
+    "name": "Toma de juntas de ladrillos vistos",
+    "source_ref": "mo_rubro_revoques",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "c0d22e1f-f7e5-4b01-add3-d97b8de2df69",
+    "name": "Trámite conexión troncal + válvula anti-retorno",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "global",
+    "type": "labor"
+  },
+  {
+    "id": "c60b1e25-b00a-4829-ba72-b24a9537fe72",
+    "name": "Unidad básica de cotización: boca completa",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "boca",
+    "type": "labor"
+  },
+  {
+    "id": "f1d31b23-2d47-4b7b-b428-b91f971653ce",
+    "name": "Urgencia: lunes a sábado desde las 20 h, domingos y feriados (mínimo)",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "global",
+    "type": "labor"
+  },
+  {
+    "id": "20b37e7b-4cef-4827-a235-372d9788bc99",
+    "name": "Ventana / Puerta ventana aluminio",
+    "source_ref": "mo_rubro_carpinterias",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "6d1d6ee3-e76e-4113-ba6e-a8943f1aef73",
+    "name": "Ventana / Puerta ventana aluminio con postigos",
+    "source_ref": "mo_rubro_carpinterias",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "10d0cea1-0f0e-4492-a983-75a999725dfc",
+    "name": "Ventana / Puerta ventana chapa doblada con celosía",
+    "source_ref": "mo_rubro_carpinterias",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "5b2b474b-4e0c-4fb4-8f5b-2582b76392bd",
+    "name": "Ventana / Puerta ventana madera",
+    "source_ref": "mo_rubro_carpinterias",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "fe2b4cbb-ba1b-4339-b59a-c71a6f13b895",
+    "name": "Ventana / Puerta ventana madera con postigos",
+    "source_ref": "mo_rubro_carpinterias",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "828571f2-42bb-4f5f-8e00-954f7a3850f5",
+    "name": "Ventana / Ventiluz chapa doblada",
+    "source_ref": "mo_rubro_carpinterias",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "3350e2ac-a885-4414-8fd2-22da7813ded4",
+    "name": "Ventilador de techo",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "e280622e-d3d9-45c4-94a5-6b669755fe60",
+    "name": "Ventilador de techo con luminaria de 1 efecto",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "unidad",
+    "type": "labor"
+  },
+  {
+    "id": "9d87b3fe-3a26-43ed-98af-e24d498e2bca",
+    "name": "Vidrio laminado seguridad 3+3mm color",
+    "source_ref": "mo_rubro_vidrieria",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "88285e4c-5c50-4829-b111-bd0f1558fc86",
+    "name": "Vidrio laminado seguridad 3+3mm incoloro",
+    "source_ref": "mo_rubro_vidrieria",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "dfd31ab2-7d31-4342-a430-c8465375c073",
+    "name": "Vidrio laminado seguridad 4+4mm color",
+    "source_ref": "mo_rubro_vidrieria",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "76af3ba8-30c6-460e-826b-0f3e1fdfcb22",
+    "name": "Vidrio laminado seguridad 4+4mm incoloro",
+    "source_ref": "mo_rubro_vidrieria",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "694cd49b-fa5e-40bb-b7be-955a23ca6e8a",
+    "name": "Vidrio tipo inglés 3mm color",
+    "source_ref": "mo_rubro_vidrieria",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "8be88464-ebbd-4b2c-913e-f5d50beb077c",
+    "name": "Vidrio tipo inglés 3mm incoloro",
+    "source_ref": "mo_rubro_vidrieria",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "6d2698a1-2a12-44f5-95eb-9ee44f481f97",
+    "name": "Vidrio transparente 3mm",
+    "source_ref": "mo_rubro_vidrieria",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "86c9e89f-0560-4391-a01d-537fa3924154",
+    "name": "Vidrio transparente 4mm",
+    "source_ref": "mo_rubro_vidrieria",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "3e4c6a2e-9ac1-4fa5-948d-c5ed74573a4a",
+    "name": "Vigas H°A° - H21/120 kg",
+    "source_ref": "cifras-367-2026-10:labor:concrete-beams-installed",
+    "unit": "m3",
+    "type": "labor"
+  },
+  {
+    "id": "1c039505-3ba5-44eb-9944-5e66c96b772f",
+    "name": "Visita técnica (diagnóstico/presupuesto)",
+    "source_ref": "mo_rubro_refrigeracion",
+    "unit": "global",
+    "type": "labor"
+  },
+  {
+    "id": "0ab0908b-5a07-45da-a3de-0d77586863d8",
+    "name": "Visita: inspección, evaluación, diagnóstico, asesoramiento y presupuesto",
+    "source_ref": "aaieric_electricidad_2026_07",
+    "unit": "global",
+    "type": "labor"
+  },
+  {
+    "id": "c739a512-3ce0-4048-ac21-fdc0511fc4a4",
+    "name": "Yeso aplicado bajo losa",
+    "source_ref": "mo_rubro_cielorrazos",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "9fcdcce6-2b73-43ee-922f-1d7c84628308",
+    "name": "Yeso armado con estructura de madera",
+    "source_ref": "mo_rubro_cielorrazos",
+    "unit": "m2",
+    "type": "labor"
+  },
+  {
+    "id": "663bf3c4-029a-43a0-88be-661fd05abf69",
+    "name": "Zanjeo",
+    "source_ref": "mo_rubro_sanitarios",
+    "unit": "metro",
+    "type": "labor"
+  },
+  {
+    "id": "ab0f9f35-4234-4b9a-9971-6a5475687ffc",
+    "name": "Zapata corrida muros H° cascotes",
+    "source_ref": "mo_rubro_estructuras",
+    "unit": "m3",
+    "type": "labor"
+  },
+  {
+    "id": "58d834fe-fa33-4bee-8a68-59ef05400315",
+    "name": "Zapata corrida muros H°A°",
+    "source_ref": "cifras-367-2026-10:labor:concrete-wall-footing-installed",
+    "unit": "m3",
+    "type": "labor"
+  }
+]

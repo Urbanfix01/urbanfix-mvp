@@ -26,7 +26,7 @@ import { useMasterItems } from '../../hooks/useCatalog';
 import { supabase } from '../../lib/supabase';
 import { LocationAutocomplete, type LocationData } from '../../components/molecules/LocationAutocomplete';
 import { ScreenHeader } from '../../components/molecules/ScreenHeader';
-import { COLORS, FONTS } from '../../utils/theme';
+import { COLORS, FONTS, FORM } from '../../utils/theme';
 import { buildMasterRubroOptions } from '../../utils/rubros';
 
 const urgencyOptions = [
@@ -998,7 +998,7 @@ export default function ClientPublishScreen() {
 
           <TouchableOpacity style={styles.publishBtn} disabled={saving} onPress={handleSubmit}>
             {saving ? (
-              <ActivityIndicator color="#FFF" />
+              <ActivityIndicator color={COLORS.text} />
             ) : (
               <Text style={styles.publishBtnText}>Publicar solicitud</Text>
             )}
@@ -1164,17 +1164,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
     lineHeight: 18,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 14,
-    paddingHorizontal: 13,
-    paddingVertical: 12,
-    fontFamily: FONTS.body,
-    color: COLORS.text,
-    fontSize: 14,
-    backgroundColor: '#FFFFFF',
-  },
+  input: FORM.input,
   categoryFieldWrap: {
     zIndex: 80,
     gap: 8,
@@ -1578,17 +1568,6 @@ const styles = StyleSheet.create({
   techNameActive: { color: '#1D4ED8' },
   techInfo: { fontFamily: FONTS.body, color: COLORS.textSecondary, fontSize: 12, marginTop: 2 },
   techInfoActive: { color: '#1E3A8A' },
-  publishBtn: {
-    backgroundColor: '#0F172A',
-    borderRadius: 16,
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#0F172A',
-    shadowOpacity: 0.14,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 3,
-  },
-  publishBtnText: { color: '#FFF', fontFamily: FONTS.title, fontSize: 14 },
+  publishBtn: FORM.button,
+  publishBtnText: FORM.buttonText,
 });

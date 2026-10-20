@@ -15,9 +15,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { CatalogItem } from '../../components/molecules/CatalogItem';
 import { EmptyState } from '../../components/molecules/EmptyState';
-import { ScreenHeader } from '../../components/molecules/ScreenHeader';
+import { ScreenHeader, HeaderIconButton } from '../../components/molecules/ScreenHeader';
 import { useMasterItems } from '../../hooks/useCatalog';
 import { COLORS, FONTS } from '../../utils/theme';
+import { useCatalogRenders } from '../../materials/useCatalogRenders';
 
 type FilterType = 'all' | 'labor' | 'material';
 
@@ -39,7 +40,7 @@ const formatCategoryLabel = (value: string) => {
 export default function CatalogScreen() {
   const navigation = useNavigation();
   const route = useRoute();
-  const { data: items, isLoading, error } = useMasterItems();
+  const { data: items, isLoading, error, refetch, isRefetching } = useMasterItems();
   const [search, setSearch] = useState('');
   const initialTab = (route.params as { initialTab?: FilterType } | undefined)?.initialTab;
   const [activeTab, setActiveTab] = useState<FilterType>(
@@ -104,12 +105,13 @@ export default function CatalogScreen() {
   }, [baseFilteredItems, activeTab]);
 
   const activeCategoryLabel = activeCategory === 'all' ? 'Todas las categorias' : formatCategoryLabel(activeCategory);
+  const renders = useCatalogRenders(filteredItems);
 
   const FilterTab = ({ label, type, count }: { label: string; type: FilterType; count: number }) => {
     const isActive = activeTab === type;
 
     return (
-      <TouchableOpacity style={[styles.tab, isActive && styles.tabActive]} onPress={() => setActiveTab(type)}>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: isActive }} style={[styles.tab, isActive && styles.tabActive]} onPress={() => setActiveTab(type)}>
         <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{label}</Text>
         <Text style={[styles.tabCountText, isActive && styles.tabCountTextActive]}>{count}</Text>
       </TouchableOpacity>
@@ -133,12 +135,15 @@ export default function CatalogScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.secondary} />
 
-      <ScreenHeader title="CATALOGO MAESTRO" subtitle={`${filteredItems.length} referencias disponibles`} showBack />
+      <ScreenHeader title="CATALOGO MAESTRO" subtitle={`${filteredItems.length} referencias disponibles`} showBack rightAction={
+        <HeaderIconButton name="refresh-outline" label="Actualizar catálogo y renders" onPress={() => { void refetch(); void renders.retry(); }} />
+      } />
 
       <View style={styles.content}>
         <View style={styles.searchWrapper}>
           <Ionicons name="search" size={18} color="#FF8F1F" />
           <TextInput
+            accessibilityLabel="Buscar material o servicio"
             style={styles.searchInput}
             placeholder="Buscar material o servicio"
             placeholderTextColor="#A6A0AE"
@@ -151,6 +156,10 @@ export default function CatalogScreen() {
             </TouchableOpacity>
           )}
         </View>
+
+        {renders.error ? <TouchableOpacity accessibilityRole="button" accessibilityLabel="Reintentar renders" onPress={() => void renders.retry()} style={styles.renderNotice}>
+          <Ionicons name="refresh-outline" size={18} color="#9A4C00" /><Text style={styles.renderNoticeText}>{renders.error}</Text>
+        </TouchableOpacity> : null}
 
         <View style={styles.filtersCard}>
           <View style={styles.tabsContainer}>
@@ -192,6 +201,7 @@ export default function CatalogScreen() {
             renderItem={({ item }) => (
               <CatalogItem
                 item={item}
+                preview={renders.previews.get(item.id)}
                 onPress={(selectedItem) => {
                   // @ts-ignore
                   navigation.navigate('ItemDetail', { item: selectedItem });
@@ -201,6 +211,8 @@ export default function CatalogScreen() {
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             initialNumToRender={10}
+            refreshing={isRefetching || renders.loading}
+            onRefresh={() => { void refetch(); void renders.retry(); }}
             ListEmptyComponent={
               <EmptyState icon="search-outline" title="Sin resultados" message={`No encontramos nada para "${search}".`} />
             }
@@ -333,4 +345,6 @@ const styles = StyleSheet.create({
   categoryChipText: { color: '#5F5362', fontFamily: FONTS.subtitle, fontSize: 11 },
   categoryChipTextActive: { color: '#17001F', fontFamily: FONTS.title },
   listContent: { paddingBottom: 24 },
+  renderNotice: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, marginBottom: 10, backgroundColor: '#FFF2DE', borderRadius: 12 },
+  renderNoticeText: { flex: 1, color: '#9A4C00', fontFamily: FONTS.body, fontSize: 12 },
 });

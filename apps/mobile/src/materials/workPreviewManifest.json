@@ -1,0 +1,569 @@
+{
+  "images": {
+    "pillar": {
+      "sha256": "0b1d667febff8cc8a2fb93becfb228403a76697fd24619e2894fb48e12717ed1",
+      "visiblePixels": 2914
+    },
+    "fence": {
+      "sha256": "69ecfb7cd92a28372adddc4482dc664682875acebc75accfe46d3f73cb38ff65",
+      "visiblePixels": 8770
+    },
+    "subfloor": {
+      "sha256": "c7cf58fe367721e4c70031ca96f0400dabc7c80e84969879d586d422fd48209d",
+      "visiblePixels": 8264
+    },
+    "screed": {
+      "sha256": "8ff9a1558b07b747f78fd4304f910a88cca0f11e011da77b72fd78f591d92cb3",
+      "visiblePixels": 7683
+    },
+    "cement-finish": {
+      "sha256": "50215ca2b19f0cc6ba49c8850986030739559395d4dc4febeb523bc28dcaba9e",
+      "visiblePixels": 7683
+    },
+    "tiles": {
+      "sha256": "75e7b49084a9da13fabdb92e0511d92b4033fe7ba5499a7c559b04b76e430352",
+      "visiblePixels": 7308
+    },
+    "roof": {
+      "sha256": "16943ab8772b06966d35da7d182cef93cc31818be41a9b4b67e46ae22eef1202",
+      "visiblePixels": 7589
+    },
+    "foundation": {
+      "sha256": "ee54916f3eed8dc20753ed644cacbb6ff075cbd7b25a4c1eecd7063990ffa987",
+      "visiblePixels": 15456
+    },
+    "column": {
+      "sha256": "6e7256e6d74a940ae1bcc24e80f67f7efca06c107b87111b8416af2988e2d14b",
+      "visiblePixels": 5294
+    },
+    "slab": {
+      "sha256": "accaf87000bcff1c4e7215ce8d1d89e965d32307d44879a4df1a7d8aa0e535a9",
+      "visiblePixels": 7984
+    },
+    "beam": {
+      "sha256": "09c42ed2edd5a0ecd0b27a7e62f98046f1d98662d91074f581d6a173a036d512",
+      "visiblePixels": 4335
+    },
+    "strip-foundation": {
+      "sha256": "7c76e1a8d3f789edb9862dfbda3de608bf6afc35ec344f71551ec0865a3b9e6d",
+      "visiblePixels": 5026
+    },
+    "brick-wall": {
+      "sha256": "367a4ba1598bbf859fcdc08397af4e9baaf9a2053a95fdfac7046f00adea3327",
+      "visiblePixels": 14110
+    },
+    "hollow-wall": {
+      "sha256": "078c392c57093df36c00e2b074865dda8b5511e3f0a9e410014bc995eab696b0",
+      "visiblePixels": 13778
+    },
+    "block-wall": {
+      "sha256": "3f2fda31caac775126cb556fee67066a0c21cab23c3b6e8b060989b8e0062478",
+      "visiblePixels": 13806
+    },
+    "drywall": {
+      "sha256": "e6ed9f48708e76faeb8915fb2077633a38d0b521f01584a3b23c3732837692da",
+      "visiblePixels": 13393
+    },
+    "drywall-double": {
+      "sha256": "0a946af9d71f9bda540517a61877f03dabd64095ac01e2ecc7e610a1b753910e",
+      "visiblePixels": 13546
+    },
+    "drywall-insulated": {
+      "sha256": "f7a4de28d046fe5d0a2d9e9e8fe712636d48b28a3523d5fb045e1b1e327c863a",
+      "visiblePixels": 13795
+    },
+    "drywall-rh": {
+      "sha256": "830148cad795d43709dafbfb996f3bee4ee411736d70e410d6315fee4eefbcf7",
+      "visiblePixels": 13461
+    },
+    "drywall-half": {
+      "sha256": "239217641d151a144fb2a168dd620ebf1cfc7116fe8bbb6a1937a226c424fb6a",
+      "visiblePixels": 8760
+    },
+    "wall-finish": {
+      "sha256": "1b48c70767d8a0e7c4e015ea7634b38262e06f4818beb8127f4c8feff9a4b119",
+      "visiblePixels": 13972
+    },
+    "plaster-wall": {
+      "sha256": "1b48c70767d8a0e7c4e015ea7634b38262e06f4818beb8127f4c8feff9a4b119",
+      "visiblePixels": 13972
+    },
+    "ac-install": {
+      "sha256": "0a5a8664157cf44d14e33df8d50b0ebeb10a704a74c9845654adfbc362187e2b",
+      "visiblePixels": 14842
+    },
+    "ac-maintenance": {
+      "sha256": "817df6f4d1721bd4d3cc9c29dd4c380dec7b32c63aa73f60990d2131590bfcea",
+      "visiblePixels": 14518
+    },
+    "ac-preinstall": {
+      "sha256": "086744e76a2a15d6df130d20eaf135a623c56d1a1c2019fed60e2cbccfcaecc3",
+      "visiblePixels": 14791
+    },
+    "ac-removal": {
+      "sha256": "4926e87dd8ebffe8a0ac6a44452baf75dd0dba2d4bfe99e8ae1c078f876ef918",
+      "visiblePixels": 15021
+    },
+    "baseboard": {
+      "sha256": "128cac609b845a37db2d26d5b0e5523061178492d81d0e045c3b2279da971e25",
+      "visiblePixels": 14793
+    },
+    "basin": {
+      "sha256": "9623b92c9e93a6c6260468fc36f7ef7e584b1af1b37130f5b1b77aee3643854f",
+      "visiblePixels": 14804
+    },
+    "bath": {
+      "sha256": "5f5ba4577d82590e13094e37f0d1b64ebb55b430d5718536231c5f13fa13c07b",
+      "visiblePixels": 15088
+    },
+    "bath-accessories": {
+      "sha256": "fbac104a520dd0e0746070919a393237a97c66d4b560586553ae9c57d0c38c53",
+      "visiblePixels": 14791
+    },
+    "bidet": {
+      "sha256": "fcb6dc81c294aa02c5a84894dbe31c353d602e77a52a2a5cdcbd2e60aef5f2da",
+      "visiblePixels": 14768
+    },
+    "breaker-mount": {
+      "sha256": "bb1876ad1207b7f0c5f4e87e1e7ae9e288bdfdd9eb29cd383dfa9dcd7dc0c579",
+      "visiblePixels": 14791
+    },
+    "cable-tray": {
+      "sha256": "966de4e7c6a0185d61afb005fa379b39ef8db0a91c091d1e0bd5e02a920336b2",
+      "visiblePixels": 15025
+    },
+    "carpet": {
+      "sha256": "3e0b275ed42585d6a0ffbae2015c09f7cde8e0609e68381106be1ee0a02c3547",
+      "visiblePixels": 8185
+    },
+    "ceiling": {
+      "sha256": "6689f0603ba19b5a4d5184de47ac2ca3cf1c396331f828efa62f736e151c4dab",
+      "visiblePixels": 11988
+    },
+    "ceiling-fan": {
+      "sha256": "3563588926a6c4e5d1c54651ebf82e5482ca40d4a15c3b298015d34dccde3fa1",
+      "visiblePixels": 14244
+    },
+    "cement-wall": {
+      "sha256": "ffc326b9120d0cfdc310bb110b3d3fb112c0efb7882ca5608ca4fbbef7807a7a",
+      "visiblePixels": 14791
+    },
+    "cistern": {
+      "sha256": "913cfd3a940e317697a1a1cb340c3994cf60b50c7b8357ecd23c8d08c0ae631d",
+      "visiblePixels": 10730
+    },
+    "concrete-demolition": {
+      "sha256": "b00439ab2d08ca8c48dcda741d2055a09b35c4abfb6181f2383c674d5e5c5c99",
+      "visiblePixels": 10021
+    },
+    "concrete-tank": {
+      "sha256": "16d2bb65b0b2a6abb1966af6e9866044a1b4640d1c0cfa4e4083ab34bbe491e7",
+      "visiblePixels": 12007
+    },
+    "concrete-wall": {
+      "sha256": "d75b71a57d6278f87e858e700f3ac6aae85de1725675e0a63a61c71ff1a0221e",
+      "visiblePixels": 14826
+    },
+    "conduit-surface": {
+      "sha256": "f377798a06e02ee93ff1b90ea14ee3b89205a2da68d9dbc71755a6b956f58d91",
+      "visiblePixels": 14805
+    },
+    "conduit-wall": {
+      "sha256": "ceaca5236b90bfd854bdd098a3d1fc74688a3194ae51c1453eba37edbdc9a79d",
+      "visiblePixels": 14805
+    },
+    "countertop": {
+      "sha256": "986c0ecba35a26fc5dd10945e7303447b55ff7aaaea0a078dab32a3295aa7908",
+      "visiblePixels": 15145
+    },
+    "deck": {
+      "sha256": "829aa00f56119f3af74a8e7400098be739051baae47add325405c08538e07d67",
+      "visiblePixels": 8087
+    },
+    "documentation": {
+      "sha256": "16d9248d67b756a1a81e0d2d09391c11bd4cb8b498785481b841c7c118031591",
+      "visiblePixels": 8272
+    },
+    "door-install": {
+      "sha256": "23fd8fb7a7c9813ef568ef8b4e980ff1fa1c39181466ad8de0b60ace78756ac1",
+      "visiblePixels": 13340
+    },
+    "downpipe": {
+      "sha256": "e78c66ca1f4f8338fc8a2da41cfa50f3c8919f725ef5591a5ddfeabd12611756",
+      "visiblePixels": 14805
+    },
+    "drain-chamber": {
+      "sha256": "3e6c50e94def9565a5d520621c4aa2f14c33402b667dab7ad6d61a882365573f",
+      "visiblePixels": 10350
+    },
+    "drain-maintenance": {
+      "sha256": "9d1ed7b1683a91f7976fd7ba1569d74cb95d37c959bcb443557e6dcae173ce75",
+      "visiblePixels": 14805
+    },
+    "drain-network": {
+      "sha256": "2daaaabdb20f065d34f81b93643171a5cc251fb84d5f13df6c5af5bc773b3287",
+      "visiblePixels": 14805
+    },
+    "drywall-frame": {
+      "sha256": "3bc970d4f4ae87bb15bc5d090e29a5e789a46af1a9d15dd224e320fc591122f9",
+      "visiblePixels": 9262
+    },
+    "earthing": {
+      "sha256": "9861e9fb7a724b1cb85f0d2c794cd22ec7d3fb309fcb1eb42b7131223bf566a6",
+      "visiblePixels": 13766
+    },
+    "electric-buried": {
+      "sha256": "fcf9d10576b4b61ec8aee7456df53b9ca2adc7b31816b2582c9b92e8d15bacb4",
+      "visiblePixels": 14987
+    },
+    "electric-control": {
+      "sha256": "bb1876ad1207b7f0c5f4e87e1e7ae9e288bdfdd9eb29cd383dfa9dcd7dc0c579",
+      "visiblePixels": 14791
+    },
+    "electric-panel": {
+      "sha256": "a5cff409fd96e67b1462341d554c9c9546a5049e05f7c25e4488fc83ee73ca61",
+      "visiblePixels": 14791
+    },
+    "excavation": {
+      "sha256": "65823c3e39c6fbca6631a7689c055cb2366a8e571abea40d0721f4c91faefb1a",
+      "visiblePixels": 10125
+    },
+    "extinguisher": {
+      "sha256": "bab172a24cdc837f5adb2b92eeddbeb8cd65fa3803ce840d091a94840e3fbe91",
+      "visiblePixels": 14791
+    },
+    "faucet": {
+      "sha256": "dfa650d91c112d986b197a6af924cf29d0c7003b202becb51de4c5e59b318833",
+      "visiblePixels": 14791
+    },
+    "faucet-repair": {
+      "sha256": "1f99ebdf30d28f80c9568d7af0b35c53e327c0fc2e06b12fa88a590688088a89",
+      "visiblePixels": 13870
+    },
+    "flat-roof": {
+      "sha256": "50f064c499c42ea069c75a272ef2c91421a6a9c7d27e060ad72a3dbf23d7a968",
+      "visiblePixels": 11727
+    },
+    "floor-removal": {
+      "sha256": "165a9bdee2ba8bbc3b31bff83087dddabbd47d32a9ee206f0e5b74897f8b52cd",
+      "visiblePixels": 7785
+    },
+    "gas-heater": {
+      "sha256": "e79181a7db953443f83fb712c9eae2bc64cdd51fb074c5f230cfd56e4c7acab3",
+      "visiblePixels": 14791
+    },
+    "gas-network": {
+      "sha256": "a6c3017ac37405321d302b6d2e6d1823616a3c1f02f5b8f3b5db82ae558994ac",
+      "visiblePixels": 14805
+    },
+    "gas-valve": {
+      "sha256": "ba33171ede42b4aa3309a13b580f2e7a7ac0dca874cd05d7a78e9abae7aa0f16",
+      "visiblePixels": 14805
+    },
+    "generator": {
+      "sha256": "2beb678afa33f7c5033aa3d38539806990d4ebd5ec1d6e6773cd0e1853f5f60b",
+      "visiblePixels": 14860
+    },
+    "glazing": {
+      "sha256": "b4fc9c3142dac7a852ccc7fa7e125aeda9946b76536f6d15708cf82855b07985",
+      "visiblePixels": 10371
+    },
+    "green-roof": {
+      "sha256": "f6fc427b679e75f828cf39a8e1c59026665e447b863da5d661f79fcacaebced3",
+      "visiblePixels": 11916
+    },
+    "grid-ceiling": {
+      "sha256": "8d41ab6c30aa49976256feab9a25331322b916f96f2983e6dd3254f00c0cc987",
+      "visiblePixels": 11997
+    },
+    "hcca-wall": {
+      "sha256": "f82b9ffd73d696759625e62db3ab2e24156637b8f4721ce186274782f421de6c",
+      "visiblePixels": 14774
+    },
+    "heater-maintenance": {
+      "sha256": "d40a08e52e1f7639a65184540494da7374ed25f1bacb78c2c07ce92194e2e4f5",
+      "visiblePixels": 13869
+    },
+    "hood": {
+      "sha256": "5d634046a51079ceb208a40009ad4d37977a7a523b332b046bd83dd91d7ff47b",
+      "visiblePixels": 14596
+    },
+    "hydrant": {
+      "sha256": "9aef8048a3eb33e64aae1161e9463e115f601b3e1c94bfe345e4c5a88e77dd2d",
+      "visiblePixels": 14790
+    },
+    "infiltration": {
+      "sha256": "2fe300d4a7a5809da2b2c1c5a040bd2367c20a6319a93a75d08b5b54d34f1701",
+      "visiblePixels": 7998
+    },
+    "inspection": {
+      "sha256": "40c8f1c08b9f9a33a94db7fc554fde79bba7b075a64898418726253fc463ab70",
+      "visiblePixels": 8957
+    },
+    "instant-heater": {
+      "sha256": "9bc4aaa0a509dde780c400d10c9e480b9653a3003083f57d0429c11e90e3e690",
+      "visiblePixels": 13901
+    },
+    "insulation": {
+      "sha256": "bfd70ae35582c4c4906f27f7acba2c1a8c28c937710c22298fdbab40c7aec692",
+      "visiblePixels": 14993
+    },
+    "intercom": {
+      "sha256": "2154b12300143d6e1f687f18ae9be53d7b5b2fdd210b0002f733a736360cee41",
+      "visiblePixels": 14791
+    },
+    "joinery-paint": {
+      "sha256": "b09f18c0e23ae5421d10d56c0d85a24c0bfc516f5a53b9cfcf70f5d359703863",
+      "visiblePixels": 14791
+    },
+    "kitchen-cabinet": {
+      "sha256": "986c0ecba35a26fc5dd10945e7303447b55ff7aaaea0a078dab32a3295aa7908",
+      "visiblePixels": 15145
+    },
+    "landscape": {
+      "sha256": "8956184aff232deeb9a58ee7d836614ef22abd32a17f733f5cb0e5aa70d59e8b",
+      "visiblePixels": 8001
+    },
+    "lighting": {
+      "sha256": "115a1b1be0d7fc7a71af5029bb303028e9d952f4ab4d07af344b1064ef3a7d78",
+      "visiblePixels": 14791
+    },
+    "pavers": {
+      "sha256": "446d8eefae63bfb87f56ead4d79c5bd0992f0f74c4b29dc54db35e9c0fe40c02",
+      "visiblePixels": 8178
+    },
+    "pendant-light": {
+      "sha256": "e21d7f639c22042142fae32267f261de2fc48c53bb2a8e806c051171b51357ab",
+      "visiblePixels": 14791
+    },
+    "pipe-repair": {
+      "sha256": "77dda7f9c8ba4541bea1bf4348fe88b45604bcfedcc195d6ef21e6e82c991597",
+      "visiblePixels": 14198
+    },
+    "plaster-removal": {
+      "sha256": "1fc7e6a68b959a8ac7c911d3d76f2d995d29e67de16a43f3ea63d804c86a25a8",
+      "visiblePixels": 9717
+    },
+    "pressure-test": {
+      "sha256": "4ab4b88b56c848c0a330bd187172def6fe7fc4b073ccf5c2a8a615ab08cb19c5",
+      "visiblePixels": 14805
+    },
+    "pump": {
+      "sha256": "b776ca077ad0f4b1022a3ded08f9701d042976f38997be4cdd88b770d41db0c4",
+      "visiblePixels": 14805
+    },
+    "railing": {
+      "sha256": "c70080563d045f714f90afd1c1fbc506b9afee1d5d19dcdd33196b9d8722d918",
+      "visiblePixels": 9101
+    },
+    "reinforcement": {
+      "sha256": "71f001d8fb6982ee60098742657a7351c578be52493323fde723bd58711b4f68",
+      "visiblePixels": 8222
+    },
+    "rooftop-ac": {
+      "sha256": "fb94076df9733ee93a959bea58853df18a37309780e7d8672a857a5041c09915",
+      "visiblePixels": 11590
+    },
+    "septic": {
+      "sha256": "da708f6323d5cdb590ccdd0555aad506a93615095ab79464bab9d830731b55ee",
+      "visiblePixels": 11090
+    },
+    "service-time": {
+      "sha256": "d04465fb8b1051e5d945bb478c7317456ca8dac30255d35c5ba22cfee9ff17a4",
+      "visiblePixels": 9906
+    },
+    "sink": {
+      "sha256": "605957eb6650d64ed80afcbf267bc25eea86ee5e0eab5c1020ebd74b835a5028",
+      "visiblePixels": 14808
+    },
+    "site-cleaning": {
+      "sha256": "602dce26621f968556f8c6c284f610b367ec88a6fb2b14f67911f3399d88b149",
+      "visiblePixels": 7572
+    },
+    "site-fence": {
+      "sha256": "e5981a983fe6f211c4350037fcc13460841dbe9dc8ff1f8e4aa199e037e5e15a",
+      "visiblePixels": 14084
+    },
+    "site-hut": {
+      "sha256": "9a1569ae2417e956b43bc8101542020b93758de9538090cbb2a778a106995acf",
+      "visiblePixels": 14292
+    },
+    "site-layout": {
+      "sha256": "90b876cfac3c8f77d7b03c48e0e87b4a1c9d846c10d046bfa3ff5a887a2dacca",
+      "visiblePixels": 8321
+    },
+    "site-sign": {
+      "sha256": "220989700def3acddfc78adeddb4c2d4b4e5c1e901fd75322086c81a9ff54a47",
+      "visiblePixels": 10537
+    },
+    "skip": {
+      "sha256": "e4c8a6edd607c40b9c3650b0e31d7f604398df9ac3625d1319cb2a8ab95f4601",
+      "visiblePixels": 11441
+    },
+    "soak-pit": {
+      "sha256": "2a535cbca13d106b9a753cc525004698fe473dd56c6e95d677eed4901779768d",
+      "visiblePixels": 11090
+    },
+    "solar-heater": {
+      "sha256": "5c412e01c9f6c8a83037bd08bda7428ef7759794dae902d7d63b5e33b508b9ef",
+      "visiblePixels": 15090
+    },
+    "stairs": {
+      "sha256": "36fa8637c10449be037c0f6920aac698fdcdf7bec242e7b5828908881bf6627a",
+      "visiblePixels": 9744
+    },
+    "steel-frame": {
+      "sha256": "02fc63d79072dbca682dbc329bc665eec542a43d63556d90e09f9fde3dc79b1a",
+      "visiblePixels": 9433
+    },
+    "stove": {
+      "sha256": "aa09aed8b814710b9a839e57ec42dd747993f254cd18a92034f99cc93b75d1c2",
+      "visiblePixels": 14791
+    },
+    "switch-outlet": {
+      "sha256": "f377798a06e02ee93ff1b90ea14ee3b89205a2da68d9dbc71755a6b956f58d91",
+      "visiblePixels": 14805
+    },
+    "tank": {
+      "sha256": "52875d03d8f267f871216483ac67f6813503719d63f686236d0dba12be226267",
+      "visiblePixels": 10984
+    },
+    "tank-float": {
+      "sha256": "c9076d8781eb84225e69fa8ba40e076c6ba22b5aee07d8bd51514c4cf247d38f",
+      "visiblePixels": 11297
+    },
+    "tank-maintenance": {
+      "sha256": "f5c388f237a95ca8ca6e84190b1e7cbce0b4ac492ab15d77f7f4c2bb708f55ab",
+      "visiblePixels": 10765
+    },
+    "tile-roof": {
+      "sha256": "9de410f3a18926866b9e1ea994ddad97dd92cd494b4872348b6226bd7f3b7621",
+      "visiblePixels": 13372
+    },
+    "tiled-wall": {
+      "sha256": "019eb64f7942180d8f7f0f8dd2883a2481ef174ccf35e05a26c0eb56a4c50c59",
+      "visiblePixels": 14791
+    },
+    "toilet": {
+      "sha256": "4d835fbca49899fdc3b09508562dfe4ddda6979dcafcccbd493f5c288a40099c",
+      "visiblePixels": 14779
+    },
+    "tube-light": {
+      "sha256": "c6527ef6ca5192d2ce1f7e7be30cd1023f9d59bbb9501f304d98750f12e75869",
+      "visiblePixels": 14911
+    },
+    "tv-mount": {
+      "sha256": "7534320b001f691bdf9a750fa93ec510c5d5b3980a89611c3c8ae26f0f458522",
+      "visiblePixels": 15042
+    },
+    "wall-chase": {
+      "sha256": "cdbf80a13a242cc5ce981187104158759f676295dab0495a0727937caa0e2dda",
+      "visiblePixels": 12802
+    },
+    "wall-demolition": {
+      "sha256": "1fc7e6a68b959a8ac7c911d3d76f2d995d29e67de16a43f3ea63d804c86a25a8",
+      "visiblePixels": 9717
+    },
+    "wardrobe": {
+      "sha256": "0c1ba7f07a5c4cba95fdae31dd91441beee058a3e25fe6dd31d52fe9c7618aaa",
+      "visiblePixels": 15527
+    },
+    "washer": {
+      "sha256": "05f1682cd11a42f4b526b4ee3b82b7ade6e177debd55df7c8fbb96e5a5212b53",
+      "visiblePixels": 14791
+    },
+    "water-buried": {
+      "sha256": "b92bb437ab74357d6446f5bbe45657435385a432de0b20332383a7cbdd43fef7",
+      "visiblePixels": 8673
+    },
+    "water-heater": {
+      "sha256": "745cf8ae53cab7b5935f0af772e12366378affb457912442dd17b3c1bb04d679",
+      "visiblePixels": 14791
+    },
+    "water-network": {
+      "sha256": "0bcce7c763bcd766105052ca8069365bd6bf94ae19e7cbe620efeb396635d038",
+      "visiblePixels": 14852
+    },
+    "water-valve": {
+      "sha256": "829f4990da6f9239d44f22f0b6e64e98fedeeff43c0436d8c4d9bd8e9df6ed06",
+      "visiblePixels": 14805
+    },
+    "waterproof-wall": {
+      "sha256": "37899f5a7c9e236b08693926854ebc0267fe63cb515867ab2cd25b7c6af1ff5e",
+      "visiblePixels": 14791
+    },
+    "window-install": {
+      "sha256": "80d9d08fbf0fcbb0dd69ab889925fe736fc49cf10897e9c2ebd7b9975abb13ad",
+      "visiblePixels": 14100
+    },
+    "wood-ceiling": {
+      "sha256": "22288813cf907372c380b5935890ec8b2ba43c239cad30e95480f21582774f7d",
+      "visiblePixels": 12071
+    },
+    "wood-floor": {
+      "sha256": "829aa00f56119f3af74a8e7400098be739051baae47add325405c08538e07d67",
+      "visiblePixels": 8087
+    }
+  },
+  "inputs": {
+    "src/lib/plumbingCatalog.js": "9c388ce487668c8309168c43a644bfcb7ffa99e21a26129b664f12160c66c923",
+    "src/lib/materialsCatalog.js": "6be19ace8812f165b96ca921fe6f10ba3848efb796f500cc561edcd46925ef7e",
+    "src/lib/plumbingVisuals.js": "048625f8b66bc06a1b88e30814231c8719a9b2404351628515cf8e3e55d0c0e6",
+    "src/lib/constructionMaterialVisuals.js": "cc7923312678c214e46e6b3f33372e56886a5925e50d15dbc2dd41f316e44681",
+    "src/lib/catalogMaterialVisuals.js": "c6ac6a753b5acd9b44d690b27afd9be5b259651d7dd8951f9773a7e0d561f6b6",
+    "src/lib/materialVisuals.js": "5ce240a1a75bb1ff569e6a246479716750fa41cff506f0e7319eec38838d4f97",
+    "src/lib/pipeMaterialModel.js": "82f27c682da173611605fb744bb2a61685ece0cf212f387298f4a6dc3b18b998",
+    "src/lib/constructionMaterialModel.js": "fe1353575aa705624c6f19efc691509e88b62137f175b0d349ee72cd6b443527",
+    "src/lib/materialModelPrimitives.js": "2b788d82393c259cd0f3a34169cb2fda0a922ac69717f95860b4025f8444f28c",
+    "src/lib/catalogConstructionModels.js": "ec54ec7cf5c7931da3aed780bbbc7f338b83216953aac91cf25a5994bf1567c4",
+    "src/lib/catalogPlumbingModels.js": "88780077f4caba42ab26a2989a3ae551ad1a09426de85f46bad3a8c95e27d089",
+    "src/lib/catalogEquipmentModels.js": "a2c233803ed4aa0004c794ce3ea2329f4e2420240e8d05f2aa5b9c7527879dd6",
+    "src/lib/catalogElectricalModels.js": "d1ac2688c1653a66850407d903f8f4f04164f57d6e9eea426e982842b936f7c1",
+    "src/lib/catalogMaterialModel.js": "b04aeae63286b5b3fd8c935dba102a905f33195435d5311a373f511e5eef9a8f",
+    "src/lib/materialModel.js": "60c391b11be420e9890cec016e25cd8acdb63febb26309a621d58a91728b0789",
+    "src/lib/nisnovichMaterialTables.js": "daa4042b6cb0a27f80a703fdfc4d173f76d012bdbde6a7e703de28dc0b082d92",
+    "src/lib/constructionMaterialCalculation.js": "ffba8c40ea23a0c4e72c4ff518c8c313d033bcd4441ca57a421f628892e71427",
+    "src/lib/drywallMaterials.js": "3ec583b390d5587b8d9aff2005a7c3af1443fcab0547af7b0c55840661e959e5",
+    "src/lib/electricalPillar.js": "c20233552623a6210a1115c44e13f09f7826edb13188931430bdae1f3871ccc2",
+    "src/lib/pillarMaterialQuotation.js": "4dcc1d7a2848dd9730ae14c229777f872aebe8300290993e0f25ecc7e8ec3287",
+    "src/lib/fenceLayout.js": "d3944c5014ca225de6f61643961e234ca97ada69f94e6f2c9b2c8c4dbbcd9b86",
+    "src/lib/fenceCalculator.js": "b76d035493819b519b10bf980ff7fa59c305520b961831f2703a5ea0682f591e",
+    "src/lib/subfloorCalculator.js": "201e3c01068f525f4a5e5cd849f9e0eeb7b883796d0635ff535d4d17a0d98f6a",
+    "src/lib/tileFloorCalculator.js": "5d10fdb7f7eb62baace9dd403b71264ae8ff62e9ac19459b12d94998afe1baf8",
+    "src/lib/metalRoofCalculator.js": "765e399930c52c100f60d0b0b5d76de6a66fba1a07ed185808fe1f7b7c7c9c2c",
+    "src/lib/structurePreliminary.js": "d57ce7fa3fecb4324756a587a746401a37ba3614f565a938b4e9d4ee709d763b",
+    "src/lib/structureColumnLoads.js": "08440f182b880afadd71e46e2f7dbe7a7faab9e57ca9a3ceb9f60dd8ab4af78f",
+    "src/lib/columnReinforcement.js": "3659abeac90e6071893cd8ebe6e5cda6bda8745948116a5654e06ba3f8b28a67",
+    "src/lib/beamReinforcement.js": "3f6532de05a6c10e9b907b938113d5323c5ad1cbcc0410f385b5e03624a3bdcc",
+    "src/lib/structureCalculator.js": "b630d0bd9779f305e804d07350ac5f43c4c4dc1c57b2716bee9ede9393ab7528",
+    "src/lib/commercialMaterialPackages.js": "8f84bea59de602063d1e28a53338e21499e1c8dd5ed71eb64f2f1b73d4b8791d",
+    "src/lib/pricePublicText.js": "abe56a66a38a6f9632287878c77c2a0e4a9ff52db2937864a25698ce6dafa8e3",
+    "src/lib/materialQuotation.js": "4c07b8bf8b95fedac75cab3aa37f5181c170d16302f217f458f4d04c8ffa8d44",
+    "src/lib/houseDrawingRooms.js": "2088702694f6a44d1848488ab32b665cc1eed16aea0a9205771681bcaa53fe0e",
+    "src/lib/houseDrawingFloors.js": "138fe5cb39c7a43e8ca10bcd26d25def472db055b08bebcfcd9143798e126a86",
+    "src/lib/houseDrawingOpenings.js": "eacf5b4fbd58c0ff888f56786dda90bbd37a5e46683c75584a54b63894929294",
+    "src/lib/houseDrawingFences.js": "c383cff28333257b2d199b16b2be8199d7f1c6f7dcd7c7e787a51aba935d2f34",
+    "src/lib/houseDrawingConstruction.js": "e71f9f709f1198b272ca5078c3cc218caca5a9154bb5183434a2ad064c7379ca",
+    "src/lib/roomFurniture.js": "70901f3d63b4051dfd4830f6d62ec6382d391c973d17360cbe59d7c0a0410483",
+    "src/lib/houseDrawingFurniture.js": "66494753f1a1cab91e37b2519d1f4a5477cb867647223538b87b5627da4d4c86",
+    "src/lib/projectSite.js": "45e74465fbd3e1391f21145ba0eaf4552c583ab77e8a95912f4f638124bb91ed",
+    "src/lib/houseDrawing.js": "bda541b95cce717dca51bdacea2b31afd5aa28ecf8df45bba023875c1cf09fd8",
+    "src/lib/houseTransparency.js": "2262f711735b7478a59d4e01bdfa43f38771fdac30f82955a3a67d0825071c16",
+    "src/lib/masonryWallMaterial.js": "b8626dec46961b1ab4518b40ff990f076ff07e38813f8167f8a33ecf7fe037db",
+    "src/lib/houseWallModel.js": "1ea2701162e0987407bee7f01099df6d9c3ae5bbd3d16576f353a1ec42a33e29",
+    "src/lib/electricalPillarFinish.js": "91315837ce9469d397ae0e40d854ce75daa7ce4bd1ff539b4609d61d8af85466",
+    "src/lib/electricalPillarModel.js": "e0573687d8b6cc521abc047365ff0e677186ed80d984cc2efd881df707fabaa0",
+    "src/lib/fenceModel.js": "5444966eb5369c6c98926c2df853d1336d4dc5374388e613e75f645ff5af79d2",
+    "src/lib/subfloorModel.js": "f08b953276fe97b28531913e3afc7d764e57b8506b7856944aeb12a30c45a44d",
+    "src/lib/tileFloorModel.js": "cb6c580e6c5c49d7c01b8c4fd6e72e74a1205ed107d7baa0420668020ac4210e",
+    "src/lib/metalRoofModel.js": "4d30470d8b4a920eb0686282eee62abb9aeac02cb4dbe8052972d0aedf92f78b",
+    "src/lib/structureModel.js": "00ff57820c15612c55b4b45cc185956b0a44488b1e8aabf74ee33e12c989c498",
+    "src/lib/masonryModules.js": "6bc8be315d68a3f11e987291d32bb87c56486bf27e4059f4862ae09dd5fc2388",
+    "src/lib/houseDrawingFloorModel.js": "810682ad7c58aed4dc271e8c99fb5ff704c11f74f06d126d6547d2fc7c5cdb4a",
+    "src/lib/houseDrawingOpeningModel.js": "d72fde84aa74d9da73495902ba55477453bb6c50a5de8137cfa79110f5bf39de",
+    "src/lib/roomFurnitureModel.js": "1175b7e556e4d31c8ada758f84ca931437e37518128f8d81a8d25f1fc85152f3",
+    "src/lib/houseDrawingModel.js": "05cc6fed49c88997c9443769bf07bfa18ecea229fc7e594ffa4145515c7bad64",
+    "src/lib/pipeMaterialScene.js": "4747e066363c121cadf82ef5eca8eeb0153fa19e2dff561edcba74f5179abcdc",
+    "mobile/embedded-design/workScenes.js": "9ec4474e9ac7416e0ccf18460c3806e0e13efcec3cd46570a8b68857b2c20201"
+  }
+}

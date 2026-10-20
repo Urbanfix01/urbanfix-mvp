@@ -101,6 +101,31 @@ test('grouping retains latest snapshots and cloud sync confirmation', async () =
   assert.equal(core.mergeProjects([row], [{ ...row, synced: true }])[0].synced, true);
   assert.equal(core.mergeProjects([{ ...row, id: randomUUID(), capturedAt: '2027-01-01T00:00:00.000Z' }], [row]).length, 1);
 });
+
+test('editing appends a recoverable version without changing the original snapshot', async () => {
+  const f = fixture(), original = await f.repo.create(scope, form);
+  const raw = f.storage.get([...f.storage.keys()].find((key) => key.endsWith(`document:${original.id}`)));
+  const document = structuredClone(original.document); document.draft.name = 'Casa editada';
+  document.auxiliary[`:${original.projectKey}:material-selections`] = JSON.stringify({ version: 1, values: {} });
+  const next = await f.repo.revise(scope, original, document);
+  assert.notEqual(next.id, original.id); assert.equal(next.projectKey, original.projectKey);
+  assert.equal(next.synced, false); assert.equal(next.digest, await digest(JSON.stringify(document)));
+  assert.equal(f.storage.get([...f.storage.keys()].find((key) => key.endsWith(`document:${original.id}`))), raw);
+  f.setOffline(true); await assert.rejects(f.repo.sync(scope)); assert.equal((await f.repo.local(scope)).length, 2);
+  f.setOffline(false); await f.repo.sync(scope); assert.equal(f.remote.size, 2);
+});
+
+test('editing rejects another project, country, account or unrelated auxiliary data', async () => {
+  const f = fixture(), original = await f.repo.create(scope, form);
+  const otherProject = structuredClone(original.document); otherProject.draft.id = randomUUID();
+  await assert.rejects(f.repo.revise(scope, original, otherProject));
+  const country = structuredClone(original.document); country.draft.projectInfo.countryCode = 'UY';
+  await assert.rejects(f.repo.revise(scope, original, country));
+  const auxiliary = structuredClone(original.document); auxiliary.auxiliary[':auth-session'] = 'not allowed';
+  await assert.rejects(f.repo.revise(scope, original, auxiliary));
+  f.setSession(other); await assert.rejects(f.repo.revise(scope, original, original.document));
+  assert.equal((await f.repo.local(scope)).length, 1);
+});
 test('the canonical web normalizer accepts the native plan and history contract', { skip: !process.env.URBANFIX_WEB_ROOT }, async () => {
   const root = process.env.URBANFIX_WEB_ROOT, f = fixture();
   const { normalizeHouseDrawing } = await import(pathToFileURL(path.join(root, 'src/lib/houseDrawing.js')));
@@ -109,4 +134,7 @@ test('the canonical web normalizer accepts the native plan and history contract'
   const draft = normalizeHouseDrawing(row.document.draft);
   assert.equal(draft.settings.lotDepth, 33); assert.deepEqual(draft.projectInfo, row.document.draft.projectInfo);
   validateHistoryRecord(row, scope);
+  const next = await f.repo.revise(scope, row, { ...row.document, draft: { ...draft, name: 'Edición compartida' },
+    auxiliary: { [`:${draft.id}:labor-selections`]: JSON.stringify({ version: 1, values: {} }) } });
+  validateHistoryRecord(next, scope); normalizeHouseDrawing(next.document.draft);
 });

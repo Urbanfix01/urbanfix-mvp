@@ -21,25 +21,54 @@ the project workspace implementation.
 - Technician navigation: Projects, Panel, Agenda, Operativo, More.
 - More retains the native price catalog, map, notifications and profile.
 - Existing client mode, profile completion and authentication remain intact.
+- Technician profile completion requires phone and business name. The operational
+  address and map point are optional; missing coordinates remain null and valid
+  approximate coordinates keep their actual precision. The map opens only on an
+  explicit action, not automatically after an address selection.
+- Social links are optional and empty links save as null. The profile reads and
+  writes the hosted `instagram_url` / `facebook_url` columns, retaining support
+  for older `*_profile_url` schemas when those columns are returned instead.
+  Posts, work photos and legacy location aliases are written only when present
+  in the own-profile `select('*')` response. Unavailable media editors are
+  disabled, not uploaded or silently discarded; no schema or RLS change is made.
+  The completion gate selects only the fields used for completion.
+- Saving the technician profile updates the auth-trigger-created row with an
+  owner-ID filter and checks the returned ID before reporting success. It does
+  not upsert or write `id`, `profile_published`, `profile_published_at` or admin
+  approval. Metadata seeding only fills missing contact fields on the existing
+  own row; it never replaces later user edits or creates/publishes a profile.
+  The corrected field set was checked with read-only EXPLAIN as authenticated
+  against the hosted column privileges; no live record or permission was changed.
 - Projects can be created natively in four steps, with an optional existing
   client reference, optional site coordinates, and a rectangular reference lot.
 - Foreground GPS is requested only on an explicit action. Manual coordinates
   and an address-only project are supported. No background tracking or
   automatic cadastral/normative conclusions are made.
-- Native project details show a reference plan, metadata, versions and private
-  JSON export. This is not an independently implemented 3D or price engine.
-- Plan editing, construction calculations, 3D and client PDF delivery continue
-  in the canonical web application. The system browser opens the own-account
-  history filtered by project and editor. Web login may be required. There is
-  no token in the URL, embedded authenticated WebView, automatic draft merge,
-  or claim of single sign-on. The web's existing protected restore confirmation
-  remains authoritative. Multiple versions must still be reviewed by the user.
+- Project details show a reference plan, metadata, versions and private JSON
+  export. "Disenar y cotizar" opens the integrated Plano libre workbench inside
+  the app, without an external browser. It reuses the canonical drawing,
+  construction, quotation and Three.js modules in a locally shipped WebView
+  document; it is not a separate calculation engine or a fully native CAD UI.
+- More -> Materiales y renders opens the original native Master Catalog filtered
+  to materials. Its cards show packaged canonical thumbnails or compatible
+  published images; the native detail enlarges them and opens the matching 3D
+  family directly. It retains the original mobile header, fonts and palette.
+  The same account reads live prices and private signed render URLs through the
+  native host. No access token enters the renderer.
+- Other editor kinds (model house, rooms, water networks) remain preserved in
+  history but are not editable in this first integrated workbench. Client PDF
+  delivery and those full editors still belong to the canonical web app. The
+  mobile project action does not redirect externally or silently merge drafts.
+  Multiple versions must still be reviewed by the user. See
+  [Integrated Design Workspace](mobile-integrated-design.md) for exact scope.
 
 ## Storage And Permissions
 
 `src/projects/projectWorkspace.ts` creates version 1 `house-drawing` documents
 in meters, using the web's empty-plan contract. It does not copy construction
-coefficients or introduce estimated prices. New plans have no assigned costs.
+coefficients or invent estimated prices. New plans have no assigned costs.
+Integrated edits append new immutable snapshots, including only the allowed
+quotation-selection auxiliary keys. Original versions are never overwritten.
 
 Each local snapshot has an independent AsyncStorage key partitioned by owner
 UUID and country. Full snapshots are immutable and SHA-256 verified; lightweight
@@ -62,8 +91,9 @@ is included. Client lookups read only the signed-in technician's directory;
 documents retain the selected name and ID, not the entire contact directory.
 
 Cloud tests use fixtures, not real client records. A physical-device test with
-a dedicated QA account is required to confirm live RLS, permissions, OS sharing,
-OAuth and web handoff before production submission.
+a dedicated QA account is required to confirm live RLS, price/quote API approval,
+published-image access, gestures, WebView startup, OS sharing and OAuth before
+production submission. No live client budget was created during these tests.
 
 ## Local Verification
 
@@ -72,6 +102,7 @@ Run from `apps/mobile`, which has its own lockfile:
 ```sh
 npm ci
 npm run test:projects
+npm run test:design
 npm run typecheck
 npm run check:bundles
 npm run web -- --port 8082
@@ -87,14 +118,25 @@ configuration:
 
 ```sh
 node tests/projectFlow.browser.mjs
+node tests/profileOptionalLocation.browser.mjs
+node tests/designWorkspace.browser.mjs
 ```
 
 Set `PLAYWRIGHT_MODULE` and `PLAYWRIGHT_CHROMIUM_EXECUTABLE` to local installed
-paths. The test blocks every external request except its in-memory Supabase
-fixtures and checks 320, 390 and 768 px viewports. Its auth fixture exists only
+paths. The tests block external requests except their in-memory fixtures;
+project flow checks 320, 390 and 768 px, integrated design 320, 390 and 1024 px.
+Their auth fixture exists only
 in the test process, never in the shipped application. Screenshots go to ignored
 `dist/mobile-smoke`. Native bundles are not APK/AAB/IPA installers or evidence
 of a physical-device test.
+
+The profile test rejects unknown columns on reads and writes using fixtures
+matching the hosted schema (including the reported PGRST204 failure), and also
+covers optional locations, adding/clearing/retaining social links, legacy media
+columns and a failed save retaining the form. It also rejects upserts/protected
+columns, checks the owner filter, preserves unpublished/unapproved status, and
+requires an affected-row confirmation. Metadata fixtures check that saved
+contact details are not overwritten. It never writes a live profile.
 
 ## Preview And Production
 

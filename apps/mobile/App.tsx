@@ -47,7 +47,7 @@ export default function App() {
     // 3. ENVOLVEMOS TODA LA APP (Sin esto, useQuery no funciona)
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider onLayout={onLayoutRootView}>
-        <StatusBar style="auto" />
+        <StatusBar style="light" />
         <RootNavigator /> 
       </SafeAreaProvider>
     </QueryClientProvider>

@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, Modal, Platform, ScrollView, Pressable, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, Modal, Platform, ScrollView, Pressable } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScreenHeader } from '../../components/molecules/ScreenHeader';
 import { supabase } from '../../lib/supabase';
 import { COLORS, FONTS } from '../../utils/theme';
 import MapCanvas from '../../components/molecules/MapCanvas';
@@ -383,19 +383,7 @@ export default function AgendaScreen() {
 
   return (
     <View style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor="#F5F4F0" />
-        <View style={styles.headerCompact}>
-            <SafeAreaView edges={['top']}>
-                <View style={styles.headerCompactRow}>
-                    <View style={styles.headerCompactCopy}>
-                        <Text style={styles.headerCompactTitle}>Agenda</Text>
-                        <Text style={styles.headerCompactMeta}>
-                            {`${selectedDateLabel} | ${daySummary.totalVisits} visitas programadas`}
-                        </Text>
-                    </View>
-                </View>
-            </SafeAreaView>
-        </View>
+        <ScreenHeader title="Agenda" subtitle={`${selectedDateLabel} | ${daySummary.totalVisits} visitas programadas`} />
         <ScrollView
             showsVerticalScrollIndicator={false}
             nestedScrollEnabled
@@ -709,33 +697,7 @@ export default function AgendaScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F4F0' },
-  headerCompact: {
-    backgroundColor: '#F5F4F0',
-    paddingHorizontal: 18,
-    paddingBottom: 6,
-  },
-  headerCompactRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 14,
-  },
-  headerCompactCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  headerCompactTitle: {
-    fontSize: 24,
-    fontFamily: FONTS.title,
-    color: '#0F172A',
-    letterSpacing: 0.1,
-  },
-  headerCompactMeta: {
-    fontSize: 11,
-    fontFamily: FONTS.body,
-    color: '#8D8270',
-  },
+  container: { flex: 1, backgroundColor: COLORS.background },
   scrollContent: { paddingBottom: 36 },
   
   // Estilos Por Agendar

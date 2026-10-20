@@ -1,0 +1,2742 @@
+[
+  {
+    "id": "obra-gruesa-cemento-portland",
+    "name": "Cemento Portland"
+  },
+  {
+    "id": "obra-gruesa-cal-hidratada",
+    "name": "Cal hidratada"
+  },
+  {
+    "id": "obra-gruesa-cal-viva-molida",
+    "name": "Cal viva molida"
+  },
+  {
+    "id": "obra-gruesa-cemento-de-albanileria",
+    "name": "Cemento de albañilería"
+  },
+  {
+    "id": "obra-gruesa-arena-fina",
+    "name": "Arena fina"
+  },
+  {
+    "id": "obra-gruesa-arena-gruesa",
+    "name": "Arena gruesa"
+  },
+  {
+    "id": "obra-gruesa-piedra-partida",
+    "name": "Piedra partida"
+  },
+  {
+    "id": "obra-gruesa-cascote-para-contrapiso",
+    "name": "Cascote para contrapiso"
+  },
+  {
+    "id": "obra-gruesa-tosca-para-relleno",
+    "name": "Tosca para relleno"
+  },
+  {
+    "id": "obra-gruesa-hormigon-elaborado",
+    "name": "Hormigón elaborado"
+  },
+  {
+    "id": "obra-gruesa-hormigon-seco-premezclado",
+    "name": "Hormigón seco premezclado"
+  },
+  {
+    "id": "obra-gruesa-aditivo-plastificante",
+    "name": "Aditivo plastificante"
+  },
+  {
+    "id": "obra-gruesa-aditivo-hidrofugo-para-mortero",
+    "name": "Aditivo hidrófugo para mortero"
+  },
+  {
+    "id": "obra-gruesa-compuesto-de-curado",
+    "name": "Compuesto de curado"
+  },
+  {
+    "id": "obra-gruesa-grout-cementicio",
+    "name": "Grout cementicio"
+  },
+  {
+    "id": "armaduras-acero-corrugado-para-armaduras",
+    "name": "Acero corrugado para armaduras"
+  },
+  {
+    "id": "armaduras-malla-electrosoldada",
+    "name": "Malla electrosoldada"
+  },
+  {
+    "id": "armaduras-alambre-recocido",
+    "name": "Alambre recocido"
+  },
+  {
+    "id": "armaduras-estribos-prefabricados",
+    "name": "Estribos prefabricados"
+  },
+  {
+    "id": "armaduras-separadores-para-armaduras",
+    "name": "Separadores para armaduras"
+  },
+  {
+    "id": "armaduras-tablero-fenolico-de-encofrado",
+    "name": "Tablero fenólico de encofrado"
+  },
+  {
+    "id": "armaduras-tablas-para-encofrado",
+    "name": "Tablas para encofrado"
+  },
+  {
+    "id": "armaduras-puntal-telescopico",
+    "name": "Puntal telescópico"
+  },
+  {
+    "id": "armaduras-desmoldante",
+    "name": "Desmoldante"
+  },
+  {
+    "id": "armaduras-clavos-para-encofrado",
+    "name": "Clavos para encofrado"
+  },
+  {
+    "id": "armaduras-tubo-y-cono-para-pasante-de-encofrado",
+    "name": "Tubo y cono para pasante de encofrado"
+  },
+  {
+    "id": "mamposteria-ladrillo-comun-macizo",
+    "name": "Ladrillo común macizo"
+  },
+  {
+    "id": "mamposteria-ladrillo-ceramico-hueco",
+    "name": "Ladrillo cerámico hueco"
+  },
+  {
+    "id": "mamposteria-ladrillo-ceramico-portante",
+    "name": "Ladrillo cerámico portante"
+  },
+  {
+    "id": "mamposteria-bloque-de-hormigon",
+    "name": "Bloque de hormigón"
+  },
+  {
+    "id": "mamposteria-bloque-de-hormigon-celular",
+    "name": "Bloque de hormigón celular"
+  },
+  {
+    "id": "mamposteria-bloque-de-vidrio",
+    "name": "Bloque de vidrio"
+  },
+  {
+    "id": "mamposteria-mortero-de-asiento",
+    "name": "Mortero de asiento"
+  },
+  {
+    "id": "mamposteria-adhesivo-para-hormigon-celular",
+    "name": "Adhesivo para hormigón celular"
+  },
+  {
+    "id": "mamposteria-refuerzo-de-junta-de-mamposteria",
+    "name": "Refuerzo de junta de mampostería"
+  },
+  {
+    "id": "mamposteria-anclaje-de-mamposteria",
+    "name": "Anclaje de mampostería"
+  },
+  {
+    "id": "mamposteria-dintel-prefabricado",
+    "name": "Dintel prefabricado"
+  },
+  {
+    "id": "mamposteria-albarda-o-tapa-de-muro",
+    "name": "Albarda o tapa de muro"
+  },
+  {
+    "id": "mamposteria-ladrillo-refractario",
+    "name": "Ladrillo refractario"
+  },
+  {
+    "id": "mamposteria-mortero-refractario",
+    "name": "Mortero refractario"
+  },
+  {
+    "id": "revoques-revoque-grueso-premezclado",
+    "name": "Revoque grueso premezclado"
+  },
+  {
+    "id": "revoques-revoque-fino-a-la-cal",
+    "name": "Revoque fino a la cal"
+  },
+  {
+    "id": "revoques-revoque-monocapa",
+    "name": "Revoque monocapa"
+  },
+  {
+    "id": "revoques-yeso-de-construccion",
+    "name": "Yeso de construcción"
+  },
+  {
+    "id": "revoques-mortero-hidrofugo",
+    "name": "Mortero hidrófugo"
+  },
+  {
+    "id": "revoques-puente-de-adherencia",
+    "name": "Puente de adherencia"
+  },
+  {
+    "id": "revoques-malla-de-fibra-de-vidrio",
+    "name": "Malla de fibra de vidrio"
+  },
+  {
+    "id": "revoques-guardacanto-para-revoque",
+    "name": "Guardacanto para revoque"
+  },
+  {
+    "id": "revoques-mortero-para-carpeta",
+    "name": "Mortero para carpeta"
+  },
+  {
+    "id": "revoques-autonivelante-cementicio",
+    "name": "Autonivelante cementicio"
+  },
+  {
+    "id": "revoques-mortero-de-reparacion",
+    "name": "Mortero de reparación"
+  },
+  {
+    "id": "yeso-placa-de-yeso-estandar",
+    "name": "Placa de yeso estándar"
+  },
+  {
+    "id": "yeso-placa-de-yeso-resistente-a-la-humedad",
+    "name": "Placa de yeso resistente a la humedad"
+  },
+  {
+    "id": "yeso-placa-de-yeso-resistente-al-fuego",
+    "name": "Placa de yeso resistente al fuego"
+  },
+  {
+    "id": "yeso-placa-acustica",
+    "name": "Placa acústica"
+  },
+  {
+    "id": "yeso-solera-para-tabique-de-yeso",
+    "name": "Solera para tabique de yeso"
+  },
+  {
+    "id": "yeso-montante-para-tabique-de-yeso",
+    "name": "Montante para tabique de yeso"
+  },
+  {
+    "id": "yeso-perfil-omega",
+    "name": "Perfil omega"
+  },
+  {
+    "id": "yeso-angulo-perimetral",
+    "name": "Ángulo perimetral"
+  },
+  {
+    "id": "yeso-vela-rigida-y-suspension",
+    "name": "Vela rígida y suspensión"
+  },
+  {
+    "id": "yeso-tornillo-t1-para-bastidor",
+    "name": "Tornillo T1 para bastidor"
+  },
+  {
+    "id": "yeso-tornillo-t2-para-placas",
+    "name": "Tornillo T2 para placas"
+  },
+  {
+    "id": "yeso-tornillos-t3-t4-para-emplacado-multiple",
+    "name": "Tornillos T3 / T4 para emplacado múltiple"
+  },
+  {
+    "id": "yeso-masilla-para-juntas-de-yeso",
+    "name": "Masilla para juntas de yeso"
+  },
+  {
+    "id": "yeso-cinta-de-papel-para-juntas",
+    "name": "Cinta de papel para juntas"
+  },
+  {
+    "id": "yeso-cantonera-para-placa-de-yeso",
+    "name": "Cantonera para placa de yeso"
+  },
+  {
+    "id": "yeso-banda-acustica-perimetral",
+    "name": "Banda acústica perimetral"
+  },
+  {
+    "id": "yeso-sellador-acustico",
+    "name": "Sellador acústico"
+  },
+  {
+    "id": "yeso-tapa-de-inspeccion",
+    "name": "Tapa de inspección"
+  },
+  {
+    "id": "steel-framing-perfil-estructural-pgc",
+    "name": "Perfil estructural PGC"
+  },
+  {
+    "id": "steel-framing-perfil-estructural-pgu",
+    "name": "Perfil estructural PGU"
+  },
+  {
+    "id": "steel-framing-fleje-de-arriostramiento",
+    "name": "Fleje de arriostramiento"
+  },
+  {
+    "id": "steel-framing-anclaje-estructural",
+    "name": "Anclaje estructural"
+  },
+  {
+    "id": "steel-framing-tornillo-estructural-autoperforante",
+    "name": "Tornillo estructural autoperforante"
+  },
+  {
+    "id": "steel-framing-tablero-osb",
+    "name": "Tablero OSB"
+  },
+  {
+    "id": "steel-framing-placa-cementicia",
+    "name": "Placa cementicia"
+  },
+  {
+    "id": "steel-framing-membrana-hidrofuga-y-cortaviento",
+    "name": "Membrana hidrófuga y cortaviento"
+  },
+  {
+    "id": "steel-framing-base-coat-para-placa-cementicia",
+    "name": "Base coat para placa cementicia"
+  },
+  {
+    "id": "steel-framing-malla-para-base-coat",
+    "name": "Malla para base coat"
+  },
+  {
+    "id": "steel-framing-siding-de-fibrocemento",
+    "name": "Siding de fibrocemento"
+  },
+  {
+    "id": "steel-framing-perfil-de-arranque-y-terminacion-de-fachada",
+    "name": "Perfil de arranque y terminación de fachada"
+  },
+  {
+    "id": "aislaciones-lana-de-vidrio",
+    "name": "Lana de vidrio"
+  },
+  {
+    "id": "aislaciones-lana-de-roca",
+    "name": "Lana de roca"
+  },
+  {
+    "id": "aislaciones-placa-de-poliestireno-expandido-eps",
+    "name": "Placa de poliestireno expandido (EPS)"
+  },
+  {
+    "id": "aislaciones-placa-de-poliestireno-extruido-xps",
+    "name": "Placa de poliestireno extruido (XPS)"
+  },
+  {
+    "id": "aislaciones-panel-de-poliuretano-pir",
+    "name": "Panel de poliuretano / PIR"
+  },
+  {
+    "id": "aislaciones-manta-de-espuma-de-polietileno",
+    "name": "Manta de espuma de polietileno"
+  },
+  {
+    "id": "aislaciones-barrera-de-vapor",
+    "name": "Barrera de vapor"
+  },
+  {
+    "id": "aislaciones-cinta-de-aluminio-para-aislacion",
+    "name": "Cinta de aluminio para aislación"
+  },
+  {
+    "id": "aislaciones-manta-acustica-bajo-piso",
+    "name": "Manta acústica bajo piso"
+  },
+  {
+    "id": "aislaciones-soporte-antivibratorio",
+    "name": "Soporte antivibratorio"
+  },
+  {
+    "id": "impermeabilizacion-membrana-asfaltica-aluminizada",
+    "name": "Membrana asfáltica aluminizada"
+  },
+  {
+    "id": "impermeabilizacion-membrana-asfaltica-geotextil",
+    "name": "Membrana asfáltica geotextil"
+  },
+  {
+    "id": "impermeabilizacion-membrana-liquida-acrilica",
+    "name": "Membrana líquida acrílica"
+  },
+  {
+    "id": "impermeabilizacion-impermeabilizante-cementicio",
+    "name": "Impermeabilizante cementicio"
+  },
+  {
+    "id": "impermeabilizacion-imprimacion-asfaltica",
+    "name": "Imprimación asfáltica"
+  },
+  {
+    "id": "impermeabilizacion-geotextil-de-refuerzo",
+    "name": "Geotextil de refuerzo"
+  },
+  {
+    "id": "impermeabilizacion-film-de-polietileno",
+    "name": "Film de polietileno"
+  },
+  {
+    "id": "impermeabilizacion-banda-hidroexpansiva",
+    "name": "Banda hidroexpansiva"
+  },
+  {
+    "id": "impermeabilizacion-waterstop-de-pvc",
+    "name": "Waterstop de PVC"
+  },
+  {
+    "id": "impermeabilizacion-sellador-de-poliuretano",
+    "name": "Sellador de poliuretano"
+  },
+  {
+    "id": "impermeabilizacion-silicona-neutra",
+    "name": "Silicona neutra"
+  },
+  {
+    "id": "impermeabilizacion-sellador-acrilico-pintable",
+    "name": "Sellador acrílico pintable"
+  },
+  {
+    "id": "impermeabilizacion-espuma-de-poliuretano-expansiva",
+    "name": "Espuma de poliuretano expansiva"
+  },
+  {
+    "id": "impermeabilizacion-cordon-de-respaldo-para-juntas",
+    "name": "Cordón de respaldo para juntas"
+  },
+  {
+    "id": "techos-chapa-acanalada",
+    "name": "Chapa acanalada"
+  },
+  {
+    "id": "techos-chapa-trapezoidal",
+    "name": "Chapa trapezoidal"
+  },
+  {
+    "id": "techos-chapa-prepintada",
+    "name": "Chapa prepintada"
+  },
+  {
+    "id": "techos-panel-sandwich-para-cubierta",
+    "name": "Panel sándwich para cubierta"
+  },
+  {
+    "id": "techos-teja-ceramica",
+    "name": "Teja cerámica"
+  },
+  {
+    "id": "techos-teja-de-hormigon",
+    "name": "Teja de hormigón"
+  },
+  {
+    "id": "techos-teja-asfaltica",
+    "name": "Teja asfáltica"
+  },
+  {
+    "id": "techos-policarbonato-alveolar",
+    "name": "Policarbonato alveolar"
+  },
+  {
+    "id": "techos-cumbrera",
+    "name": "Cumbrera"
+  },
+  {
+    "id": "techos-babeta",
+    "name": "Babeta"
+  },
+  {
+    "id": "techos-canaleta-pluvial",
+    "name": "Canaleta pluvial"
+  },
+  {
+    "id": "techos-bajada-pluvial",
+    "name": "Bajada pluvial"
+  },
+  {
+    "id": "techos-tornillo-para-techo-con-arandela-epdm",
+    "name": "Tornillo para techo con arandela EPDM"
+  },
+  {
+    "id": "techos-cinta-butilica",
+    "name": "Cinta butílica"
+  },
+  {
+    "id": "techos-cierre-de-onda",
+    "name": "Cierre de onda"
+  },
+  {
+    "id": "electricidad-cable-unipolar",
+    "name": "Cable unipolar"
+  },
+  {
+    "id": "electricidad-cable-multipolar",
+    "name": "Cable multipolar"
+  },
+  {
+    "id": "electricidad-cable-subterraneo",
+    "name": "Cable subterráneo"
+  },
+  {
+    "id": "electricidad-cano-corrugado-para-electricidad",
+    "name": "Caño corrugado para electricidad"
+  },
+  {
+    "id": "electricidad-cano-rigido-para-electricidad",
+    "name": "Caño rígido para electricidad"
+  },
+  {
+    "id": "electricidad-cano-galvanizado-de-acometida",
+    "name": "Cano galvanizado de acometida"
+  },
+  {
+    "id": "electricidad-conector-pvc-para-caja-electrica",
+    "name": "Conector PVC para caja electrica"
+  },
+  {
+    "id": "electricidad-cablecanal",
+    "name": "Cablecanal"
+  },
+  {
+    "id": "electricidad-caja-para-interruptor-o-tomacorriente",
+    "name": "Caja para interruptor o tomacorriente"
+  },
+  {
+    "id": "electricidad-caja-de-paso",
+    "name": "Caja de paso"
+  },
+  {
+    "id": "electricidad-caja-octogonal-de-chapa",
+    "name": "Caja octogonal de chapa"
+  },
+  {
+    "id": "electricidad-caja-para-medidor-monofasico",
+    "name": "Caja para medidor monofasico"
+  },
+  {
+    "id": "electricidad-tablero-electrico",
+    "name": "Tablero eléctrico"
+  },
+  {
+    "id": "electricidad-interruptor-termomagnetico",
+    "name": "Interruptor termomagnético"
+  },
+  {
+    "id": "electricidad-interruptor-diferencial",
+    "name": "Interruptor diferencial"
+  },
+  {
+    "id": "electricidad-protector-de-sobretension",
+    "name": "Protector de sobretensión"
+  },
+  {
+    "id": "electricidad-jabalina-y-caja-de-inspeccion",
+    "name": "Jabalina y caja de inspección"
+  },
+  {
+    "id": "electricidad-tomacorriente",
+    "name": "Tomacorriente"
+  },
+  {
+    "id": "electricidad-interruptor-de-iluminacion",
+    "name": "Interruptor de iluminación"
+  },
+  {
+    "id": "electricidad-bastidor-modular",
+    "name": "Bastidor modular"
+  },
+  {
+    "id": "electricidad-tapa-para-bastidor-modular",
+    "name": "Tapa para bastidor modular"
+  },
+  {
+    "id": "electricidad-bastidor-y-tapa-modular",
+    "name": "Bastidor y tapa modular"
+  },
+  {
+    "id": "electricidad-conjunto-punto-y-toma",
+    "name": "Conjunto punto y toma"
+  },
+  {
+    "id": "electricidad-lampara-led",
+    "name": "Lámpara LED"
+  },
+  {
+    "id": "electricidad-panel-o-plafon-led",
+    "name": "Panel o plafón LED"
+  },
+  {
+    "id": "electricidad-portalampara-ceramico",
+    "name": "Portalampara ceramico"
+  },
+  {
+    "id": "electricidad-reflector-led",
+    "name": "Reflector LED"
+  },
+  {
+    "id": "electricidad-luminaria-tortuga-led",
+    "name": "Luminaria tortuga LED"
+  },
+  {
+    "id": "electricidad-tira-led",
+    "name": "Tira LED"
+  },
+  {
+    "id": "electricidad-fuente-para-led",
+    "name": "Fuente para LED"
+  },
+  {
+    "id": "electricidad-cinta-aisladora",
+    "name": "Cinta aisladora"
+  },
+  {
+    "id": "electricidad-conector-y-bornera",
+    "name": "Conector y bornera"
+  },
+  {
+    "id": "sanitaria-cano-de-termofusion-para-agua",
+    "name": "Caño de termofusión para agua"
+  },
+  {
+    "id": "sanitaria-tubo-pp-r-para-agua-fria",
+    "name": "Tubo PP-R para agua fría"
+  },
+  {
+    "id": "sanitaria-tubo-pp-r-para-agua-caliente",
+    "name": "Tubo PP-R para agua caliente"
+  },
+  {
+    "id": "sanitaria-tubo-pp-r-multicapa-reforzado",
+    "name": "Tubo PP-R multicapa reforzado"
+  },
+  {
+    "id": "sanitaria-tubo-pp-r-con-proteccion-exterior",
+    "name": "Tubo PP-R con protección exterior"
+  },
+  {
+    "id": "sanitaria-tubo-pp-r-preaislado",
+    "name": "Tubo PP-R preaislado"
+  },
+  {
+    "id": "sanitaria-codo-pp-r-de-90-grados",
+    "name": "Codo PP-R de 90 grados"
+  },
+  {
+    "id": "sanitaria-codo-pp-r-de-45-grados",
+    "name": "Codo PP-R de 45 grados"
+  },
+  {
+    "id": "sanitaria-codo-reducido-pp-r",
+    "name": "Codo reducido PP-R"
+  },
+  {
+    "id": "sanitaria-tee-pp-r",
+    "name": "Tee PP-R"
+  },
+  {
+    "id": "sanitaria-tee-reducida-pp-r",
+    "name": "Tee reducida PP-R"
+  },
+  {
+    "id": "sanitaria-cupla-pp-r",
+    "name": "Cupla PP-R"
+  },
+  {
+    "id": "sanitaria-cupla-reducida-pp-r",
+    "name": "Cupla reducida PP-R"
+  },
+  {
+    "id": "sanitaria-buje-de-reduccion-pp-r",
+    "name": "Buje de reducción PP-R"
+  },
+  {
+    "id": "sanitaria-tapon-pp-r",
+    "name": "Tapón PP-R"
+  },
+  {
+    "id": "sanitaria-curva-de-sobrepasaje-pp-r",
+    "name": "Curva de sobrepasaje PP-R"
+  },
+  {
+    "id": "sanitaria-union-doble-pp-r",
+    "name": "Unión doble PP-R"
+  },
+  {
+    "id": "sanitaria-union-doble-bridada-pp-r",
+    "name": "Unión doble bridada PP-R"
+  },
+  {
+    "id": "sanitaria-cupla-de-reparacion-por-electrofusion-pp-r",
+    "name": "Cupla de reparación por electrofusión PP-R"
+  },
+  {
+    "id": "sanitaria-montura-de-derivacion-pp-r",
+    "name": "Montura de derivación PP-R"
+  },
+  {
+    "id": "sanitaria-valvula-esferica-de-termofusion",
+    "name": "Válvula esférica de termofusión"
+  },
+  {
+    "id": "sanitaria-adaptador-pp-r-con-rosca-macho",
+    "name": "Adaptador PP-R con rosca macho"
+  },
+  {
+    "id": "sanitaria-adaptador-pp-r-con-rosca-hembra",
+    "name": "Adaptador PP-R con rosca hembra"
+  },
+  {
+    "id": "sanitaria-codo-pp-r-con-inserto-roscado-macho",
+    "name": "Codo PP-R con inserto roscado macho"
+  },
+  {
+    "id": "sanitaria-codo-pp-r-con-inserto-roscado-hembra",
+    "name": "Codo PP-R con inserto roscado hembra"
+  },
+  {
+    "id": "sanitaria-codo-pp-r-con-orejas-de-fijacion",
+    "name": "Codo PP-R con orejas de fijación"
+  },
+  {
+    "id": "sanitaria-tee-pp-r-con-rosca-central-macho",
+    "name": "Tee PP-R con rosca central macho"
+  },
+  {
+    "id": "sanitaria-tee-pp-r-con-rosca-central-hembra",
+    "name": "Tee PP-R con rosca central hembra"
+  },
+  {
+    "id": "sanitaria-union-doble-mixta-pp-r-macho",
+    "name": "Unión doble mixta PP-R macho"
+  },
+  {
+    "id": "sanitaria-union-doble-mixta-pp-r-hembra",
+    "name": "Unión doble mixta PP-R hembra"
+  },
+  {
+    "id": "sanitaria-adaptador-pp-r-para-tanque",
+    "name": "Adaptador PP-R para tanque"
+  },
+  {
+    "id": "sanitaria-cuerpo-de-llave-de-paso-embutida-pp-r",
+    "name": "Cuerpo de llave de paso embutida PP-R"
+  },
+  {
+    "id": "sanitaria-valvula-pp-r-con-media-union-roscada",
+    "name": "Válvula PP-R con media unión roscada"
+  },
+  {
+    "id": "sanitaria-cano-de-polipropileno-roscado",
+    "name": "Caño de polipropileno roscado"
+  },
+  {
+    "id": "sanitaria-cano-de-polipropileno-roscado-preaislado",
+    "name": "Caño de polipropileno roscado preaislado"
+  },
+  {
+    "id": "sanitaria-codo-plastico-roscado-hembra-hembra",
+    "name": "Codo plástico roscado hembra-hembra"
+  },
+  {
+    "id": "sanitaria-codo-plastico-roscado-macho-hembra",
+    "name": "Codo plástico roscado macho-hembra"
+  },
+  {
+    "id": "sanitaria-codo-plastico-roscado-reducido",
+    "name": "Codo plástico roscado reducido"
+  },
+  {
+    "id": "sanitaria-tee-plastica-roscada",
+    "name": "Tee plástica roscada"
+  },
+  {
+    "id": "sanitaria-tee-plastica-roscada-reducida",
+    "name": "Tee plástica roscada reducida"
+  },
+  {
+    "id": "sanitaria-cruz-plastica-roscada",
+    "name": "Cruz plástica roscada"
+  },
+  {
+    "id": "sanitaria-cupla-plastica-roscada",
+    "name": "Cupla plástica roscada"
+  },
+  {
+    "id": "sanitaria-cupla-plastica-roscada-reducida",
+    "name": "Cupla plástica roscada reducida"
+  },
+  {
+    "id": "sanitaria-entrerrosca-plastica",
+    "name": "Entrerrosca plástica"
+  },
+  {
+    "id": "sanitaria-entrerrosca-plastica-reducida",
+    "name": "Entrerrosca plástica reducida"
+  },
+  {
+    "id": "sanitaria-niple-plastico-roscado",
+    "name": "Niple plástico roscado"
+  },
+  {
+    "id": "sanitaria-buje-reductor-plastico-roscado",
+    "name": "Buje reductor plástico roscado"
+  },
+  {
+    "id": "sanitaria-tapon-plastico-roscado-macho",
+    "name": "Tapón plástico roscado macho"
+  },
+  {
+    "id": "sanitaria-tapa-plastica-roscada-hembra",
+    "name": "Tapa plástica roscada hembra"
+  },
+  {
+    "id": "sanitaria-curva-plastica-roscada",
+    "name": "Curva plástica roscada"
+  },
+  {
+    "id": "sanitaria-sobrepaso-plastico-roscado",
+    "name": "Sobrepaso plástico roscado"
+  },
+  {
+    "id": "sanitaria-conexion-roscada-con-inserto-metalico",
+    "name": "Conexión roscada con inserto metálico"
+  },
+  {
+    "id": "sanitaria-brida-plastica-con-junta-para-tanque",
+    "name": "Brida plástica con junta para tanque"
+  },
+  {
+    "id": "sanitaria-codo-de-laton-roscado",
+    "name": "Codo de latón roscado"
+  },
+  {
+    "id": "sanitaria-tee-de-laton-roscada",
+    "name": "Tee de latón roscada"
+  },
+  {
+    "id": "sanitaria-cupla-de-laton-roscada",
+    "name": "Cupla de latón roscada"
+  },
+  {
+    "id": "sanitaria-niple-de-laton",
+    "name": "Niple de latón"
+  },
+  {
+    "id": "sanitaria-buje-reductor-de-laton",
+    "name": "Buje reductor de latón"
+  },
+  {
+    "id": "sanitaria-union-doble-de-laton",
+    "name": "Unión doble de latón"
+  },
+  {
+    "id": "sanitaria-tapon-metalico-macho",
+    "name": "Tapón metálico macho"
+  },
+  {
+    "id": "sanitaria-tapa-metalica-hembra",
+    "name": "Tapa metálica hembra"
+  },
+  {
+    "id": "sanitaria-cano-galvanizado-para-agua",
+    "name": "Caño galvanizado para agua"
+  },
+  {
+    "id": "sanitaria-codo-galvanizado-roscado",
+    "name": "Codo galvanizado roscado"
+  },
+  {
+    "id": "sanitaria-tee-galvanizada-roscada",
+    "name": "Tee galvanizada roscada"
+  },
+  {
+    "id": "sanitaria-cupla-galvanizada",
+    "name": "Cupla galvanizada"
+  },
+  {
+    "id": "sanitaria-union-doble-galvanizada",
+    "name": "Unión doble galvanizada"
+  },
+  {
+    "id": "sanitaria-niple-galvanizado",
+    "name": "Niple galvanizado"
+  },
+  {
+    "id": "sanitaria-buje-reductor-galvanizado",
+    "name": "Buje reductor galvanizado"
+  },
+  {
+    "id": "sanitaria-contratuerca-para-pasante",
+    "name": "Contratuerca para pasante"
+  },
+  {
+    "id": "sanitaria-cano-de-pvc-para-agua-a-presion",
+    "name": "Caño de PVC para agua a presión"
+  },
+  {
+    "id": "sanitaria-codo-de-pvc-a-presion",
+    "name": "Codo de PVC a presión"
+  },
+  {
+    "id": "sanitaria-tee-de-pvc-a-presion",
+    "name": "Tee de PVC a presión"
+  },
+  {
+    "id": "sanitaria-cupla-de-pvc-a-presion",
+    "name": "Cupla de PVC a presión"
+  },
+  {
+    "id": "sanitaria-reduccion-de-pvc-a-presion",
+    "name": "Reducción de PVC a presión"
+  },
+  {
+    "id": "sanitaria-adaptador-pvc-a-rosca-macho",
+    "name": "Adaptador PVC a rosca macho"
+  },
+  {
+    "id": "sanitaria-adaptador-pvc-a-rosca-hembra",
+    "name": "Adaptador PVC a rosca hembra"
+  },
+  {
+    "id": "sanitaria-union-doble-de-pvc-a-presion",
+    "name": "Unión doble de PVC a presión"
+  },
+  {
+    "id": "sanitaria-tapon-de-pvc-a-presion",
+    "name": "Tapón de PVC a presión"
+  },
+  {
+    "id": "sanitaria-valvula-esferica-de-pvc-a-presion",
+    "name": "Válvula esférica de PVC a presión"
+  },
+  {
+    "id": "sanitaria-portabrida-de-pvc",
+    "name": "Portabrida de PVC"
+  },
+  {
+    "id": "sanitaria-cano-de-polietileno-para-agua",
+    "name": "Caño de polietileno para agua"
+  },
+  {
+    "id": "sanitaria-espiga-recta-doble",
+    "name": "Espiga recta doble"
+  },
+  {
+    "id": "sanitaria-espiga-con-rosca-macho",
+    "name": "Espiga con rosca macho"
+  },
+  {
+    "id": "sanitaria-espiga-con-rosca-hembra",
+    "name": "Espiga con rosca hembra"
+  },
+  {
+    "id": "sanitaria-codo-doble-espiga",
+    "name": "Codo doble espiga"
+  },
+  {
+    "id": "sanitaria-codo-de-espiga-con-rosca",
+    "name": "Codo de espiga con rosca"
+  },
+  {
+    "id": "sanitaria-tee-triple-espiga",
+    "name": "Tee triple espiga"
+  },
+  {
+    "id": "sanitaria-tee-de-espiga-con-rosca",
+    "name": "Tee de espiga con rosca"
+  },
+  {
+    "id": "sanitaria-reduccion-doble-espiga",
+    "name": "Reducción doble espiga"
+  },
+  {
+    "id": "sanitaria-union-de-compresion-para-polietileno",
+    "name": "Unión de compresión para polietileno"
+  },
+  {
+    "id": "sanitaria-codo-de-compresion-para-polietileno",
+    "name": "Codo de compresión para polietileno"
+  },
+  {
+    "id": "sanitaria-tee-de-compresion-para-polietileno",
+    "name": "Tee de compresión para polietileno"
+  },
+  {
+    "id": "sanitaria-adaptador-de-compresion-a-rosca",
+    "name": "Adaptador de compresión a rosca"
+  },
+  {
+    "id": "sanitaria-collar-de-toma-para-polietileno",
+    "name": "Collar de toma para polietileno"
+  },
+  {
+    "id": "sanitaria-tubo-pex",
+    "name": "Tubo PEX"
+  },
+  {
+    "id": "sanitaria-tubo-multicapa-para-agua",
+    "name": "Tubo multicapa para agua"
+  },
+  {
+    "id": "sanitaria-tubo-pex-preaislado",
+    "name": "Tubo PEX preaislado"
+  },
+  {
+    "id": "sanitaria-cupla-para-pex-o-multicapa",
+    "name": "Cupla para PEX o multicapa"
+  },
+  {
+    "id": "sanitaria-codo-para-pex-o-multicapa",
+    "name": "Codo para PEX o multicapa"
+  },
+  {
+    "id": "sanitaria-tee-para-pex-o-multicapa",
+    "name": "Tee para PEX o multicapa"
+  },
+  {
+    "id": "sanitaria-reduccion-para-pex-o-multicapa",
+    "name": "Reducción para PEX o multicapa"
+  },
+  {
+    "id": "sanitaria-adaptador-pex-a-rosca-macho",
+    "name": "Adaptador PEX a rosca macho"
+  },
+  {
+    "id": "sanitaria-adaptador-pex-a-rosca-hembra",
+    "name": "Adaptador PEX a rosca hembra"
+  },
+  {
+    "id": "sanitaria-codo-con-soporte-para-pex",
+    "name": "Codo con soporte para PEX"
+  },
+  {
+    "id": "sanitaria-colector-distribuidor-de-agua",
+    "name": "Colector distribuidor de agua"
+  },
+  {
+    "id": "sanitaria-racor-para-tubo-pex-o-multicapa",
+    "name": "Racor para tubo PEX o multicapa"
+  },
+  {
+    "id": "sanitaria-casquillo-de-prensado-para-multicapa",
+    "name": "Casquillo de prensado para multicapa"
+  },
+  {
+    "id": "sanitaria-cano-de-cobre",
+    "name": "Caño de cobre"
+  },
+  {
+    "id": "sanitaria-codo-de-cobre",
+    "name": "Codo de cobre"
+  },
+  {
+    "id": "sanitaria-tee-de-cobre",
+    "name": "Tee de cobre"
+  },
+  {
+    "id": "sanitaria-cupla-de-cobre",
+    "name": "Cupla de cobre"
+  },
+  {
+    "id": "sanitaria-reduccion-de-cobre",
+    "name": "Reducción de cobre"
+  },
+  {
+    "id": "sanitaria-adaptador-de-cobre-a-rosca",
+    "name": "Adaptador de cobre a rosca"
+  },
+  {
+    "id": "sanitaria-tapon-soldable-para-cobre",
+    "name": "Tapón soldable para cobre"
+  },
+  {
+    "id": "sanitaria-union-desmontable-para-cobre",
+    "name": "Unión desmontable para cobre"
+  },
+  {
+    "id": "sanitaria-racor-de-compresion-para-cobre",
+    "name": "Racor de compresión para cobre"
+  },
+  {
+    "id": "sanitaria-cano-sanitario-de-pvc",
+    "name": "Caño sanitario de PVC"
+  },
+  {
+    "id": "sanitaria-codo-sanitario-pvc-de-45-grados",
+    "name": "Codo sanitario PVC de 45 grados"
+  },
+  {
+    "id": "sanitaria-codo-sanitario-pvc-de-90-grados",
+    "name": "Codo sanitario PVC de 90 grados"
+  },
+  {
+    "id": "sanitaria-curva-sanitaria-pvc",
+    "name": "Curva sanitaria PVC"
+  },
+  {
+    "id": "sanitaria-ramal-sanitario-pvc-de-45-grados",
+    "name": "Ramal sanitario PVC de 45 grados"
+  },
+  {
+    "id": "sanitaria-ramal-sanitario-pvc-con-ventilacion",
+    "name": "Ramal sanitario PVC con ventilación"
+  },
+  {
+    "id": "sanitaria-ramal-doble-sanitario-pvc",
+    "name": "Ramal doble sanitario PVC"
+  },
+  {
+    "id": "sanitaria-tee-sanitaria-pvc",
+    "name": "Tee sanitaria PVC"
+  },
+  {
+    "id": "sanitaria-cupla-sanitaria-pvc",
+    "name": "Cupla sanitaria PVC"
+  },
+  {
+    "id": "sanitaria-manguito-de-reparacion-sanitario-pvc",
+    "name": "Manguito de reparación sanitario PVC"
+  },
+  {
+    "id": "sanitaria-reduccion-sanitaria-pvc",
+    "name": "Reducción sanitaria PVC"
+  },
+  {
+    "id": "sanitaria-tapon-sanitario-pvc",
+    "name": "Tapón sanitario PVC"
+  },
+  {
+    "id": "sanitaria-boca-de-acceso-sanitaria-pvc",
+    "name": "Boca de acceso sanitaria PVC"
+  },
+  {
+    "id": "sanitaria-cupla-de-inspeccion-sanitaria-pvc",
+    "name": "Cupla de inspección sanitaria PVC"
+  },
+  {
+    "id": "sanitaria-sifon-sanitario-pvc",
+    "name": "Sifón sanitario PVC"
+  },
+  {
+    "id": "sanitaria-adaptador-sanitario-pvc-para-inodoro",
+    "name": "Adaptador sanitario PVC para inodoro"
+  },
+  {
+    "id": "sanitaria-tubo-sanitario-con-junta-elastica",
+    "name": "Tubo sanitario con junta elástica"
+  },
+  {
+    "id": "sanitaria-tubo-sanitario-acustico",
+    "name": "Tubo sanitario acústico"
+  },
+  {
+    "id": "sanitaria-codo-sanitario-con-junta-de-45-grados",
+    "name": "Codo sanitario con junta de 45 grados"
+  },
+  {
+    "id": "sanitaria-codo-sanitario-con-junta-de-87-grados-30-minutos",
+    "name": "Codo sanitario con junta de 87 grados 30 minutos"
+  },
+  {
+    "id": "sanitaria-curva-sanitaria-con-junta",
+    "name": "Curva sanitaria con junta"
+  },
+  {
+    "id": "sanitaria-ramal-de-45-grados-con-junta",
+    "name": "Ramal de 45 grados con junta"
+  },
+  {
+    "id": "sanitaria-ramal-con-junta-y-ventilacion",
+    "name": "Ramal con junta y ventilación"
+  },
+  {
+    "id": "sanitaria-ramal-doble-con-junta",
+    "name": "Ramal doble con junta"
+  },
+  {
+    "id": "sanitaria-ramal-invertido-con-junta",
+    "name": "Ramal invertido con junta"
+  },
+  {
+    "id": "sanitaria-ramal-esquinero-con-ventilacion",
+    "name": "Ramal esquinero con ventilación"
+  },
+  {
+    "id": "sanitaria-cupla-sanitaria-con-junta",
+    "name": "Cupla sanitaria con junta"
+  },
+  {
+    "id": "sanitaria-manguito-deslizante-con-junta",
+    "name": "Manguito deslizante con junta"
+  },
+  {
+    "id": "sanitaria-reduccion-excentrica-con-junta",
+    "name": "Reducción excéntrica con junta"
+  },
+  {
+    "id": "sanitaria-reduccion-concentrica-con-junta",
+    "name": "Reducción concéntrica con junta"
+  },
+  {
+    "id": "sanitaria-tapon-de-registro-con-junta",
+    "name": "Tapón de registro con junta"
+  },
+  {
+    "id": "sanitaria-codo-con-acometidas-sanitarias",
+    "name": "Codo con acometidas sanitarias"
+  },
+  {
+    "id": "sanitaria-anillo-de-goma-para-desague",
+    "name": "Anillo de goma para desagüe"
+  },
+  {
+    "id": "sanitaria-transicion-entre-sistemas-de-desague",
+    "name": "Transición entre sistemas de desagüe"
+  },
+  {
+    "id": "sanitaria-valvula-antirretorno-cloacal",
+    "name": "Válvula antirretorno cloacal"
+  },
+  {
+    "id": "sanitaria-pileta-de-patio",
+    "name": "Pileta de patio"
+  },
+  {
+    "id": "sanitaria-pileta-de-patio-sifonada",
+    "name": "Pileta de patio sifonada"
+  },
+  {
+    "id": "sanitaria-pileta-de-patio-para-losa",
+    "name": "Pileta de patio para losa"
+  },
+  {
+    "id": "sanitaria-boca-de-acceso-para-desague",
+    "name": "Boca de acceso para desagüe"
+  },
+  {
+    "id": "sanitaria-sifon",
+    "name": "Sifón"
+  },
+  {
+    "id": "sanitaria-sifon-botella-para-lavatorio",
+    "name": "Sifón botella para lavatorio"
+  },
+  {
+    "id": "sanitaria-sifon-doble-para-bacha-de-cocina",
+    "name": "Sifón doble para bacha de cocina"
+  },
+  {
+    "id": "sanitaria-sifon-con-conexion-para-lavavajillas",
+    "name": "Sifón con conexión para lavavajillas"
+  },
+  {
+    "id": "sanitaria-sifon-flexible",
+    "name": "Sifón flexible"
+  },
+  {
+    "id": "sanitaria-sopapa-para-lavatorio",
+    "name": "Sopapa para lavatorio"
+  },
+  {
+    "id": "sanitaria-sopapa-para-bacha-de-cocina",
+    "name": "Sopapa para bacha de cocina"
+  },
+  {
+    "id": "sanitaria-sopapa-para-banera",
+    "name": "Sopapa para bañera"
+  },
+  {
+    "id": "sanitaria-sopapa-para-ducha",
+    "name": "Sopapa para ducha"
+  },
+  {
+    "id": "sanitaria-desague-pop-up-para-lavatorio",
+    "name": "Desagüe pop-up para lavatorio"
+  },
+  {
+    "id": "sanitaria-conjunto-de-rebalse-para-banera",
+    "name": "Conjunto de rebalse para bañera"
+  },
+  {
+    "id": "sanitaria-rejilla-de-desague",
+    "name": "Rejilla de desagüe"
+  },
+  {
+    "id": "sanitaria-portarrejilla-regulable",
+    "name": "Portarrejilla regulable"
+  },
+  {
+    "id": "sanitaria-rejilla-lineal-de-ducha",
+    "name": "Rejilla lineal de ducha"
+  },
+  {
+    "id": "sanitaria-conector-de-descarga-para-inodoro",
+    "name": "Conector de descarga para inodoro"
+  },
+  {
+    "id": "sanitaria-conector-excentrico-para-inodoro",
+    "name": "Conector excéntrico para inodoro"
+  },
+  {
+    "id": "sanitaria-camara-de-inspeccion",
+    "name": "Cámara de inspección"
+  },
+  {
+    "id": "sanitaria-tapa-de-camara-de-inspeccion",
+    "name": "Tapa de cámara de inspección"
+  },
+  {
+    "id": "sanitaria-interceptor-de-grasas",
+    "name": "Interceptor de grasas"
+  },
+  {
+    "id": "sanitaria-terminal-de-ventilacion-sanitaria",
+    "name": "Terminal de ventilación sanitaria"
+  },
+  {
+    "id": "sanitaria-embudos-pluviales-para-azotea",
+    "name": "Embudos pluviales para azotea"
+  },
+  {
+    "id": "sanitaria-embudos-pluviales-para-balcon",
+    "name": "Embudos pluviales para balcón"
+  },
+  {
+    "id": "sanitaria-rejilla-domo-para-embudo",
+    "name": "Rejilla domo para embudo"
+  },
+  {
+    "id": "sanitaria-cano-de-bajada-pluvial",
+    "name": "Caño de bajada pluvial"
+  },
+  {
+    "id": "sanitaria-codo-para-bajada-pluvial",
+    "name": "Codo para bajada pluvial"
+  },
+  {
+    "id": "sanitaria-union-para-bajada-pluvial",
+    "name": "Unión para bajada pluvial"
+  },
+  {
+    "id": "sanitaria-canaleta-pluvial-de-pvc",
+    "name": "Canaleta pluvial de PVC"
+  },
+  {
+    "id": "sanitaria-union-de-canaleta-pvc",
+    "name": "Unión de canaleta PVC"
+  },
+  {
+    "id": "sanitaria-tapa-de-canaleta-pvc",
+    "name": "Tapa de canaleta PVC"
+  },
+  {
+    "id": "sanitaria-salida-de-canaleta-a-bajada",
+    "name": "Salida de canaleta a bajada"
+  },
+  {
+    "id": "sanitaria-soporte-de-canaleta",
+    "name": "Soporte de canaleta"
+  },
+  {
+    "id": "sanitaria-canal-de-piso-con-rejilla",
+    "name": "Canal de piso con rejilla"
+  },
+  {
+    "id": "sanitaria-sumidero-pluvial",
+    "name": "Sumidero pluvial"
+  },
+  {
+    "id": "sanitaria-filtro-de-hojas-para-pluvial",
+    "name": "Filtro de hojas para pluvial"
+  },
+  {
+    "id": "sanitaria-llave-de-paso",
+    "name": "Llave de paso"
+  },
+  {
+    "id": "sanitaria-valvula-esferica-de-paso-total",
+    "name": "Válvula esférica de paso total"
+  },
+  {
+    "id": "sanitaria-valvula-esferica-con-union-desmontable",
+    "name": "Válvula esférica con unión desmontable"
+  },
+  {
+    "id": "sanitaria-valvula-esferica-de-tres-vias",
+    "name": "Válvula esférica de tres vías"
+  },
+  {
+    "id": "sanitaria-valvula-de-compuerta",
+    "name": "Válvula de compuerta"
+  },
+  {
+    "id": "sanitaria-valvula-de-globo",
+    "name": "Válvula de globo"
+  },
+  {
+    "id": "sanitaria-valvula-de-retencion",
+    "name": "Válvula de retención"
+  },
+  {
+    "id": "sanitaria-valvula-de-retencion-a-resorte",
+    "name": "Válvula de retención a resorte"
+  },
+  {
+    "id": "sanitaria-valvula-de-retencion-a-clapeta",
+    "name": "Válvula de retención a clapeta"
+  },
+  {
+    "id": "sanitaria-valvula-de-pie-con-filtro",
+    "name": "Válvula de pie con filtro"
+  },
+  {
+    "id": "sanitaria-valvula-reductora-de-presion",
+    "name": "Válvula reductora de presión"
+  },
+  {
+    "id": "sanitaria-valvula-de-alivio-de-presion",
+    "name": "Válvula de alivio de presión"
+  },
+  {
+    "id": "sanitaria-valvula-de-seguridad-para-acumulador",
+    "name": "Válvula de seguridad para acumulador"
+  },
+  {
+    "id": "sanitaria-valvula-de-purga",
+    "name": "Válvula de purga"
+  },
+  {
+    "id": "sanitaria-purgador-automatico-de-aire",
+    "name": "Purgador automático de aire"
+  },
+  {
+    "id": "sanitaria-filtro-tipo-y",
+    "name": "Filtro tipo Y"
+  },
+  {
+    "id": "sanitaria-valvula-mezcladora-termostatica",
+    "name": "Válvula mezcladora termostática"
+  },
+  {
+    "id": "sanitaria-valvula-de-escuadra-para-artefacto",
+    "name": "Válvula de escuadra para artefacto"
+  },
+  {
+    "id": "sanitaria-valvula-de-escuadra-doble-salida",
+    "name": "Válvula de escuadra doble salida"
+  },
+  {
+    "id": "sanitaria-llave-para-lavarropas",
+    "name": "Llave para lavarropas"
+  },
+  {
+    "id": "sanitaria-canilla-de-servicio",
+    "name": "Canilla de servicio"
+  },
+  {
+    "id": "sanitaria-valvula-solenoide-para-agua",
+    "name": "Válvula solenoide para agua"
+  },
+  {
+    "id": "sanitaria-flexible-de-conexion",
+    "name": "Flexible de conexión"
+  },
+  {
+    "id": "sanitaria-flexible-mallado-para-agua",
+    "name": "Flexible mallado para agua"
+  },
+  {
+    "id": "sanitaria-flexible-para-monocomando",
+    "name": "Flexible para monocomando"
+  },
+  {
+    "id": "sanitaria-flexible-para-termotanque",
+    "name": "Flexible para termotanque"
+  },
+  {
+    "id": "sanitaria-manguera-de-entrada-para-lavarropas",
+    "name": "Manguera de entrada para lavarropas"
+  },
+  {
+    "id": "sanitaria-manguera-de-descarga-para-lavarropas",
+    "name": "Manguera de descarga para lavarropas"
+  },
+  {
+    "id": "sanitaria-manguera-de-entrada-para-lavavajillas",
+    "name": "Manguera de entrada para lavavajillas"
+  },
+  {
+    "id": "sanitaria-conexion-rigida-cromada-para-artefacto",
+    "name": "Conexión rígida cromada para artefacto"
+  },
+  {
+    "id": "sanitaria-prolongador-roscado-para-griferia",
+    "name": "Prolongador roscado para grifería"
+  },
+  {
+    "id": "sanitaria-roseta-para-conexion-sanitaria",
+    "name": "Roseta para conexión sanitaria"
+  },
+  {
+    "id": "sanitaria-adaptador-para-conexion-de-artefacto",
+    "name": "Adaptador para conexión de artefacto"
+  },
+  {
+    "id": "sanitaria-tanque-de-agua",
+    "name": "Tanque de agua"
+  },
+  {
+    "id": "sanitaria-tanque-de-agua-de-perfil-bajo",
+    "name": "Tanque de agua de perfil bajo"
+  },
+  {
+    "id": "sanitaria-tanque-modular-de-agua",
+    "name": "Tanque modular de agua"
+  },
+  {
+    "id": "sanitaria-cisterna-enterrable",
+    "name": "Cisterna enterrable"
+  },
+  {
+    "id": "sanitaria-cisterna-modular",
+    "name": "Cisterna modular"
+  },
+  {
+    "id": "sanitaria-tapa-para-tanque-de-agua",
+    "name": "Tapa para tanque de agua"
+  },
+  {
+    "id": "sanitaria-flotante-para-tanque",
+    "name": "Flotante para tanque"
+  },
+  {
+    "id": "sanitaria-boya-de-repuesto-para-flotante",
+    "name": "Boya de repuesto para flotante"
+  },
+  {
+    "id": "sanitaria-vastago-de-flotante",
+    "name": "Vástago de flotante"
+  },
+  {
+    "id": "sanitaria-conexion-pasante-de-tanque",
+    "name": "Conexión pasante de tanque"
+  },
+  {
+    "id": "sanitaria-junta-para-pasante-de-tanque",
+    "name": "Junta para pasante de tanque"
+  },
+  {
+    "id": "sanitaria-brida-para-tanque-de-agua",
+    "name": "Brida para tanque de agua"
+  },
+  {
+    "id": "sanitaria-colector-de-salida-de-tanque",
+    "name": "Colector de salida de tanque"
+  },
+  {
+    "id": "sanitaria-valvula-de-limpieza-de-tanque",
+    "name": "Válvula de limpieza de tanque"
+  },
+  {
+    "id": "sanitaria-ventilacion-para-tanque",
+    "name": "Ventilación para tanque"
+  },
+  {
+    "id": "sanitaria-conexion-de-rebalse-para-tanque",
+    "name": "Conexión de rebalse para tanque"
+  },
+  {
+    "id": "sanitaria-filtro-de-ingreso-de-tanque",
+    "name": "Filtro de ingreso de tanque"
+  },
+  {
+    "id": "sanitaria-bomba-presurizadora",
+    "name": "Bomba presurizadora"
+  },
+  {
+    "id": "sanitaria-presurizador-para-tanque-elevado",
+    "name": "Presurizador para tanque elevado"
+  },
+  {
+    "id": "sanitaria-presurizador-para-cisterna",
+    "name": "Presurizador para cisterna"
+  },
+  {
+    "id": "sanitaria-presurizador-con-variador-de-frecuencia",
+    "name": "Presurizador con variador de frecuencia"
+  },
+  {
+    "id": "sanitaria-bomba-centrifuga-elevadora",
+    "name": "Bomba centrífuga elevadora"
+  },
+  {
+    "id": "sanitaria-bomba-periferica",
+    "name": "Bomba periférica"
+  },
+  {
+    "id": "sanitaria-bomba-autoaspirante",
+    "name": "Bomba autoaspirante"
+  },
+  {
+    "id": "sanitaria-bomba-sumergible-para-agua-limpia",
+    "name": "Bomba sumergible para agua limpia"
+  },
+  {
+    "id": "sanitaria-bomba-sumergible-para-agua-sucia",
+    "name": "Bomba sumergible para agua sucia"
+  },
+  {
+    "id": "sanitaria-bomba-sumergible-para-pozo",
+    "name": "Bomba sumergible para pozo"
+  },
+  {
+    "id": "sanitaria-bomba-circuladora-de-agua-caliente",
+    "name": "Bomba circuladora de agua caliente"
+  },
+  {
+    "id": "sanitaria-grupo-de-presion-de-varias-bombas",
+    "name": "Grupo de presión de varias bombas"
+  },
+  {
+    "id": "sanitaria-controlador-automatico-de-bomba",
+    "name": "Controlador automático de bomba"
+  },
+  {
+    "id": "sanitaria-presostato-para-bomba",
+    "name": "Presostato para bomba"
+  },
+  {
+    "id": "sanitaria-flotante-electrico-de-nivel",
+    "name": "Flotante eléctrico de nivel"
+  },
+  {
+    "id": "sanitaria-sensor-de-flujo-para-presurizador",
+    "name": "Sensor de flujo para presurizador"
+  },
+  {
+    "id": "sanitaria-tanque-hidroneumatico",
+    "name": "Tanque hidroneumático"
+  },
+  {
+    "id": "sanitaria-membrana-para-tanque-hidroneumatico",
+    "name": "Membrana para tanque hidroneumático"
+  },
+  {
+    "id": "sanitaria-manometro-para-agua",
+    "name": "Manómetro para agua"
+  },
+  {
+    "id": "sanitaria-conector-de-cinco-vias-para-bomba",
+    "name": "Conector de cinco vías para bomba"
+  },
+  {
+    "id": "sanitaria-union-antivibratoria-para-bomba",
+    "name": "Unión antivibratoria para bomba"
+  },
+  {
+    "id": "sanitaria-manguera-de-aspiracion",
+    "name": "Manguera de aspiración"
+  },
+  {
+    "id": "sanitaria-kit-de-conexion-de-presurizador",
+    "name": "Kit de conexión de presurizador"
+  },
+  {
+    "id": "sanitaria-impulsor-de-bomba",
+    "name": "Impulsor de bomba"
+  },
+  {
+    "id": "sanitaria-sello-mecanico-de-bomba",
+    "name": "Sello mecánico de bomba"
+  },
+  {
+    "id": "sanitaria-junta-de-cuerpo-de-bomba",
+    "name": "Junta de cuerpo de bomba"
+  },
+  {
+    "id": "sanitaria-portafiltro-de-agua",
+    "name": "Portafiltro de agua"
+  },
+  {
+    "id": "sanitaria-filtro-de-sedimentos",
+    "name": "Filtro de sedimentos"
+  },
+  {
+    "id": "sanitaria-cartucho-de-polipropileno-para-filtro",
+    "name": "Cartucho de polipropileno para filtro"
+  },
+  {
+    "id": "sanitaria-cartucho-de-carbon-activado",
+    "name": "Cartucho de carbón activado"
+  },
+  {
+    "id": "sanitaria-cartucho-de-malla-lavable",
+    "name": "Cartucho de malla lavable"
+  },
+  {
+    "id": "sanitaria-filtro-bajo-mesada",
+    "name": "Filtro bajo mesada"
+  },
+  {
+    "id": "sanitaria-filtro-sobre-mesada",
+    "name": "Filtro sobre mesada"
+  },
+  {
+    "id": "sanitaria-llave-para-carcasa-de-filtro",
+    "name": "Llave para carcasa de filtro"
+  },
+  {
+    "id": "sanitaria-junta-de-portafiltro",
+    "name": "Junta de portafiltro"
+  },
+  {
+    "id": "sanitaria-bypass-para-filtro-de-agua",
+    "name": "Bypass para filtro de agua"
+  },
+  {
+    "id": "sanitaria-grifo-para-agua-filtrada",
+    "name": "Grifo para agua filtrada"
+  },
+  {
+    "id": "sanitaria-griferia-monocomando-de-lavatorio",
+    "name": "Grifería monocomando de lavatorio"
+  },
+  {
+    "id": "sanitaria-griferia-de-lavatorio-de-dos-comandos",
+    "name": "Grifería de lavatorio de dos comandos"
+  },
+  {
+    "id": "sanitaria-griferia-monocomando-de-cocina",
+    "name": "Grifería monocomando de cocina"
+  },
+  {
+    "id": "sanitaria-griferia-de-cocina-con-pico-extraible",
+    "name": "Grifería de cocina con pico extraíble"
+  },
+  {
+    "id": "sanitaria-griferia-de-cocina-de-pared",
+    "name": "Grifería de cocina de pared"
+  },
+  {
+    "id": "sanitaria-griferia-para-bidet",
+    "name": "Grifería para bidet"
+  },
+  {
+    "id": "sanitaria-griferia-de-ducha-embutida",
+    "name": "Grifería de ducha embutida"
+  },
+  {
+    "id": "sanitaria-griferia-de-ducha-exterior",
+    "name": "Grifería de ducha exterior"
+  },
+  {
+    "id": "sanitaria-griferia-para-banera-y-ducha",
+    "name": "Grifería para bañera y ducha"
+  },
+  {
+    "id": "sanitaria-canilla-temporizada",
+    "name": "Canilla temporizada"
+  },
+  {
+    "id": "sanitaria-griferia-electronica-con-sensor",
+    "name": "Grifería electrónica con sensor"
+  },
+  {
+    "id": "sanitaria-ducha-de-mano-con-manguera",
+    "name": "Ducha de mano con manguera"
+  },
+  {
+    "id": "sanitaria-flor-de-ducha",
+    "name": "Flor de ducha"
+  },
+  {
+    "id": "sanitaria-brazo-de-ducha",
+    "name": "Brazo de ducha"
+  },
+  {
+    "id": "sanitaria-cabezal-ceramico-de-griferia",
+    "name": "Cabezal cerámico de grifería"
+  },
+  {
+    "id": "sanitaria-cabezal-a-valvula-de-griferia",
+    "name": "Cabezal a válvula de grifería"
+  },
+  {
+    "id": "sanitaria-cartucho-de-monocomando",
+    "name": "Cartucho de monocomando"
+  },
+  {
+    "id": "sanitaria-cartucho-termostatico-de-griferia",
+    "name": "Cartucho termostático de grifería"
+  },
+  {
+    "id": "sanitaria-cuerito-de-griferia",
+    "name": "Cuerito de grifería"
+  },
+  {
+    "id": "sanitaria-asiento-de-valvula-de-griferia",
+    "name": "Asiento de válvula de grifería"
+  },
+  {
+    "id": "sanitaria-o-ring-para-griferia",
+    "name": "O-ring para grifería"
+  },
+  {
+    "id": "sanitaria-arandela-de-estanqueidad-de-griferia",
+    "name": "Arandela de estanqueidad de grifería"
+  },
+  {
+    "id": "sanitaria-empaquetadura-para-vastago",
+    "name": "Empaquetadura para vástago"
+  },
+  {
+    "id": "sanitaria-aireador-de-griferia",
+    "name": "Aireador de grifería"
+  },
+  {
+    "id": "sanitaria-pico-de-griferia",
+    "name": "Pico de grifería"
+  },
+  {
+    "id": "sanitaria-pico-giratorio-de-cocina",
+    "name": "Pico giratorio de cocina"
+  },
+  {
+    "id": "sanitaria-manija-de-griferia",
+    "name": "Manija de grifería"
+  },
+  {
+    "id": "sanitaria-volante-de-griferia",
+    "name": "Volante de grifería"
+  },
+  {
+    "id": "sanitaria-transferencia-de-banera-y-ducha",
+    "name": "Transferencia de bañera y ducha"
+  },
+  {
+    "id": "sanitaria-boquilla-de-salida-de-griferia",
+    "name": "Boquilla de salida de grifería"
+  },
+  {
+    "id": "sanitaria-buje-de-griferia",
+    "name": "Buje de grifería"
+  },
+  {
+    "id": "sanitaria-roseta-de-griferia",
+    "name": "Roseta de grifería"
+  },
+  {
+    "id": "sanitaria-prolongador-de-cabezal",
+    "name": "Prolongador de cabezal"
+  },
+  {
+    "id": "sanitaria-kit-de-fijacion-de-monocomando",
+    "name": "Kit de fijación de monocomando"
+  },
+  {
+    "id": "sanitaria-manguera-para-pico-extraible",
+    "name": "Manguera para pico extraíble"
+  },
+  {
+    "id": "sanitaria-contrapeso-para-manguera-extraible",
+    "name": "Contrapeso para manguera extraíble"
+  },
+  {
+    "id": "sanitaria-accionamiento-de-desague-de-lavatorio",
+    "name": "Accionamiento de desagüe de lavatorio"
+  },
+  {
+    "id": "sanitaria-tornillo-de-fijacion-de-manija",
+    "name": "Tornillo de fijación de manija"
+  },
+  {
+    "id": "sanitaria-valvula-de-entrada-para-deposito",
+    "name": "Válvula de entrada para depósito"
+  },
+  {
+    "id": "sanitaria-valvula-de-descarga-simple",
+    "name": "Válvula de descarga simple"
+  },
+  {
+    "id": "sanitaria-valvula-de-doble-descarga",
+    "name": "Válvula de doble descarga"
+  },
+  {
+    "id": "sanitaria-obturador-flapper",
+    "name": "Obturador flapper"
+  },
+  {
+    "id": "sanitaria-obturador-plano-de-descarga",
+    "name": "Obturador plano de descarga"
+  },
+  {
+    "id": "sanitaria-portaobturador-de-descarga",
+    "name": "Portaobturador de descarga"
+  },
+  {
+    "id": "sanitaria-boton-de-descarga-simple",
+    "name": "Botón de descarga simple"
+  },
+  {
+    "id": "sanitaria-boton-de-doble-descarga",
+    "name": "Botón de doble descarga"
+  },
+  {
+    "id": "sanitaria-cable-de-accionamiento-de-descarga",
+    "name": "Cable de accionamiento de descarga"
+  },
+  {
+    "id": "sanitaria-palanca-de-descarga-de-deposito",
+    "name": "Palanca de descarga de depósito"
+  },
+  {
+    "id": "sanitaria-cadena-de-descarga-de-deposito",
+    "name": "Cadena de descarga de depósito"
+  },
+  {
+    "id": "sanitaria-boya-de-valvula-de-entrada-de-deposito",
+    "name": "Boya de válvula de entrada de depósito"
+  },
+  {
+    "id": "sanitaria-membrana-de-valvula-de-entrada",
+    "name": "Membrana de válvula de entrada"
+  },
+  {
+    "id": "sanitaria-conjunto-fuelle-de-deposito-a-inodoro",
+    "name": "Conjunto fuelle de depósito a inodoro"
+  },
+  {
+    "id": "sanitaria-junta-entre-deposito-e-inodoro",
+    "name": "Junta entre depósito e inodoro"
+  },
+  {
+    "id": "sanitaria-kit-de-fijacion-de-deposito",
+    "name": "Kit de fijación de depósito"
+  },
+  {
+    "id": "sanitaria-tuerca-de-valvula-de-descarga",
+    "name": "Tuerca de válvula de descarga"
+  },
+  {
+    "id": "sanitaria-tapa-de-deposito",
+    "name": "Tapa de depósito"
+  },
+  {
+    "id": "sanitaria-kit-de-reparacion-de-deposito",
+    "name": "Kit de reparación de depósito"
+  },
+  {
+    "id": "sanitaria-anillo-de-sellado-de-inodoro",
+    "name": "Anillo de sellado de inodoro"
+  },
+  {
+    "id": "sanitaria-kit-de-fijacion-de-inodoro",
+    "name": "Kit de fijación de inodoro"
+  },
+  {
+    "id": "sanitaria-cinta-de-ptfe",
+    "name": "Cinta de PTFE"
+  },
+  {
+    "id": "sanitaria-hilo-sellador-de-roscas",
+    "name": "Hilo sellador de roscas"
+  },
+  {
+    "id": "sanitaria-sellador-de-roscas-para-agua",
+    "name": "Sellador de roscas para agua"
+  },
+  {
+    "id": "sanitaria-canamo-para-juntas-roscadas",
+    "name": "Cáñamo para juntas roscadas"
+  },
+  {
+    "id": "sanitaria-pasta-para-juntas-roscadas",
+    "name": "Pasta para juntas roscadas"
+  },
+  {
+    "id": "sanitaria-adhesivo-para-pvc",
+    "name": "Adhesivo para PVC"
+  },
+  {
+    "id": "sanitaria-limpiador-preparador-para-pvc",
+    "name": "Limpiador preparador para PVC"
+  },
+  {
+    "id": "sanitaria-lubricante-para-junta-elastica-sanitaria",
+    "name": "Lubricante para junta elástica sanitaria"
+  },
+  {
+    "id": "sanitaria-grasa-siliconada-para-mecanismos",
+    "name": "Grasa siliconada para mecanismos"
+  },
+  {
+    "id": "sanitaria-soldadura-para-cobre-en-instalaciones-de-agua",
+    "name": "Soldadura para cobre en instalaciones de agua"
+  },
+  {
+    "id": "sanitaria-fundente-para-soldadura-de-cobre",
+    "name": "Fundente para soldadura de cobre"
+  },
+  {
+    "id": "sanitaria-sellador-para-montaje-de-artefactos",
+    "name": "Sellador para montaje de artefactos"
+  },
+  {
+    "id": "sanitaria-abrazadera-para-caneria",
+    "name": "Abrazadera para cañería"
+  },
+  {
+    "id": "sanitaria-abrazadera-metalica-con-goma",
+    "name": "Abrazadera metálica con goma"
+  },
+  {
+    "id": "sanitaria-clip-plastico-para-cano",
+    "name": "Clip plástico para caño"
+  },
+  {
+    "id": "sanitaria-abrazadera-para-manguera",
+    "name": "Abrazadera para manguera"
+  },
+  {
+    "id": "sanitaria-soporte-de-punto-fijo-para-cano",
+    "name": "Soporte de punto fijo para caño"
+  },
+  {
+    "id": "sanitaria-soporte-deslizante-para-cano",
+    "name": "Soporte deslizante para caño"
+  },
+  {
+    "id": "sanitaria-mensula-para-canerias",
+    "name": "Ménsula para cañerías"
+  },
+  {
+    "id": "sanitaria-aislacion-tubular-para-agua-caliente",
+    "name": "Aislación tubular para agua caliente"
+  },
+  {
+    "id": "sanitaria-cinta-de-aislacion-para-caneria",
+    "name": "Cinta de aislación para cañería"
+  },
+  {
+    "id": "sanitaria-pasamuros-para-caneria",
+    "name": "Pasamuros para cañería"
+  },
+  {
+    "id": "sanitaria-termofusora-para-agua",
+    "name": "Termofusora para agua"
+  },
+  {
+    "id": "sanitaria-boquillas-de-termofusion",
+    "name": "Boquillas de termofusión"
+  },
+  {
+    "id": "sanitaria-tijera-cortatubos-de-plastico",
+    "name": "Tijera cortatubos de plástico"
+  },
+  {
+    "id": "sanitaria-cortatubos-para-cobre",
+    "name": "Cortatubos para cobre"
+  },
+  {
+    "id": "sanitaria-llave-de-cano",
+    "name": "Llave de caño"
+  },
+  {
+    "id": "sanitaria-llave-para-tuercas-de-lavatorio",
+    "name": "Llave para tuercas de lavatorio"
+  },
+  {
+    "id": "sanitaria-terraja-para-canos-roscados",
+    "name": "Terraja para caños roscados"
+  },
+  {
+    "id": "sanitaria-bomba-de-prueba-hidraulica",
+    "name": "Bomba de prueba hidráulica"
+  },
+  {
+    "id": "sanitaria-calibrador-para-tubo-multicapa",
+    "name": "Calibrador para tubo multicapa"
+  },
+  {
+    "id": "sanitaria-prensa-y-mordaza-para-multicapa",
+    "name": "Prensa y mordaza para multicapa"
+  },
+  {
+    "id": "sanitaria-resorte-curvador-para-tubo",
+    "name": "Resorte curvador para tubo"
+  },
+  {
+    "id": "sanitaria-desbarbador-de-caneria",
+    "name": "Desbarbador de cañería"
+  },
+  {
+    "id": "sanitaria-guia-destapacanerias",
+    "name": "Guía destapacañerías"
+  },
+  {
+    "id": "sanitaria-sopapa-destapadora-manual",
+    "name": "Sopapa destapadora manual"
+  },
+  {
+    "id": "gas-cano-de-acero-para-gas",
+    "name": "Caño de acero para gas"
+  },
+  {
+    "id": "gas-cano-de-sistema-de-termofusion-para-gas",
+    "name": "Caño de sistema de termofusión para gas"
+  },
+  {
+    "id": "gas-accesorio-roscado-para-gas",
+    "name": "Accesorio roscado para gas"
+  },
+  {
+    "id": "gas-accesorio-de-termofusion-para-gas",
+    "name": "Accesorio de termofusión para gas"
+  },
+  {
+    "id": "gas-llave-de-paso-para-gas",
+    "name": "Llave de paso para gas"
+  },
+  {
+    "id": "gas-regulador-de-gas",
+    "name": "Regulador de gas"
+  },
+  {
+    "id": "gas-conector-flexible-aprobado-para-gas",
+    "name": "Conector flexible aprobado para gas"
+  },
+  {
+    "id": "gas-sellador-de-roscas-para-gas",
+    "name": "Sellador de roscas para gas"
+  },
+  {
+    "id": "gas-rejilla-de-ventilacion-permanente",
+    "name": "Rejilla de ventilación permanente"
+  },
+  {
+    "id": "gas-conducto-de-evacuacion",
+    "name": "Conducto de evacuación"
+  },
+  {
+    "id": "climatizacion-cano-de-cobre-para-refrigeracion",
+    "name": "Caño de cobre para refrigeración"
+  },
+  {
+    "id": "climatizacion-aislacion-elastomerica-para-canos",
+    "name": "Aislación elastomérica para caños"
+  },
+  {
+    "id": "climatizacion-manguera-de-desague-de-condensado",
+    "name": "Manguera de desagüe de condensado"
+  },
+  {
+    "id": "climatizacion-mensula-para-aire-acondicionado",
+    "name": "Ménsula para aire acondicionado"
+  },
+  {
+    "id": "climatizacion-soporte-antivibratorio-para-equipo",
+    "name": "Soporte antivibratorio para equipo"
+  },
+  {
+    "id": "climatizacion-canaleta-para-instalacion-de-split",
+    "name": "Canaleta para instalación de split"
+  },
+  {
+    "id": "climatizacion-conducto-galvanizado-para-aire",
+    "name": "Conducto galvanizado para aire"
+  },
+  {
+    "id": "climatizacion-conducto-flexible-para-aire",
+    "name": "Conducto flexible para aire"
+  },
+  {
+    "id": "climatizacion-rejilla-o-difusor-de-aire",
+    "name": "Rejilla o difusor de aire"
+  },
+  {
+    "id": "climatizacion-extractor-de-aire",
+    "name": "Extractor de aire"
+  },
+  {
+    "id": "climatizacion-tubo-para-piso-radiante",
+    "name": "Tubo para piso radiante"
+  },
+  {
+    "id": "climatizacion-colector-de-piso-radiante",
+    "name": "Colector de piso radiante"
+  },
+  {
+    "id": "climatizacion-radiador-para-calefaccion",
+    "name": "Radiador para calefacción"
+  },
+  {
+    "id": "pisos-ceramica-de-piso",
+    "name": "Cerámica de piso"
+  },
+  {
+    "id": "pisos-porcelanato",
+    "name": "Porcelanato"
+  },
+  {
+    "id": "pisos-azulejo-y-revestimiento-ceramico",
+    "name": "Azulejo y revestimiento cerámico"
+  },
+  {
+    "id": "pisos-mosaico-granitico",
+    "name": "Mosaico granítico"
+  },
+  {
+    "id": "pisos-piedra-natural-para-revestimiento",
+    "name": "Piedra natural para revestimiento"
+  },
+  {
+    "id": "pisos-piso-vinilico",
+    "name": "Piso vinílico"
+  },
+  {
+    "id": "pisos-piso-laminado",
+    "name": "Piso laminado"
+  },
+  {
+    "id": "pisos-adhesivo-cementicio-para-ceramica",
+    "name": "Adhesivo cementicio para cerámica"
+  },
+  {
+    "id": "pisos-adhesivo-flexible-para-porcelanato",
+    "name": "Adhesivo flexible para porcelanato"
+  },
+  {
+    "id": "pisos-pastina-cementicia",
+    "name": "Pastina cementicia"
+  },
+  {
+    "id": "pisos-pastina-epoxi",
+    "name": "Pastina epoxi"
+  },
+  {
+    "id": "pisos-crucetas-para-ceramicos",
+    "name": "Crucetas para cerámicos"
+  },
+  {
+    "id": "pisos-niveladores-para-revestimientos",
+    "name": "Niveladores para revestimientos"
+  },
+  {
+    "id": "pisos-perfil-de-terminacion-de-revestimiento",
+    "name": "Perfil de terminación de revestimiento"
+  },
+  {
+    "id": "pisos-zocalo",
+    "name": "Zócalo"
+  },
+  {
+    "id": "pintura-latex-interior",
+    "name": "Látex interior"
+  },
+  {
+    "id": "pintura-latex-exterior",
+    "name": "Látex exterior"
+  },
+  {
+    "id": "pintura-esmalte-sintetico",
+    "name": "Esmalte sintético"
+  },
+  {
+    "id": "pintura-esmalte-al-agua",
+    "name": "Esmalte al agua"
+  },
+  {
+    "id": "pintura-antioxido",
+    "name": "Antióxido"
+  },
+  {
+    "id": "pintura-convertidor-de-oxido",
+    "name": "Convertidor de óxido"
+  },
+  {
+    "id": "pintura-fijador-sellador",
+    "name": "Fijador sellador"
+  },
+  {
+    "id": "pintura-enduido-interior",
+    "name": "Enduido interior"
+  },
+  {
+    "id": "pintura-enduido-exterior",
+    "name": "Enduido exterior"
+  },
+  {
+    "id": "pintura-revestimiento-plastico-texturado",
+    "name": "Revestimiento plástico texturado"
+  },
+  {
+    "id": "pintura-barniz",
+    "name": "Barniz"
+  },
+  {
+    "id": "pintura-protector-impregnante-para-madera",
+    "name": "Protector impregnante para madera"
+  },
+  {
+    "id": "pintura-diluyente-para-pintura",
+    "name": "Diluyente para pintura"
+  },
+  {
+    "id": "pintura-lija-para-pared-o-madera",
+    "name": "Lija para pared o madera"
+  },
+  {
+    "id": "pintura-cinta-de-enmascarar",
+    "name": "Cinta de enmascarar"
+  },
+  {
+    "id": "pintura-rodillo-y-repuesto",
+    "name": "Rodillo y repuesto"
+  },
+  {
+    "id": "pintura-pincel-y-pinceleta",
+    "name": "Pincel y pinceleta"
+  },
+  {
+    "id": "carpinteria-tabla-de-madera",
+    "name": "Tabla de madera"
+  },
+  {
+    "id": "carpinteria-tirante-de-madera",
+    "name": "Tirante de madera"
+  },
+  {
+    "id": "carpinteria-machimbre",
+    "name": "Machimbre"
+  },
+  {
+    "id": "carpinteria-tablero-mdf",
+    "name": "Tablero MDF"
+  },
+  {
+    "id": "carpinteria-tablero-melaminico",
+    "name": "Tablero melamínico"
+  },
+  {
+    "id": "carpinteria-tablero-multilaminado",
+    "name": "Tablero multilaminado"
+  },
+  {
+    "id": "carpinteria-canto-para-tablero",
+    "name": "Canto para tablero"
+  },
+  {
+    "id": "carpinteria-cola-vinilica",
+    "name": "Cola vinílica"
+  },
+  {
+    "id": "carpinteria-adhesivo-de-contacto",
+    "name": "Adhesivo de contacto"
+  },
+  {
+    "id": "carpinteria-bisagra-para-mueble",
+    "name": "Bisagra para mueble"
+  },
+  {
+    "id": "carpinteria-corredera-para-cajon",
+    "name": "Corredera para cajón"
+  },
+  {
+    "id": "carpinteria-tirador-para-mueble",
+    "name": "Tirador para mueble"
+  },
+  {
+    "id": "carpinteria-tornillo-para-madera",
+    "name": "Tornillo para madera"
+  },
+  {
+    "id": "herreria-tubo-estructural-de-acero",
+    "name": "Tubo estructural de acero"
+  },
+  {
+    "id": "herreria-angulo-de-acero",
+    "name": "Ángulo de acero"
+  },
+  {
+    "id": "herreria-planchuela-de-acero",
+    "name": "Planchuela de acero"
+  },
+  {
+    "id": "herreria-perfil-u-de-acero",
+    "name": "Perfil U de acero"
+  },
+  {
+    "id": "herreria-perfil-i-doble-t",
+    "name": "Perfil I / doble T"
+  },
+  {
+    "id": "herreria-chapa-lisa-de-acero",
+    "name": "Chapa lisa de acero"
+  },
+  {
+    "id": "herreria-metal-desplegado",
+    "name": "Metal desplegado"
+  },
+  {
+    "id": "herreria-electrodo-de-soldadura",
+    "name": "Electrodo de soldadura"
+  },
+  {
+    "id": "herreria-alambre-de-soldadura-mig",
+    "name": "Alambre de soldadura MIG"
+  },
+  {
+    "id": "herreria-disco-de-corte-para-metal",
+    "name": "Disco de corte para metal"
+  },
+  {
+    "id": "herreria-disco-de-desbaste",
+    "name": "Disco de desbaste"
+  },
+  {
+    "id": "herreria-disco-flap",
+    "name": "Disco flap"
+  },
+  {
+    "id": "aberturas-puerta-interior",
+    "name": "Puerta interior"
+  },
+  {
+    "id": "aberturas-puerta-exterior",
+    "name": "Puerta exterior"
+  },
+  {
+    "id": "aberturas-ventana-de-aluminio",
+    "name": "Ventana de aluminio"
+  },
+  {
+    "id": "aberturas-ventana-de-pvc",
+    "name": "Ventana de PVC"
+  },
+  {
+    "id": "aberturas-vidrio-float",
+    "name": "Vidrio float"
+  },
+  {
+    "id": "aberturas-vidrio-templado",
+    "name": "Vidrio templado"
+  },
+  {
+    "id": "aberturas-vidrio-laminado",
+    "name": "Vidrio laminado"
+  },
+  {
+    "id": "aberturas-doble-vidriado-hermetico-dvh",
+    "name": "Doble vidriado hermético (DVH)"
+  },
+  {
+    "id": "aberturas-cerradura",
+    "name": "Cerradura"
+  },
+  {
+    "id": "aberturas-cilindro-de-cerradura",
+    "name": "Cilindro de cerradura"
+  },
+  {
+    "id": "aberturas-manija-para-puerta",
+    "name": "Manija para puerta"
+  },
+  {
+    "id": "aberturas-bisagra-para-puerta",
+    "name": "Bisagra para puerta"
+  },
+  {
+    "id": "aberturas-burlete",
+    "name": "Burlete"
+  },
+  {
+    "id": "aberturas-cierrapuertas",
+    "name": "Cierrapuertas"
+  },
+  {
+    "id": "bano-cocina-inodoro",
+    "name": "Inodoro"
+  },
+  {
+    "id": "bano-cocina-deposito-para-inodoro",
+    "name": "Depósito para inodoro"
+  },
+  {
+    "id": "bano-cocina-bidet",
+    "name": "Bidet"
+  },
+  {
+    "id": "bano-cocina-lavatorio",
+    "name": "Lavatorio"
+  },
+  {
+    "id": "bano-cocina-bacha-de-cocina",
+    "name": "Bacha de cocina"
+  },
+  {
+    "id": "bano-cocina-griferia-de-lavatorio",
+    "name": "Grifería de lavatorio"
+  },
+  {
+    "id": "bano-cocina-griferia-de-cocina",
+    "name": "Grifería de cocina"
+  },
+  {
+    "id": "bano-cocina-griferia-de-ducha",
+    "name": "Grifería de ducha"
+  },
+  {
+    "id": "bano-cocina-receptaculo-de-ducha",
+    "name": "Receptáculo de ducha"
+  },
+  {
+    "id": "bano-cocina-mampara",
+    "name": "Mampara"
+  },
+  {
+    "id": "bano-cocina-mesada",
+    "name": "Mesada"
+  },
+  {
+    "id": "bano-cocina-accesorios-de-bano",
+    "name": "Accesorios de baño"
+  },
+  {
+    "id": "exteriores-adoquin-de-hormigon",
+    "name": "Adoquín de hormigón"
+  },
+  {
+    "id": "exteriores-baldosa-para-exterior",
+    "name": "Baldosa para exterior"
+  },
+  {
+    "id": "exteriores-deck-de-madera",
+    "name": "Deck de madera"
+  },
+  {
+    "id": "exteriores-deck-wpc",
+    "name": "Deck WPC"
+  },
+  {
+    "id": "exteriores-alambre-tejido",
+    "name": "Alambre tejido"
+  },
+  {
+    "id": "exteriores-panel-de-cerco-rigido",
+    "name": "Panel de cerco rígido"
+  },
+  {
+    "id": "exteriores-poste-para-cerco",
+    "name": "Poste para cerco"
+  },
+  {
+    "id": "exteriores-tubo-de-drenaje-perforado",
+    "name": "Tubo de drenaje perforado"
+  },
+  {
+    "id": "exteriores-canal-de-drenaje",
+    "name": "Canal de drenaje"
+  },
+  {
+    "id": "exteriores-geotextil-para-drenaje",
+    "name": "Geotextil para drenaje"
+  },
+  {
+    "id": "exteriores-grava-para-drenaje",
+    "name": "Grava para drenaje"
+  },
+  {
+    "id": "exteriores-cano-para-riego",
+    "name": "Caño para riego"
+  },
+  {
+    "id": "exteriores-aspersor-y-gotero",
+    "name": "Aspersor y gotero"
+  },
+  {
+    "id": "fijaciones-tarugo-de-nylon",
+    "name": "Tarugo de nylon"
+  },
+  {
+    "id": "fijaciones-tarugo-con-tornillo",
+    "name": "Tarugo con tornillo"
+  },
+  {
+    "id": "fijaciones-anclaje-metalico-de-expansion",
+    "name": "Anclaje metálico de expansión"
+  },
+  {
+    "id": "fijaciones-anclaje-quimico",
+    "name": "Anclaje químico"
+  },
+  {
+    "id": "fijaciones-varilla-roscada",
+    "name": "Varilla roscada"
+  },
+  {
+    "id": "fijaciones-bulon",
+    "name": "Bulón"
+  },
+  {
+    "id": "fijaciones-tuerca",
+    "name": "Tuerca"
+  },
+  {
+    "id": "fijaciones-arandela",
+    "name": "Arandela"
+  },
+  {
+    "id": "fijaciones-tornillo-autoperforante",
+    "name": "Tornillo autoperforante"
+  },
+  {
+    "id": "fijaciones-remache-ciego",
+    "name": "Remache ciego"
+  },
+  {
+    "id": "fijaciones-precinto-plastico",
+    "name": "Precinto plástico"
+  },
+  {
+    "id": "fijaciones-cadena",
+    "name": "Cadena"
+  },
+  {
+    "id": "fijaciones-cable-de-acero",
+    "name": "Cable de acero"
+  },
+  {
+    "id": "fijaciones-lubricante-multiuso",
+    "name": "Lubricante multiuso"
+  },
+  {
+    "id": "herramientas-cinta-metrica",
+    "name": "Cinta métrica"
+  },
+  {
+    "id": "herramientas-nivel-de-burbuja",
+    "name": "Nivel de burbuja"
+  },
+  {
+    "id": "herramientas-nivel-laser",
+    "name": "Nivel láser"
+  },
+  {
+    "id": "herramientas-escuadra",
+    "name": "Escuadra"
+  },
+  {
+    "id": "herramientas-cuchara-de-albanil",
+    "name": "Cuchara de albañil"
+  },
+  {
+    "id": "herramientas-llana-lisa-o-dentada",
+    "name": "Llana lisa o dentada"
+  },
+  {
+    "id": "herramientas-fratacho",
+    "name": "Fratacho"
+  },
+  {
+    "id": "herramientas-espatula",
+    "name": "Espátula"
+  },
+  {
+    "id": "herramientas-martillo",
+    "name": "Martillo"
+  },
+  {
+    "id": "herramientas-pinza-y-alicate",
+    "name": "Pinza y alicate"
+  },
+  {
+    "id": "herramientas-taladro-percutor",
+    "name": "Taladro percutor"
+  },
+  {
+    "id": "herramientas-atornillador",
+    "name": "Atornillador"
+  },
+  {
+    "id": "herramientas-amoladora",
+    "name": "Amoladora"
+  },
+  {
+    "id": "herramientas-sierra-circular",
+    "name": "Sierra circular"
+  },
+  {
+    "id": "herramientas-mecha-para-perforacion",
+    "name": "Mecha para perforación"
+  },
+  {
+    "id": "herramientas-punta-de-atornillado",
+    "name": "Punta de atornillado"
+  },
+  {
+    "id": "herramientas-termofusora",
+    "name": "Termofusora"
+  },
+  {
+    "id": "seguridad-casco-de-seguridad",
+    "name": "Casco de seguridad"
+  },
+  {
+    "id": "seguridad-guantes-de-trabajo",
+    "name": "Guantes de trabajo"
+  },
+  {
+    "id": "seguridad-anteojos-de-seguridad",
+    "name": "Anteojos de seguridad"
+  },
+  {
+    "id": "seguridad-protector-auditivo",
+    "name": "Protector auditivo"
+  },
+  {
+    "id": "seguridad-respirador-para-particulas",
+    "name": "Respirador para partículas"
+  },
+  {
+    "id": "seguridad-calzado-de-seguridad",
+    "name": "Calzado de seguridad"
+  },
+  {
+    "id": "seguridad-arnes-anticaidas",
+    "name": "Arnés anticaídas"
+  },
+  {
+    "id": "seguridad-mascara-de-soldar",
+    "name": "Máscara de soldar"
+  },
+  {
+    "id": "seguridad-cinta-de-senalizacion",
+    "name": "Cinta de señalización"
+  },
+  {
+    "id": "seguridad-malla-de-senalizacion",
+    "name": "Malla de señalización"
+  },
+  {
+    "id": "seguridad-lona-de-proteccion",
+    "name": "Lona de protección"
+  },
+  {
+    "id": "seguridad-bolsa-para-escombros",
+    "name": "Bolsa para escombros"
+  }
+]

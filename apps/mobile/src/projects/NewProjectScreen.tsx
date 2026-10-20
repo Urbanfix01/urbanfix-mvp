@@ -76,7 +76,7 @@ export default function NewProjectScreen({ navigation, route }: any) {
   };
   const reviewDraft = step === 3 && !validateProjectForm(form, scope).length ? createProjectDraft(form, scope, '00000000-0000-4000-8000-000000000001', '2026-01-01T00:00:00.000Z') : null;
   const filteredClients = clients.filter((client) => `${client.name} ${client.email} ${client.phone}`.toLocaleLowerCase('es').includes(search.toLocaleLowerCase('es')));
-  return <SafeAreaView style={ui.root} edges={['top', 'bottom']}>
+  return <SafeAreaView style={ui.root} edges={['bottom']}>
     <ProjectHeader title="Nuevo proyecto" subtitle={`${countryCode} · ${countryCode === 'AR' ? 'ARS' : 'UYU'}`} back={() => { if (!busy) step ? go(step - 1) : navigation.goBack(); }} />
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={{ padding: 16, paddingBottom: 0 }}><Text style={ui.muted}>PASO {step + 1} DE 4</Text><Text accessibilityRole="header" style={ui.heading}>{PROJECT_STEPS[step].title}</Text><View style={[ui.row, { gap: 5 }]}>{PROJECT_STEPS.map((item, index) => <View key={item.title} style={{ flex: 1, height: 3, backgroundColor: index <= step ? TEAL : '#d5dfdf' }} />)}</View></View>

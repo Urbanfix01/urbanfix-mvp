@@ -1,5 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { getWebApiUrl } from '../utils/config';
+import { workflowRequest } from './workflows';
+import { operationalRequests } from './operationalRequests';
 
 export type NearbyRequest = {
   id: string;
@@ -13,10 +15,11 @@ export type NearbyRequest = {
   status: string;
   mode: 'marketplace' | 'direct';
   created_at: string;
-  distance_km: number;
+  distance_km: number | null;
   match_radius_km: number | null;
-  location_lat: number;
-  location_lng: number;
+  location_lat: number | null;
+  location_lng: number | null;
+  location_precision?: 'exact' | 'approx' | 'missing';
   photo_urls: string[];
   my_quote_status: 'pending' | 'submitted' | 'accepted' | 'rejected' | null;
   my_response_type: 'application' | 'direct_quote' | null | string;
@@ -30,11 +33,11 @@ export type NearbyRequest = {
 export type NearbyRequestsPayload = {
   requests: NearbyRequest[];
   technician: {
-    radius_km: number;
-    within_working_hours: boolean;
+    radius_km: number | null;
+    within_working_hours: boolean | null;
     working_hours_label: string;
-    service_lat?: number;
-    service_lng?: number;
+    service_lat?: number | null;
+    service_lng?: number | null;
   };
   warning?: string;
 };
@@ -146,10 +149,18 @@ const requestApi = async <T>(path: string, init?: RequestInit): Promise<T> => {
   return payload as T;
 };
 
-export const fetchNearbyRequests = async () => {
-  return requestApi<NearbyRequestsPayload>('/api/tecnico/requests/nearby', {
-    method: 'GET',
-  });
+export const fetchNearbyRequests = async ({ signal }: { signal?: AbortSignal } = {}) => {
+  const owner = (await supabase.auth.getSession()).data.session?.user.id;
+  if (!owner) throw new Error('Inicia sesion para consultar el mapa operativo.');
+  const payload = await workflowRequest({ owner }, 'supabase-technician-data', { op: 'dashboard' }, signal);
+  const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 8000);
+  let profile = null;
+  try {
+    const result = await supabase.from('profiles').select('service_lat,service_lng,service_radius_km').eq('id', owner).abortSignal(controller.signal).maybeSingle();
+    profile = !result.error ? result.data : null;
+  } finally { clearTimeout(timer); }
+  if ((await supabase.auth.getSession()).data.session?.user.id !== owner) throw new Error('La sesion cambio durante la consulta.');
+  return operationalRequests(payload, owner, profile);
 };
 
 export const fetchTechnicianDashboardBilling = async () => {

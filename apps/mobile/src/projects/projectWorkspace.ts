@@ -134,6 +134,24 @@ export function createProjectRepository(ports: ProjectPorts) {
   };
   return {
     local,
+    async revise(scope: ProjectScope, parent: ProjectRecord, document: ProjectRecord['document']) {
+      await requireOwner(scope); validateRecord(parent, scope);
+      if (parent.tool !== 'plano' || document?.draft?.kind !== 'house-drawing' || document.draft.id !== parent.projectKey
+        || document.draft.projectInfo?.countryCode && document.draft.projectInfo.countryCode !== scope.countryCode) throw new Error('El documento no corresponde al plano abierto.');
+      const auxiliary = document.auxiliary || {};
+      const suffix = `:${parent.projectKey}`;
+      if (Object.entries(auxiliary).some(([key, value]) => !(key === ':material-selections' || key === ':labor-selections'
+        || key === `${suffix}:material-selections` || key === `${suffix}:labor-selections`
+        || key.startsWith(`:labor-references:${scope.owner}:`) || key.startsWith(`${suffix}:labor-references:${scope.owner}:`))
+        || typeof value !== 'string' || value.length > 500_000)) throw new Error('Selecciones del proyecto no compatibles.');
+      const record: ProjectRecord = { ...metadata(parent), id: ports.randomUUID(), name: String(document.draft.name || parent.name).slice(0, 160),
+        document, digest: await ports.digest(JSON.stringify(document)), capturedAt: ports.now(), label: 'Editado desde la app', synced: false };
+      validateRecord(record, scope);
+      if (await ports.storage.getItem(documentKey(scope, record.id)) !== null) throw new Error('La versión ya existe.');
+      await ports.storage.setItem(documentKey(scope, record.id), JSON.stringify(record));
+      try { await ports.storage.setItem(metaKey(scope, record.id), JSON.stringify(metadata(record))); } catch { /* Recovered by local(). */ }
+      return record;
+    },
     async create(scope: ProjectScope, form: NewProjectForm) {
       await requireOwner(scope);
       const draft = createProjectDraft(form, scope, ports.randomUUID(), ports.now());

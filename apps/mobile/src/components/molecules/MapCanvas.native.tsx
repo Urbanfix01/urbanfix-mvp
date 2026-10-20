@@ -1,23 +1,14 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, StyleSheet, Platform, Text } from 'react-native';
+import { View, StyleSheet, Platform, Text, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker } from 'react-native-maps';
 import Constants from 'expo-constants';
-import { MapPoint, MapRegion } from '../../types/maps';
-
-type Props = {
-  points: MapPoint[];
-  region: MapRegion;
-  onSelect: (point: MapPoint) => void;
-  formatMoney: (value: number) => string;
-  height?: number;
-  valuePrefix?: string;
-};
+import { MapCanvasProps, MapPoint, MapRegion } from '../../types/maps';
+import { mapCoordinate } from '../../utils/mapGeometry';
+import { COLORS } from '../../utils/theme';
 
 const isValidCoordinate = (point: MapPoint) =>
-  Number.isFinite(point.lat) &&
-  Number.isFinite(point.lng) &&
-  Math.abs(point.lat) <= 90 &&
-  Math.abs(point.lng) <= 180;
+  Boolean(mapCoordinate(point.lat, point.lng));
 
 const normalizeRegion = (region: MapRegion): MapRegion => ({
   latitude: Number.isFinite(region.latitude) ? region.latitude : -34.6037,
@@ -26,7 +17,7 @@ const normalizeRegion = (region: MapRegion): MapRegion => ({
   longitudeDelta: Number.isFinite(region.longitudeDelta) && region.longitudeDelta > 0 ? region.longitudeDelta : 0.25,
 });
 
-const MapCanvas = ({ points, region, onSelect, formatMoney, height, valuePrefix = '$' }: Props) => {
+const MapCanvas = ({ points, region, onSelect, formatMoney, height, valuePrefix = '$', selectedId, focusKey }: MapCanvasProps) => {
   const mapHeight = height ?? 220;
   const mapRef = useRef<MapView>(null);
   const [isMapReady, setIsMapReady] = useState(false);
@@ -34,6 +25,7 @@ const MapCanvas = ({ points, region, onSelect, formatMoney, height, valuePrefix 
   const safePoints = useMemo(() => points.filter(isValidCoordinate), [points]);
   const safeRegion = useMemo(() => normalizeRegion(region), [region]);
   const coordsKey = safePoints.map((point) => `${point.lat},${point.lng}`).join('|');
+  const markerKey = safePoints.map((point) => `${point.id}:${point.title}:${point.status.key}:${point.status.color}:${point.status.label}:${point.amount}:${point.amountLabel || ''}`).join('|');
   const hasAndroidMapsKeyFlag = Boolean((Constants.expoConfig as any)?.extra?.hasGoogleMapsAndroidKey);
   const androidGoogleMapsKey = String(
     process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY ||
@@ -76,7 +68,13 @@ const MapCanvas = ({ points, region, onSelect, formatMoney, height, valuePrefix 
     setTracksMarkers(true);
     const timeout = setTimeout(() => setTracksMarkers(false), 900);
     return () => clearTimeout(timeout);
-  }, [coordsKey, safePoints.length]);
+  }, [coordsKey, markerKey, safePoints.length]);
+
+  useEffect(() => {
+    if (!canRenderNativeMap || !isMapReady || !selectedId) return;
+    const point = safePoints.find((row) => row.id === selectedId);
+    if (point) mapRef.current?.animateToRegion({ latitude: point.lat, longitude: point.lng, latitudeDelta: .02, longitudeDelta: .02 }, 250);
+  }, [canRenderNativeMap, isMapReady, selectedId, focusKey, coordsKey]);
 
   const handleMapReady = useCallback(() => {
     setIsMapReady(true);
@@ -120,7 +118,7 @@ const MapCanvas = ({ points, region, onSelect, formatMoney, height, valuePrefix 
             anchor={{ x: 0.5, y: 1 }}
             tracksViewChanges={tracksMarkers}
             title={point.title}
-            description={`${valuePrefix}${formatMoney(point.amount)} - ${point.status.label}`}
+            description={`${point.amountLabel || `${valuePrefix}${formatMoney(point.amount)}`} - ${point.status.label}`}
             onPress={() => handleSelect(point)}
           >
             <View style={styles.pinWrap}>
@@ -132,47 +130,18 @@ const MapCanvas = ({ points, region, onSelect, formatMoney, height, valuePrefix 
           </Marker>
         ))}
       </MapView>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel="Encuadrar solicitudes" style={styles.fit} onPress={() => {
+        if (safePoints.length > 1) mapRef.current?.fitToCoordinates(safePoints.map((point) => ({ latitude: point.lat, longitude: point.lng })), { edgePadding: { top: 30, right: 30, bottom: 30, left: 30 }, animated: true });
+        else mapRef.current?.animateToRegion(safeRegion, 250);
+      }}><Ionicons name="scan-outline" size={22} color={COLORS.brand} /></TouchableOpacity>
     </View>
   );
 };
 
-const areRegionsEqual = (a: MapRegion, b: MapRegion) =>
-  a.latitude === b.latitude &&
-  a.longitude === b.longitude &&
-  a.latitudeDelta === b.latitudeDelta &&
-  a.longitudeDelta === b.longitudeDelta;
-
-const arePointsEqual = (prevPoints: MapPoint[], nextPoints: MapPoint[]) => {
-  if (prevPoints.length !== nextPoints.length) return false;
-  for (let i = 0; i < prevPoints.length; i += 1) {
-    const prev = prevPoints[i];
-    const next = nextPoints[i];
-    if (
-      prev.id !== next.id ||
-      prev.lat !== next.lat ||
-      prev.lng !== next.lng ||
-      prev.amount !== next.amount ||
-      prev.title !== next.title ||
-      prev.status.key !== next.status.key ||
-      prev.status.label !== next.status.label ||
-      prev.status.color !== next.status.color
-    ) {
-      return false;
-    }
-  }
-  return true;
-};
-
-export default memo(
-  MapCanvas,
-  (prev, next) =>
-    prev.height === next.height &&
-    prev.valuePrefix === next.valuePrefix &&
-    areRegionsEqual(prev.region, next.region) &&
-    arePointsEqual(prev.points, next.points)
-);
+export default memo(MapCanvas);
 
 const styles = StyleSheet.create({
+  fit: { position: 'absolute', right: 10, top: 10, width: 44, height: 44, backgroundColor: COLORS.white, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   placeholder: {
     borderRadius: 14,
     borderWidth: 1,

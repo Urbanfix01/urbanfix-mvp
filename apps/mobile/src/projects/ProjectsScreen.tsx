@@ -19,17 +19,17 @@ export default function ProjectsScreen() {
     return () => { active = false; };
   }, [owner]);
   const changeCountry = (value: Country) => { setCountry(value); void AsyncStorage.setItem(`urbanfix:mobile-project-country:${owner}`, value).catch(() => setWarning('El país cambió, pero no se pudo guardar la preferencia.')); };
-  return <SafeAreaView edges={['top']} style={ui.root}>{ready ? <ProjectList key={`${owner}:${country}`} scope={{ owner, countryCode: country }} changeCountry={changeCountry} warning={warning} /> : <ActivityIndicator style={{ marginTop: 40 }} color={TEAL} />}</SafeAreaView>;
+  return <SafeAreaView edges={[]} style={ui.root}>{ready ? <ProjectList key={`${owner}:${country}`} scope={{ owner, countryCode: country }} changeCountry={changeCountry} warning={warning} /> : <ActivityIndicator style={{ marginTop: 40 }} color={TEAL} />}</SafeAreaView>;
 }
 function ProjectList({ scope, changeCountry, warning }: { scope: ProjectScope; changeCountry: (value: Country) => void; warning: string }) {
   const navigation = useNavigation<any>(), projects = useProjects(scope), [search, setSearch] = useState(''), [tool, setTool] = useState(''), [filtersOpen, setFiltersOpen] = useState(false);
   const rows = projects.rows.filter((row) => (!tool || row.tool === tool) && searchable(`${row.name} ${PROJECT_TOOLS[row.tool]}`).includes(searchable(search)));
   const open = (row: ProjectMeta, showVersions = false) => navigation.navigate('ProjectDetail', { row, showVersions });
   return <>
-    <ProjectHeader title="Mis proyectos" subtitle="Diseño y obra" action={<IconButton name="refresh" label="Actualizar proyectos" disabled={projects.loading} onPress={() => void projects.refresh()} />} />
+    <ProjectHeader title="Mis proyectos" subtitle="Diseño y obra" action={<IconButton inverse name="refresh" label="Actualizar proyectos" disabled={projects.loading} onPress={() => void projects.refresh()} />} />
     <FlatList data={rows} keyExtractor={(row) => `${row.tool}:${row.projectKey}`} contentContainerStyle={ui.content} refreshing={projects.loading} onRefresh={projects.refresh} keyboardShouldPersistTaps="handled"
       ListHeaderComponent={<>
-        <View style={[ui.row, { marginBottom: 16 }]}>{(['AR', 'UY'] as const).map((code) => <Pressable key={code} accessibilityRole="button" accessibilityLabel={code === 'AR' ? 'Argentina, ARS' : 'Uruguay, UYU'} accessibilityState={{ selected: scope.countryCode === code }} onPress={() => changeCountry(code)} style={[ui.action, { flex: 1 }, scope.countryCode === code && { backgroundColor: '#e3f1ee', borderColor: TEAL }]}><Text style={ui.actionText}>{code} · {code === 'AR' ? 'ARS' : 'UYU'}</Text></Pressable>)}</View>
+        <View style={[ui.row, { marginBottom: 16 }]}>{(['AR', 'UY'] as const).map((code) => <Pressable key={code} accessibilityRole="button" accessibilityLabel={code === 'AR' ? 'Argentina, ARS' : 'Uruguay, UYU'} accessibilityState={{ selected: scope.countryCode === code }} onPress={() => changeCountry(code)} style={[ui.action, { flex: 1 }, scope.countryCode === code && { backgroundColor: TEAL, borderColor: TEAL }]}><Text style={[ui.actionText, scope.countryCode === code && { color: '#fff' }]}>{code} · {code === 'AR' ? 'ARS' : 'UYU'}</Text></Pressable>)}</View>
         <Action title="Nuevo proyecto" icon="add-circle-outline" primary onPress={() => navigation.navigate('NewProject', { countryCode: scope.countryCode })} />
         <Notice text={warning || projects.error || projects.message} />
         <View style={{ marginTop: 18 }}><Field label="Buscar proyecto" placeholder="Nombre o tipo de proyecto" value={search} onChangeText={setSearch} /></View>

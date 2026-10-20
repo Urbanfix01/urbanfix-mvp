@@ -65,8 +65,8 @@ try {
     const downloadPromise = page.waitForEvent('download'); await page.getByRole('button', { name: 'Exportar copia editable' }).click(); const download = await downloadPromise; assert.ok(download.suggestedFilename().endsWith('.json'));
     await page.getByRole('button', { name: 'Ver versiones' }).click(); await page.getByText('Versiones del proyecto', { exact: true }).waitFor();
     await page.getByRole('button', { name: 'Cerrar versiones' }).click();
-    await page.getByRole('button', { name: 'Continuar en web' }).click();
-    const links = await page.evaluate(() => window.__openedProjectUrls); assert.equal(new URL(links[0]).searchParams.get('proyecto'), saved.project_key);
+    await page.getByRole('button', { name: 'Diseñar y cotizar' }).waitFor();
+    assert.deepEqual(await page.evaluate(() => window.__openedProjectUrls), []);
     await page.screenshot({ path: fileURLToPath(new URL(`detail-${width}.png`, artifacts)), fullPage: true });
     await page.getByRole('button', { name: 'Volver', exact: true }).click();
     await page.getByRole('button', { name: `Abrir proyecto Casa móvil ${width}` }).waitFor();

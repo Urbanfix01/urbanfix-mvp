@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -14,23 +14,19 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import MapCanvas from '../../components/molecules/MapCanvas';
-import { ScreenHeader } from '../../components/molecules/ScreenHeader';
+import { ScreenHeader, HeaderIconButton } from '../../components/molecules/ScreenHeader';
 import {
   fetchNearbyRequests,
   NearbyRequest,
   NearbyRequestsPayload,
 } from '../../api/marketplace';
 import { MapPoint } from '../../types/maps';
-import { COLORS, FONTS } from '../../utils/theme';
+import { COLORS, FONTS, FORM, LAYOUT } from '../../utils/theme';
 import { formatCurrency } from '../../utils/number';
+import { useProjectOwner } from '../../projects/ProjectSession';
+import { mapCoordinate, mapRegionForPoints } from '../../utils/mapGeometry';
 
 const QUERY_KEY = ['operativo-nearby-requests'] as const;
-const BA_DEFAULT_REGION = {
-  latitude: -34.6037,
-  longitude: -58.3816,
-  latitudeDelta: 0.32,
-  longitudeDelta: 0.32,
-};
 
 const toErrorMessage = (error: unknown, fallback: string) => {
   if (error instanceof Error && error.message.trim()) return error.message;
@@ -61,8 +57,18 @@ const resolveStatusMeta = (request: NearbyRequest) => {
 
 export default function OperationalScreen() {
   const navigation = useNavigation<any>();
+  const owner = useProjectOwner(), scroll = useRef<ScrollView>(null), mapPanel = useRef<View>(null), scrollY = useRef(0);
   const [modeFilter, setModeFilter] = useState<'all' | 'marketplace' | 'direct'>('all');
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
+  const [focusKey, setFocusKey] = useState(0);
+  const selectRequest = useCallback((id: string, reveal = false) => {
+    setSelectedRequestId(id); setFocusKey((value) => value + 1);
+    if (reveal) requestAnimationFrame(() => mapPanel.current?.measureInWindow((_x, mapY) => {
+      scroll.current?.getNativeScrollRef()?.measureInWindow((_sx, viewportY) => {
+        scroll.current?.scrollTo({ y: Math.max(0, scrollY.current + mapY - viewportY - 12), animated: true });
+      });
+    }));
+  }, []);
 
   const {
     data,
@@ -71,9 +77,10 @@ export default function OperationalScreen() {
     error,
     refetch,
   } = useQuery<NearbyRequestsPayload>({
-    queryKey: QUERY_KEY,
+    queryKey: [...QUERY_KEY, owner],
     queryFn: fetchNearbyRequests,
     staleTime: 30_000,
+    retry: 1,
   });
 
   useFocusEffect(
@@ -99,53 +106,24 @@ export default function OperationalScreen() {
   const mapPoints = useMemo<MapPoint[]>(() => {
     return filteredRequests
       .map((request) => {
-        const lat = Number(request.location_lat);
-        const lng = Number(request.location_lng);
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+        const point = mapCoordinate(request.location_lat, request.location_lng);
+        if (!point) return null;
         return {
           id: request.id,
           title: request.title || 'Solicitud sin titulo',
           amount: Number(request.my_price_ars || 0),
+          amountLabel: request.my_price_ars === null || request.my_price_ars <= 0 ? 'Sin cotizacion' : undefined,
           address: [request.address, request.city].filter(Boolean).join(', '),
           createdAt: request.created_at,
-          lat,
-          lng,
+          lat: point.lat,
+          lng: point.lng,
           status: resolveStatusMeta(request),
         };
       })
       .filter(Boolean) as MapPoint[];
   }, [filteredRequests]);
 
-  const mapRegion = useMemo(() => {
-    if (!mapPoints.length) {
-      const hasTechCoords =
-        typeof technician?.service_lat === 'number' &&
-        Number.isFinite(technician.service_lat) &&
-        typeof technician?.service_lng === 'number' &&
-        Number.isFinite(technician.service_lng);
-      if (hasTechCoords) {
-        return {
-          latitude: Number(technician?.service_lat),
-          longitude: Number(technician?.service_lng),
-          latitudeDelta: 0.2,
-          longitudeDelta: 0.2,
-        };
-      }
-      return BA_DEFAULT_REGION;
-    }
-    const lats = mapPoints.map((point) => point.lat);
-    const lngs = mapPoints.map((point) => point.lng);
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
-    const minLng = Math.min(...lngs);
-    const maxLng = Math.max(...lngs);
-    return {
-      latitude: (minLat + maxLat) / 2,
-      longitude: (minLng + maxLng) / 2,
-      latitudeDelta: Math.max(0.05, (maxLat - minLat) * 1.4),
-      longitudeDelta: Math.max(0.05, (maxLng - minLng) * 1.4),
-    };
-  }, [mapPoints, technician?.service_lat, technician?.service_lng]);
+  const mapRegion = useMemo(() => mapRegionForPoints(mapPoints, mapCoordinate(technician?.service_lat, technician?.service_lng)), [mapPoints, technician?.service_lat, technician?.service_lng]);
 
   const counts = useMemo(
     () => ({
@@ -182,8 +160,7 @@ export default function OperationalScreen() {
     [navigation]
   );
 
-  const subtitle = `${filteredRequests.length} solicitudes visibles`;
-  const mapKey = `${modeFilter}-${mapPoints.length}-${mapRegion.latitude}-${mapRegion.longitude}`;
+  const subtitle = `${filteredRequests.length} solicitudes · ${mapPoints.length} en mapa`;
   const selectedMapPoint = useMemo(
     () => mapPoints.find((point) => point.id === selectedRequestId) || null,
     [mapPoints, selectedRequestId]
@@ -223,14 +200,14 @@ export default function OperationalScreen() {
         subtitle={subtitle}
         centerTitle
         rightAction={
-          <TouchableOpacity style={styles.headerRefreshBtn} onPress={() => refetch()} disabled={isFetching}>
-            <Ionicons name={isFetching ? 'hourglass-outline' : 'refresh'} size={16} color="#FFFFFF" />
-            <Text style={styles.headerRefreshText}>{isFetching ? 'Actualizando' : 'Actualizar'}</Text>
-          </TouchableOpacity>
+          <HeaderIconButton name={isFetching ? 'hourglass-outline' : 'refresh'} label="Actualizar solicitudes" onPress={() => void refetch()} disabled={isFetching} />
         }
       />
 
       <ScrollView
+        ref={scroll}
+        onScroll={(event) => { scrollY.current = event.nativeEvent.contentOffset.y; }}
+        scrollEventThrottle={16}
         contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl refreshing={isFetching} onRefresh={refetch} tintColor={COLORS.primary} colors={[COLORS.primary]} />
@@ -243,13 +220,13 @@ export default function OperationalScreen() {
           </View>
           <View style={styles.chip}>
             <Text style={styles.chipLabel}>Horario</Text>
-            <Text style={[styles.chipValue, technician?.within_working_hours ? styles.okText : styles.warnText]}>
-              {technician?.within_working_hours ? 'Disponible' : 'Fuera de horario'}
+            <Text style={[styles.chipValue, technician?.within_working_hours === true ? styles.okText : technician?.within_working_hours === false ? styles.warnText : null]}>
+              {technician?.within_working_hours === true ? 'Disponible' : technician?.within_working_hours === false ? 'Fuera de horario' : 'Sin confirmar'}
             </Text>
           </View>
           <View style={styles.chip}>
             <Text style={styles.chipLabel}>Respondidas</Text>
-            <Text style={styles.chipValue}>{counts.responded}</Text>
+            <Text style={styles.chipValue}>{filteredRequests.filter(hasSubmittedResponse).length}</Text>
           </View>
         </View>
 
@@ -263,8 +240,9 @@ export default function OperationalScreen() {
             <Text style={styles.warningText}>{data.warning}</Text>
           </View>
         )}
+        {error && data ? <Text accessibilityRole="alert" style={styles.errorText}>No se pudo actualizar. Se conserva la ultima consulta; reintenta actualizar.</Text> : null}
 
-        <View style={styles.mapPanel}>
+        <View ref={mapPanel} style={styles.mapPanel} testID="operational-map-panel">
           <View style={styles.mapHeaderRow}>
             <View style={styles.mapTitleRow}>
               <View style={styles.mapIcon}>
@@ -272,26 +250,28 @@ export default function OperationalScreen() {
               </View>
               <View style={styles.mapTitleTextBlock}>
                 <Text style={styles.mapTitle}>Mapa operativo</Text>
-                <Text style={styles.mapSubtitle}>Solicitudes activas cerca de tu zona</Text>
+                <Text style={styles.mapSubtitle}>Solicitudes disponibles · ubicacion segun permisos</Text>
               </View>
             </View>
             <View style={styles.mapCountPill}>
-              <Text style={styles.mapCount}>{filteredRequests.length} visibles</Text>
+              <Text style={styles.mapCount}>{mapPoints.length} puntos</Text>
             </View>
           </View>
           <MapCanvas
-            key={mapKey}
             points={mapPoints}
             region={mapRegion}
-            onSelect={(point) => setSelectedRequestId(point.id)}
+            selectedId={selectedRequestId}
+            focusKey={focusKey}
+            onSelect={(point) => selectRequest(point.id)}
             formatMoney={formatCurrency}
             height={320}
           />
           {selectedMapPoint && (
-            <View style={styles.mapSelectedCard}>
+            <View style={styles.mapSelectedCard} testID="selected-operational-request">
               <Text style={styles.mapSelectedTitle} numberOfLines={1}>
                 {selectedMapPoint.title}
               </Text>
+              <Text style={styles.mapSelectedMeta}>{filteredRequests.find((row) => row.id === selectedRequestId)?.location_precision === 'approx' ? 'Ubicacion aproximada por privacidad' : 'Ubicacion informada por la solicitud'}</Text>
               <Text style={styles.mapSelectedMeta} numberOfLines={1}>
                 {selectedMapPoint.status.label}
                 {selectedMapPoint.address ? ` | ${selectedMapPoint.address}` : ''}
@@ -331,8 +311,9 @@ export default function OperationalScreen() {
               const selected = selectedRequestId === request.id;
               const statusMeta = resolveStatusMeta(request);
               const alreadyResponded = hasSubmittedResponse(request);
+              const hasLocation = Boolean(mapCoordinate(request.location_lat, request.location_lng));
               return (
-                <View key={request.id} style={[styles.requestCard, selected && styles.requestCardSelected]}>
+                <View key={request.id} testID={`operational-request-${request.id}`} style={[styles.requestCard, selected && styles.requestCardSelected]}>
                   <View style={styles.requestHeader}>
                     <Text style={styles.requestTitle}>{request.title}</Text>
                     <View style={[styles.pill, { borderColor: statusMeta.color }]}>
@@ -377,10 +358,13 @@ export default function OperationalScreen() {
 
                   <View style={styles.requestActions}>
                     <TouchableOpacity
-                      style={styles.secondaryAction}
-                      onPress={() => setSelectedRequestId(request.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Ver en mapa ${request.title}`}
+                      disabled={!hasLocation}
+                      style={[styles.secondaryAction, !hasLocation && { opacity: .45 }]}
+                      onPress={() => selectRequest(request.id, true)}
                     >
-                      <Text style={styles.secondaryActionText}>Ver en mapa</Text>
+                      <Text style={styles.secondaryActionText}>{hasLocation ? 'Ver en mapa' : 'Sin ubicacion'}</Text>
                     </TouchableOpacity>
                     {alreadyResponded && request.my_response_type === 'application' ? (
                       <TouchableOpacity style={styles.primaryAction} onPress={() => handleOpenApplicationComposer(request)}>
@@ -413,7 +397,7 @@ export default function OperationalScreen() {
 }
 
 const FilterButton = ({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) => (
-  <TouchableOpacity style={[styles.filterBtn, active && styles.filterBtnActive]} onPress={onPress}>
+  <TouchableOpacity accessibilityRole="button" accessibilityState={{ selected: active }} style={[styles.filterBtn, active && styles.filterBtnActive]} onPress={onPress}>
     <Text style={[styles.filterBtnText, active && styles.filterBtnTextActive]}>{label}</Text>
   </TouchableOpacity>
 );
@@ -425,6 +409,8 @@ const styles = StyleSheet.create({
   helperText: { fontFamily: FONTS.body, color: '#64748B', fontSize: 13 },
   errorText: { fontFamily: FONTS.body, color: '#64748B', fontSize: 13, textAlign: 'center' },
   retryBtn: {
+    minHeight: LAYOUT.touchTarget,
+    justifyContent: 'center',
     marginTop: 6,
     backgroundColor: COLORS.secondary,
     borderRadius: 999,
@@ -524,6 +510,8 @@ const styles = StyleSheet.create({
   emptyHint: { marginTop: 10, fontFamily: FONTS.body, color: 'rgba(255,255,255,0.7)', fontSize: 11 },
   filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   filterBtn: {
+    minHeight: LAYOUT.touchTarget,
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#CBD5E1',
     borderRadius: 999,
@@ -580,24 +568,20 @@ const styles = StyleSheet.create({
   requestActions: { flexDirection: 'row', gap: 8, marginTop: 2 },
   secondaryAction: {
     flex: 1,
+    minWidth: 0,
+    minHeight: LAYOUT.controlHeight,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 10,
+    borderColor: COLORS.border,
+    borderRadius: LAYOUT.controlRadius,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
+    paddingHorizontal: 10,
     backgroundColor: '#FFFFFF',
   },
-  secondaryActionText: { fontFamily: FONTS.subtitle, color: '#334155', fontSize: 12 },
-  primaryAction: {
-    flex: 1,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    backgroundColor: COLORS.primary,
-  },
-  primaryActionText: { fontFamily: FONTS.subtitle, color: '#FFFFFF', fontSize: 12 },
+  secondaryActionText: { fontFamily: FONTS.subtitle, color: COLORS.brand, fontSize: 14, textAlign: 'center', flexShrink: 1 },
+  primaryAction: { ...FORM.button, flex: 1, minWidth: 0 },
+  primaryActionText: { ...FORM.buttonText, textAlign: 'center', flexShrink: 1 },
   pill: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -10,7 +10,7 @@ import Constants from 'expo-constants';
 
 // --- IMPORTS DEL PROYECTO ---
 import { supabase } from '../../lib/supabase';
-import { COLORS, FONTS } from '../../utils/theme';
+import { COLORS, FONTS, FORM } from '../../utils/theme';
 import { ScreenHeader } from '../../components/molecules/ScreenHeader';
 import { uploadImageToSupabase } from '../../services/StorageService';
 import { deleteCurrentAccount } from '../../services/accountDeletion';
@@ -49,12 +49,24 @@ interface Profile {
   city?: string | null;
   service_city?: string | null;
   service_province?: string | null;
+  instagram_url?: string | null;
+  facebook_url?: string | null;
   instagram_profile_url?: string | null;
   facebook_profile_url?: string | null;
   instagram_post_url?: string | null;
   facebook_post_url?: string | null;
   work_photo_urls?: string[] | null;
 }
+
+const hasProfileField = (profile: Profile | null, field: keyof Profile) =>
+  Boolean(profile && Object.prototype.hasOwnProperty.call(profile, field));
+
+// The hosted schema uses *_url; older mobile schemas used *_profile_url.
+const socialProfileField = (profile: Profile | null, network: 'instagram' | 'facebook') => {
+  const field = `${network}_url` as const;
+  const legacyField = `${network}_profile_url` as const;
+  return hasProfileField(profile, field) || !hasProfileField(profile, legacyField) ? field : legacyField;
+};
 
 type WorkingHoursConfig = {
   weekdayFrom: string;
@@ -84,6 +96,8 @@ const ZERO_COORDINATE_EPSILON = 0.000001;
 const hasValidCoordinates = (lat: number, lng: number) =>
   Number.isFinite(lat) &&
   Number.isFinite(lng) &&
+  Math.abs(lat) <= 90 &&
+  Math.abs(lng) <= 180 &&
   !(Math.abs(lat) <= ZERO_COORDINATE_EPSILON && Math.abs(lng) <= ZERO_COORDINATE_EPSILON);
 
 const extractCityFromAddress = (value: string) => {
@@ -301,6 +315,9 @@ export default function ProfileScreen({
   
   // Estados de Datos (Formulario)
   const [profile, setProfile] = useState<Profile | null>(null);
+  const supportsInstagramPost = hasProfileField(profile, 'instagram_post_url');
+  const supportsFacebookPost = hasProfileField(profile, 'facebook_post_url');
+  const supportsWorkPhotos = hasProfileField(profile, 'work_photo_urls');
   const [fullName, setFullName] = useState('');
   const [businessName, setBusinessName] = useState('');
   const [phone, setPhone] = useState('');
@@ -320,15 +337,16 @@ export default function ProfileScreen({
   const [lastConfirmedAddress, setLastConfirmedAddress] = useState('');
   const [workingHours, setWorkingHours] = useState<WorkingHoursConfig>({ ...DEFAULT_WORKING_HOURS_CONFIG });
   const hasPreciseOperationalBase = useMemo(
-    () => Boolean(technicianLocationResult?.isValid && technicianLocationResult.precision === 'exact'),
+    () => Boolean(technicianLocationResult?.isValid && technicianLocationResult.precision === 'exact' &&
+      hasValidCoordinates(technicianLocationResult.lat, technicianLocationResult.lng)),
     [technicianLocationResult]
   );
   const baseReadiness = useMemo(() => {
     if (locationResolving) return 'Validando';
     if (hasPreciseOperationalBase) return 'Exacta';
-    if (technicianLocationResult?.isValid) return 'Confirmar';
-    if (address.trim()) return 'Revisar';
-    return 'Pendiente';
+    if (technicianLocationResult?.isValid) return 'Aproximada';
+    if (address.trim()) return 'Solo dirección';
+    return 'Sin definir';
   }, [address, hasPreciseOperationalBase, locationResolving, technicianLocationResult]);
 
   useEffect(() => {
@@ -363,8 +381,8 @@ export default function ProfileScreen({
       const nextAddress = userProfile.company_address || userProfile.service_location_name || '';
       setAddress(nextAddress);
       setLastConfirmedAddress(String(userProfile.service_location_name || nextAddress).trim());
-      setInstagramProfileUrl(userProfile.instagram_profile_url || '');
-      setFacebookProfileUrl(userProfile.facebook_profile_url || '');
+      setInstagramProfileUrl(userProfile[socialProfileField(userProfile, 'instagram')] || '');
+      setFacebookProfileUrl(userProfile[socialProfileField(userProfile, 'facebook')] || '');
       setInstagramPostUrl(userProfile.instagram_post_url || '');
       setFacebookPostUrl(userProfile.facebook_post_url || '');
       setShowFeaturedPostsEditor(Boolean(userProfile.instagram_post_url || userProfile.facebook_post_url));
@@ -455,7 +473,7 @@ export default function ProfileScreen({
 
   const handleWorkPhotoPick = async () => {
     try {
-      if (!isEditing) return;
+      if (!isEditing || !supportsWorkPhotos) return;
       if (workPhotoUrls.length >= MAX_WORK_PHOTOS) {
         throw new Error(`Puedes mostrar hasta ${MAX_WORK_PHOTOS} fotos de trabajos.`);
       }
@@ -539,16 +557,11 @@ export default function ProfileScreen({
   const saveProfileData = async () => {
     try {
       setSaving(true);
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
       if (!user) throw new Error('No user');
       if (requiredCompletion && (!businessName.trim() || !phone.trim())) {
         throw new Error('Completa telefono y nombre comercial para continuar.');
-      }
-      if (requiredCompletion && !address.trim()) {
-        throw new Error('Completa tu base operativa para continuar.');
-      }
-      if (!technicianLocationResult?.isValid || technicianLocationResult.precision !== 'exact') {
-        throw new Error('Elige y confirma en el mapa el punto exacto donde quieres aparecer.');
       }
       const workingHoursError = validateWorkingHoursConfig(workingHours);
       if (workingHoursError) throw new Error(workingHoursError);
@@ -572,22 +585,24 @@ export default function ProfileScreen({
         ['facebook.com', 'fb.watch'],
         'Publicacion de Facebook'
       );
+      if ((!supportsInstagramPost && normalizedInstagramPostUrl) ||
+          (!supportsFacebookPost && normalizedFacebookPostUrl) ||
+          (!supportsWorkPhotos && workPhotoUrls.length > 0)) {
+        throw new Error('Las publicaciones o fotos cargadas no se pueden guardar en esta version del perfil. Quitalas para continuar; las redes son opcionales.');
+      }
 
-      const safeAddress = String(technicianLocationResult.displayName || address || '').trim();
+      const savedLocation = technicianLocationResult?.isValid &&
+        hasValidCoordinates(technicianLocationResult.lat, technicianLocationResult.lng)
+        ? technicianLocationResult : null;
+      const safeAddress = String(savedLocation?.displayName || address || '').trim();
       const safeServiceCity =
-        String(technicianLocationResult.city || serviceCity || '').trim() || extractCityFromAddress(safeAddress);
-      const safeServiceProvince = String(technicianLocationResult.province || serviceProvince || '').trim();
-      const preciseLat = Number(technicianLocationResult.lat.toFixed(6));
-      const preciseLng = Number(technicianLocationResult.lng.toFixed(6));
+        String(savedLocation?.city || serviceCity || '').trim() || extractCityFromAddress(safeAddress);
+      const safeServiceProvince = String(savedLocation?.province || serviceProvince || '').trim();
+      const savedLat = savedLocation ? Number(savedLocation.lat.toFixed(6)) : null;
+      const savedLng = savedLocation ? Number(savedLocation.lng.toFixed(6)) : null;
 
       const updates: Record<string, unknown> = {
-        id: user.id,
         email: user.email || null,
-        profile_published: profile?.profile_published === false ? false : true,
-        profile_published_at:
-          profile?.profile_published === false
-            ? profile?.profile_published_at || null
-            : profile?.profile_published_at || new Date().toISOString(),
         business_name: businessName,
         phone: phone,
         city: safeServiceCity || null,
@@ -595,18 +610,18 @@ export default function ProfileScreen({
         service_city: safeServiceCity || null,
         service_province: safeServiceProvince || null,
         service_location_name: safeAddress,
-        service_location_precision: 'exact' as const,
-        instagram_profile_url: normalizedInstagramProfileUrl,
-        facebook_profile_url: normalizedFacebookProfileUrl,
-        instagram_post_url: normalizedInstagramPostUrl,
-        facebook_post_url: normalizedFacebookPostUrl,
-        work_photo_urls: workPhotoUrls.filter((url) => isValidUrl(url)).slice(0, MAX_WORK_PHOTOS),
+        service_location_precision: savedLocation?.precision || null,
+        [socialProfileField(profile, 'instagram')]: normalizedInstagramProfileUrl,
+        [socialProfileField(profile, 'facebook')]: normalizedFacebookProfileUrl,
+        ...(supportsInstagramPost ? { instagram_post_url: normalizedInstagramPostUrl } : {}),
+        ...(supportsFacebookPost ? { facebook_post_url: normalizedFacebookPostUrl } : {}),
+        ...(supportsWorkPhotos ? { work_photo_urls: workPhotoUrls.filter((url) => isValidUrl(url)).slice(0, MAX_WORK_PHOTOS) } : {}),
         default_discount: parsePercent(defaultDiscount),
         working_hours: stringifyWorkingHoursConfig(workingHours),
-        location_lat: preciseLat,
-        location_lng: preciseLng,
-        service_lat: preciseLat,
-        service_lng: preciseLng,
+        ...(hasProfileField(profile, 'location_lat') ? { location_lat: savedLat } : {}),
+        ...(hasProfileField(profile, 'location_lng') ? { location_lng: savedLng } : {}),
+        service_lat: savedLat,
+        service_lng: savedLng,
         updated_at: new Date().toISOString(),
       };
 
@@ -614,9 +629,19 @@ export default function ProfileScreen({
         updates.full_name = fullName;
       }
 
-      const { error } = await supabase.from('profiles').upsert(updates);
+      // The auth trigger creates the row. Only update owner-editable columns;
+      // upsert also attempts to update id, which is deliberately protected.
+      const { data: savedProfile, error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', user.id)
+        .select('id')
+        .maybeSingle();
 
       if (error) throw error;
+      if (!savedProfile || savedProfile.id !== user.id) {
+        throw new Error('No se pudo confirmar el guardado de tu perfil. Tus cambios siguen en el formulario; vuelve a intentarlo.');
+      }
 
       // Actualizar estado local del perfil
       // TypeScript ahora estará feliz porque Profile acepta null en lat/lng
@@ -626,7 +651,7 @@ export default function ProfileScreen({
 
       const msg =
         profile?.access_granted === true
-          ? 'Perfil actualizado con tu punto en el mapa.'
+          ? 'Perfil actualizado.'
           : 'Perfil guardado. Queda pendiente la revision admin.';
       isWeb ? alert(msg) : Alert.alert("Éxito", msg);
 
@@ -732,8 +757,8 @@ export default function ProfileScreen({
       const safeAddress = profile.company_address || '';
       setAddress(safeAddress);
       setLastConfirmedAddress(String(profile.service_location_name || safeAddress).trim());
-      setInstagramProfileUrl(profile.instagram_profile_url || '');
-      setFacebookProfileUrl(profile.facebook_profile_url || '');
+      setInstagramProfileUrl(profile[socialProfileField(profile, 'instagram')] || '');
+      setFacebookProfileUrl(profile[socialProfileField(profile, 'facebook')] || '');
       setInstagramPostUrl(profile.instagram_post_url || '');
       setFacebookPostUrl(profile.facebook_post_url || '');
       setShowFeaturedPostsEditor(Boolean(profile.instagram_post_url || profile.facebook_post_url));
@@ -790,6 +815,7 @@ export default function ProfileScreen({
       <ScreenHeader
         title={requiredCompletion ? 'Completa tu perfil' : 'Mi Perfil'}
         subtitle={requiredCompletion ? 'Requisito de acceso' : 'Configuracion y cuenta'}
+        showBack={!requiredCompletion}
         centerTitle={isWeb}
       />
 
@@ -803,7 +829,7 @@ export default function ProfileScreen({
             <Ionicons name="shield-checkmark-outline" size={18} color="#C2410C" />
             <View style={styles.requiredCopy}>
               <Text style={styles.requiredTitle}>Completa tu ficha operativa para habilitar el acceso.</Text>
-              <Text style={styles.requiredText}>Necesitamos telefono, nombre comercial y el punto exacto en el mapa para activar matching por zona y mapa operativo.</Text>
+              <Text style={styles.requiredText}>Datos obligatorios: telefono y nombre comercial. La base operativa y el punto en el mapa son opcionales.</Text>
             </View>
           </View>
         )}
@@ -968,7 +994,7 @@ export default function ProfileScreen({
 
             {/* Selector de Mapa (Base Operativa) */}
             <View style={[styles.inputGroup, styles.operationalBaseGroup]}>
-                <Text style={styles.inputLabel}>BASE OPERATIVA</Text>
+                <Text style={styles.inputLabel}>BASE OPERATIVA (OPCIONAL)</Text>
                 <View style={styles.operationalBaseFieldWrap}>
                     {isEditing ? (
                     <TechnicianLocationPicker
@@ -1006,7 +1032,7 @@ export default function ProfileScreen({
                         size={16}
                         color={locationResolving ? '#1D4ED8' : hasPreciseOperationalBase ? '#166534' : '#64748B'}
                       />
-                      <Text style={styles.operationalBaseStatusTitle}>Precision operativa</Text>
+                      <Text style={styles.operationalBaseStatusTitle}>Ubicación en el mapa</Text>
                     </View>
                     <View
                       style={[
@@ -1032,8 +1058,8 @@ export default function ProfileScreen({
                       : hasPreciseOperationalBase
                         ? 'Punto confirmado y listo para mapa operativo y matching por radio.'
                         : technicianLocationResult?.isValid
-                          ? 'Confirma el punto en el mapa para guardar dónde apareces.'
-                          : 'Busca la direccion y confirma el punto exacto en el mapa para definir dónde apareces.'}
+                          ? 'Ubicación aproximada. El punto exacto queda pendiente.'
+                          : 'Sin punto confirmado. No impide guardar el perfil ni acceder a la app.'}
                   </Text>
                   <View style={styles.operationalBaseMetaGrid}>
                     <View style={styles.operationalBaseMetaItem}>
@@ -1178,7 +1204,7 @@ export default function ProfileScreen({
             </View>
 
             <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>PERFIL DE INSTAGRAM</Text>
+                <Text style={styles.inputLabel}>PERFIL DE INSTAGRAM (OPCIONAL)</Text>
                 <TextInput
                     style={[styles.inputField, !isEditing && styles.inputFieldDisabled]}
                     value={instagramProfileUrl}
@@ -1193,7 +1219,7 @@ export default function ProfileScreen({
             </View>
 
             <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>PERFIL DE FACEBOOK</Text>
+                <Text style={styles.inputLabel}>PERFIL DE FACEBOOK (OPCIONAL)</Text>
                 <TextInput
                     style={[styles.inputField, !isEditing && styles.inputFieldDisabled]}
                     value={facebookProfileUrl}
@@ -1210,15 +1236,17 @@ export default function ProfileScreen({
             <View style={styles.secondaryBlock}>
               <View style={styles.inlineHeader}>
                 <View style={styles.inlineHeaderCopy}>
-                  <Text style={styles.secondaryBlockTitle}>PUBLICACIONES DESTACADAS</Text>
+                  <Text style={styles.secondaryBlockTitle}>PUBLICACIONES DESTACADAS (OPCIONAL)</Text>
                   <Text style={styles.fieldHint}>
-                    Opcional. Solo usalo si queres mostrar un post o reel puntual abajo del perfil.
+                    {supportsInstagramPost || supportsFacebookPost
+                      ? 'Post o reel publico para tu perfil.'
+                      : 'No disponibles en esta version del perfil. No impiden guardar tus datos.'}
                   </Text>
                 </View>
                 <TouchableOpacity
-                  style={[styles.inlineActionBtn, !isEditing && styles.inlineActionBtnDisabled]}
+                  style={[styles.inlineActionBtn, (!isEditing || (!supportsInstagramPost && !supportsFacebookPost)) && styles.inlineActionBtnDisabled]}
                   onPress={() => setShowFeaturedPostsEditor((current) => !current)}
-                  disabled={!isEditing}
+                  disabled={!isEditing || (!supportsInstagramPost && !supportsFacebookPost)}
                 >
                   <Ionicons
                     name={showFeaturedPostsEditor ? 'chevron-up-outline' : 'chevron-down-outline'}
@@ -1231,7 +1259,7 @@ export default function ProfileScreen({
 
               {showFeaturedPostsEditor ? (
                 <>
-                  <View style={styles.inputGroup}>
+                  {(supportsInstagramPost || instagramPostUrl) && <View style={styles.inputGroup}>
                       <Text style={styles.inputLabel}>PUBLICACION DE INSTAGRAM</Text>
                       <TextInput
                           style={[styles.inputField, !isEditing && styles.inputFieldDisabled]}
@@ -1244,9 +1272,9 @@ export default function ProfileScreen({
                           selectTextOnFocus={isEditing}
                       />
                       <Text style={styles.fieldHint}>Post o reel publico para mostrar embebido en tu perfil.</Text>
-                  </View>
+                  </View>}
 
-                  <View style={[styles.inputGroup, styles.secondaryBlockLastField]}>
+                  {(supportsFacebookPost || facebookPostUrl) && <View style={[styles.inputGroup, styles.secondaryBlockLastField]}>
                       <Text style={styles.inputLabel}>PUBLICACION DE FACEBOOK</Text>
                       <TextInput
                           style={[styles.inputField, !isEditing && styles.inputFieldDisabled]}
@@ -1259,7 +1287,7 @@ export default function ProfileScreen({
                           selectTextOnFocus={isEditing}
                       />
                       <Text style={styles.fieldHint}>Publicacion destacada de Facebook para sumar prueba social.</Text>
-                  </View>
+                  </View>}
                 </>
               ) : (
                 <Text style={styles.secondaryBlockSummary}>
@@ -1274,12 +1302,14 @@ export default function ProfileScreen({
                 <View style={styles.inlineHeader}>
                   <View style={styles.inlineHeaderCopy}>
                     <Text style={styles.inputLabel}>FOTOS DE TRABAJOS</Text>
-                    <Text style={styles.fieldHint}>Estas fotos aparecen en tu perfil publico como galeria comercial.</Text>
+                    <Text style={styles.fieldHint}>{supportsWorkPhotos
+                      ? 'Estas fotos aparecen en tu perfil publico como galeria comercial.'
+                      : 'Galeria no disponible en esta version del perfil.'}</Text>
                   </View>
                   <TouchableOpacity
-                    style={[styles.inlineActionBtn, (!isEditing || uploadingWorkPhoto) && styles.inlineActionBtnDisabled]}
+                    style={[styles.inlineActionBtn, (!isEditing || uploadingWorkPhoto || !supportsWorkPhotos) && styles.inlineActionBtnDisabled]}
                     onPress={handleWorkPhotoPick}
-                    disabled={!isEditing || uploadingWorkPhoto}
+                    disabled={!isEditing || uploadingWorkPhoto || !supportsWorkPhotos}
                   >
                     {uploadingWorkPhoto ? (
                       <ActivityIndicator size="small" color="#FFFFFF" />
@@ -1326,7 +1356,7 @@ export default function ProfileScreen({
                   onPress={saveProfileData}
                   disabled={saving || uploadingWorkPhoto}
               >
-                  {saving ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveButtonText}>GUARDAR DATOS</Text>}
+                  {saving ? <ActivityIndicator color={COLORS.text} /> : <Text style={styles.saveButtonText}>GUARDAR DATOS</Text>}
               </TouchableOpacity>
             )}
         </View>
@@ -1392,8 +1422,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   center: { justifyContent: 'center', alignItems: 'center' },
   content: Platform.select({
-    web: { padding: 24, paddingBottom: 60, maxWidth: 820, width: '100%', alignSelf: 'center' },
-    default: { padding: 20, paddingBottom: 50 },
+    web: { padding: 16, paddingBottom: 32, maxWidth: 820, width: '100%', alignSelf: 'center' },
+    default: { padding: 16, paddingBottom: 32 },
   }),
   requiredCard: {
     flexDirection: 'row',
@@ -1524,7 +1554,7 @@ const styles = StyleSheet.create({
   }),
   inputGroup: { marginBottom: 16 },
   inputLabel: { fontSize: 10, fontFamily: FONTS.subtitle, color: '#8B93A1', marginBottom: 6, letterSpacing: 1, textTransform: 'uppercase' },
-  inputField: { backgroundColor: '#FFF', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#E2E8F0', fontSize: 14, fontFamily: FONTS.body, color: COLORS.text },
+  inputField: FORM.input,
   inputFieldDisabled: { backgroundColor: '#F8FAFC', color: '#94A3B8' },
   fieldHint: { marginTop: 6, fontSize: 11, lineHeight: 17, fontFamily: FONTS.body, color: '#64748B' },
   secondaryBlock: {
@@ -1676,8 +1706,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     flex: 1,
+    minWidth: 0,
   },
   operationalBaseStatusTitle: {
+    flexShrink: 1,
     fontSize: 12,
     fontFamily: FONTS.subtitle,
     color: '#0F172A',
@@ -1788,29 +1820,8 @@ const styles = StyleSheet.create({
     color: '#475569',
     fontFamily: FONTS.body,
   },
-  saveButton: Platform.select({
-    web: {
-      backgroundColor: COLORS.primary,
-      padding: 14,
-      borderRadius: 12,
-      alignItems: 'center',
-      marginTop: 8,
-      boxShadow: '0 12px 22px rgba(243, 156, 18, 0.3)',
-    },
-    default: {
-      backgroundColor: COLORS.primary,
-      padding: 14,
-      borderRadius: 12,
-      alignItems: 'center',
-      marginTop: 8,
-      shadowColor: COLORS.primary,
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.25,
-      shadowRadius: 10,
-      elevation: 4,
-    },
-  }),
-  saveButtonText: { color: '#FFF', fontFamily: FONTS.title, fontSize: 14, letterSpacing: 0.6 },
+  saveButton: { ...FORM.button, marginTop: 8 },
+  saveButtonText: FORM.buttonText,
 
   // --- MENU ---
   sectionHeader: {

@@ -1,12 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as WebBrowser from 'expo-web-browser';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { useProjectOwner } from './ProjectSession';
 import { projectRepository } from './projectServices';
-import { metadata, PROJECT_TOOLS, ProjectMeta, ProjectRecord, projectWebUrl, validateMeta } from './projectWorkspace';
+import { PROJECT_TOOLS, ProjectMeta, ProjectRecord, validateMeta } from './projectWorkspace';
 import { Action, IconButton, Notice, ProjectHeader, TEAL, ui } from './ProjectUI';
 import ProjectPlanPreview from './ProjectPlanPreview';
 
@@ -25,6 +24,7 @@ export default function ProjectDetailScreen({ navigation, route }: any) {
     finally { if (mounted.current && generation.current === request) setLoading(false); }
   };
   useEffect(() => { void load(); }, [selected.id, owner]);
+  useEffect(() => { if (route.params.row.id !== selected.id) setSelected(route.params.row); }, [route.params.row.id]);
   const loadVersions = async (nextPage = 0) => {
     setVersionsBusy(true); setVersionMessage('');
     try {
@@ -43,19 +43,6 @@ export default function ProjectDetailScreen({ navigation, route }: any) {
   };
   const openVersions = () => { setVersionsOpen(true); void loadVersions(); };
   useEffect(() => { if (route.params.showVersions) openVersions(); }, []);
-  const continueWeb = async () => {
-    if (!record) return;
-    setBusy(true); setMessage('');
-    try {
-      if (!record.synced) await projectRepository.sync(scope);
-      const latest = await projectRepository.get(scope, record.id);
-      if (!latest.synced) throw new Error('El respaldo está pendiente. Reintentá con conexión antes de abrirlo en la web.');
-      if (!mounted.current) return;
-      setRecord(latest);
-      await WebBrowser.openBrowserAsync(projectWebUrl(metadata(latest)));
-    } catch (error) { if (mounted.current) setMessage((error as Error).message); }
-    finally { if (mounted.current) setBusy(false); }
-  };
   const exportCopy = async () => {
     if (!record) return;
     setBusy(true); setMessage(''); let uri: string | null = null;
@@ -74,8 +61,8 @@ export default function ProjectDetailScreen({ navigation, route }: any) {
     finally { if (uri) await FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => {}); if (mounted.current) setBusy(false); }
   };
   const draft = record?.document.draft, info = draft?.projectInfo;
-  return <SafeAreaView style={ui.root} edges={['top', 'bottom']}>
-    <ProjectHeader title={selected.name} subtitle={`${PROJECT_TOOLS[selected.tool]} · ${selected.countryCode}`} back={() => navigation.goBack()} action={<IconButton name="time-outline" label="Ver versiones" onPress={openVersions} />} />
+  return <SafeAreaView style={ui.root} edges={['bottom']}>
+    <ProjectHeader title={selected.name} subtitle={`${PROJECT_TOOLS[selected.tool]} · ${selected.countryCode}`} back={() => navigation.goBack()} action={<IconButton inverse name="time-outline" label="Ver versiones" onPress={openVersions} />} />
     <ScrollView contentContainerStyle={ui.content}>
       <Notice text={message} />
       {loading ? <ActivityIndicator color={TEAL} style={{ margin: 30 }} /> : !record ? <Action title="Reintentar carga" icon="refresh" onPress={() => void load()} /> : <>
@@ -83,9 +70,9 @@ export default function ProjectDetailScreen({ navigation, route }: any) {
         {draft ? <ProjectPlanPreview draft={draft} /> : null}
         <View style={ui.band}><Text style={ui.heading}>Datos del proyecto</Text><Text style={ui.text}>{typeof info?.clientName === 'string' && info.clientName || 'Cliente sin definir'}</Text><Text style={ui.muted}>{typeof info?.location === 'string' && info.location || 'Dirección sin definir'}</Text>{info?.siteLocation && typeof info.siteLocation.lat === 'number' && typeof info.siteLocation.lng === 'number' ? <Text style={ui.muted}>{info.siteLocation.lat}, {info.siteLocation.lng}</Text> : null}</View>
         {draft?.kind === 'house-drawing' ? <View style={ui.band}><Text style={ui.heading}>Plano libre</Text><Text style={ui.text}>Terreno: {String(draft.settings?.lotWidth ?? '—')} × {String(draft.settings?.lotDepth ?? '—')} m</Text><Text style={ui.muted}>{Array.isArray(draft.walls) ? draft.walls.length : 0} muros · {Array.isArray(draft.elements) ? draft.elements.length : 0} elementos constructivos</Text></View> : null}
-        <View style={ui.band}><Action title="Continuar en web" icon="open-outline" primary busy={busy} onPress={() => void continueWeb()} /><Text style={[ui.muted, { marginTop: 12 }]}>Ingresá con esta misma cuenta. En el historial web elegí la versión y confirmá su apertura; se conserva el plano que ya tengas.</Text></View>
+        {draft?.kind === 'house-drawing' ? <View style={ui.band}><Action title="Diseñar y cotizar" icon="construct-outline" primary disabled={busy} onPress={() => navigation.navigate('DesignWorkspace', { row: selected })} /></View> : <View style={ui.band}><Text style={ui.muted}>Este tipo de proyecto se conserva en el historial. Su edición integrada todavía no está disponible.</Text></View>}
         <View style={ui.band}><Action title="Exportar copia editable" icon="download-outline" disabled={busy} onPress={() => void exportCopy()} /><Text style={[ui.muted, { marginTop: 10 }]}>Archivo privado JSON. Incluye datos del cliente y ubicación si fueron cargados; no es la entrega PDF para el cliente.</Text></View>
-        <Text style={[ui.muted, { marginTop: 16 }]}>Anteproyecto. El plano, el 3D, los cómputos y el presupuesto se editan en la web. Requiere revisión profesional antes de construir.</Text>
+        <Text style={[ui.muted, { marginTop: 16 }]}>Anteproyecto. Las versiones respaldadas están disponibles en esta cuenta tanto en la app como en la web. Requiere revisión profesional antes de construir.</Text>
       </>}
     </ScrollView>
     <Modal visible={versionsOpen} transparent animationType="slide" onRequestClose={() => setVersionsOpen(false)}><View style={ui.sheetBackdrop}><SafeAreaView edges={['bottom']} style={ui.sheet}><View style={[ui.row, { justifyContent: 'space-between' }]}><Text accessibilityRole="header" style={ui.heading}>Versiones del proyecto</Text><IconButton name="close" label="Cerrar versiones" onPress={() => setVersionsOpen(false)} /></View><Notice text={versionMessage} /><ScrollView>{versions.map((row) => <Pressable accessibilityRole="button" key={row.id} accessibilityLabel={`Ver versión ${row.label}, ${new Date(row.capturedAt).toLocaleString('es-AR')}`} onPress={() => { setSelected(row); setMessage(''); setVersionsOpen(false); }} style={ui.band}><Text style={ui.text}>{row.label}</Text><Text style={ui.muted}>{new Date(row.capturedAt).toLocaleString('es-AR')} · {row.synced ? 'Cuenta' : 'Dispositivo'}</Text></Pressable>)}{versionsBusy ? <ActivityIndicator color={TEAL} /> : !versions.length ? <Text style={ui.muted}>No hay versiones disponibles.</Text> : null}{more ? <Action title="Cargar versiones anteriores" disabled={versionsBusy} onPress={() => void loadVersions(page + 1)} /> : null}{versionMessage ? <Action title="Reintentar historial" onPress={() => void loadVersions()} /> : null}</ScrollView></SafeAreaView></View></Modal>

@@ -19,7 +19,7 @@ import { fetchClientWorkspace, ClientWorkspacePayload } from '../../api/client';
 import { supabase } from '../../lib/supabase';
 import { setStoredAudience } from '../../utils/audience';
 import { ScreenHeader } from '../../components/molecules/ScreenHeader';
-import { COLORS, FONTS } from '../../utils/theme';
+import { COLORS, FONTS, FORM } from '../../utils/theme';
 import { deleteCurrentAccount } from '../../services/accountDeletion';
 
 const toErrorMessage = (error: unknown, fallback: string) => {
@@ -426,7 +426,7 @@ export default function ClientProfileScreen({
 
             <TouchableOpacity style={styles.primaryBtn} disabled={saving} onPress={handleSaveProfile}>
               {saving ? (
-                <ActivityIndicator color="#FFF" />
+                <ActivityIndicator color={COLORS.text} />
               ) : (
                 <View style={styles.buttonRow}>
                   <Ionicons name="save-outline" size={16} color="#FFF" />
@@ -914,17 +914,7 @@ const styles = StyleSheet.create({
   },
   fieldGroup: { gap: 6 },
   label: { fontFamily: FONTS.subtitle, color: COLORS.text, fontSize: 13, marginTop: 2 },
-  input: {
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 14,
-    paddingHorizontal: 13,
-    paddingVertical: 12,
-    fontFamily: FONTS.body,
-    color: COLORS.text,
-    fontSize: 14,
-    backgroundColor: '#FFFFFF',
-  },
+  input: FORM.input,
   emailPill: {
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -956,20 +946,8 @@ const styles = StyleSheet.create({
   },
   messageError: { color: '#991B1B' },
   messageSuccess: { color: '#166534' },
-  primaryBtn: {
-    backgroundColor: '#0F172A',
-    borderRadius: 16,
-    paddingVertical: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 6,
-    shadowColor: '#0F172A',
-    shadowOpacity: 0.14,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 3,
-  },
-  primaryBtnText: { color: '#FFF', fontFamily: FONTS.title, fontSize: 14 },
+  primaryBtn: { ...FORM.button, marginTop: 6 },
+  primaryBtnText: FORM.buttonText,
   buttonRow: {
     flexDirection: 'row',
     alignItems: 'center',

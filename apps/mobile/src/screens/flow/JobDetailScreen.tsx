@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchQuoteFeedbackLink } from '../../api/marketplace';
-import { ScreenHeader } from '../../components/molecules/ScreenHeader';
+import { ScreenHeader, HeaderIconButton } from '../../components/molecules/ScreenHeader';
 import { supabase } from '../../lib/supabase';
 import { getPublicQuoteUrl } from '../../utils/config';
 import { formatCurrency } from '../../utils/number';
@@ -428,9 +428,7 @@ export default function JobDetailScreen() {
         subtitle={`${statusMeta.label} | ${formatDate(quote.created_at)}`}
         showBack
         rightAction={canEdit ? (
-          <TouchableOpacity style={styles.headerActionBtn} onPress={handleEdit}>
-            <Ionicons name="pencil-outline" size={18} color="#FFFFFF" />
-          </TouchableOpacity>
+          <HeaderIconButton name="pencil-outline" label="Editar presupuesto" onPress={handleEdit} />
         ) : undefined}
       />
 

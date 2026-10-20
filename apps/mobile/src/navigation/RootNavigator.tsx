@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, Platform, StyleSheet, Text, View } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +16,7 @@ import { registerForPushNotificationsAsync, showLocalNotification } from '../uti
 import ProjectsScreen from '../projects/ProjectsScreen';
 import NewProjectScreen from '../projects/NewProjectScreen';
 import ProjectDetailScreen from '../projects/ProjectDetailScreen';
+import DesignWorkspaceScreen from '../design/DesignWorkspaceScreen';
 import MoreScreen from '../projects/MoreScreen';
 import { ProjectOwnerContext } from '../projects/ProjectSession';
 
@@ -54,6 +55,7 @@ import ClientProfileScreen from '../screens/client/ClientProfileScreen';
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 const logo = require('../../assets/icon.png');
+const navigationTheme = { ...DefaultTheme, colors: { ...DefaultTheme.colors, primary: COLORS.brand, background: COLORS.background, card: COLORS.white, text: COLORS.text, border: COLORS.border } };
 
 const normalizeAudience = (value: unknown): MobileAudience | null => {
   const normalized = String(value || '').trim().toLowerCase();
@@ -97,17 +99,6 @@ type ProfileGatePayload = {
 };
 
 const hasRequiredValue = (value: unknown) => String(value || '').trim().length > 0;
-const ZERO_COORDINATE_EPSILON = 0.000001;
-
-const hasPreciseCoordinates = (lat: unknown, lng: unknown) => {
-  const parsedLat = Number(lat);
-  const parsedLng = Number(lng);
-  return (
-    Number.isFinite(parsedLat) &&
-    Number.isFinite(parsedLng) &&
-    !(Math.abs(parsedLat) <= ZERO_COORDINATE_EPSILON && Math.abs(parsedLng) <= ZERO_COORDINATE_EPSILON)
-  );
-};
 
 const resolveProfileField = (profileValue: unknown, metadataValue: unknown) =>
   hasRequiredValue(profileValue) ? profileValue : metadataValue;
@@ -118,9 +109,7 @@ const isClientProfileComplete = (profile: ProfileGatePayload | null, metadata: R
 
 const isTechProfileComplete = (profile: ProfileGatePayload | null, metadata: Record<string, unknown>) =>
   hasRequiredValue(resolveProfileField(profile?.phone, metadata.phone)) &&
-  hasRequiredValue(resolveProfileField(profile?.business_name, metadata.business_name)) &&
-  hasRequiredValue(profile?.company_address) &&
-  hasPreciseCoordinates(profile?.service_lat ?? profile?.location_lat, profile?.service_lng ?? profile?.location_lng);
+  hasRequiredValue(resolveProfileField(profile?.business_name, metadata.business_name));
 
 const withTabSwipe = (Component: React.ComponentType<any>) => {
   const Wrapped = (props: any) => (
@@ -133,11 +122,9 @@ const withTabSwipe = (Component: React.ComponentType<any>) => {
 
 const JobsScreenWithSwipe = withTabSwipe(JobsScreen);
 const AgendaScreenWithSwipe = withTabSwipe(AgendaScreen);
-const OperationalScreenWithSwipe = withTabSwipe(OperationalScreen);
 
 const ClientRequestsScreenWithSwipe = withTabSwipe(ClientRequestsScreen);
 const ClientPublishScreenWithSwipe = withTabSwipe(ClientPublishScreen);
-const ClientMapScreenWithSwipe = withTabSwipe(ClientMapScreen);
 const ClientProfileScreenWithSwipe = withTabSwipe(ClientProfileScreen);
 
 function AccountLoadingScreen() {
@@ -216,13 +203,13 @@ const useTabScreenOptions = (variant: 'tech' | 'client' = 'tech') => {
     if (!isTechVariant) {
       return {
         headerShown: false,
-        tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: '#95A5A6',
+        tabBarActiveTintColor: COLORS.brand,
+        tabBarInactiveTintColor: COLORS.textSecondary,
         tabBarBackground: () => <View style={styles.tabBarBackground} />,
         tabBarStyle: {
           backgroundColor: COLORS.white,
-          borderTopColor: '#EEEEEE',
-          height: 60 + insets.bottom,
+          borderTopColor: COLORS.border,
+          height: 64 + insets.bottom,
           paddingBottom: Math.max(8, insets.bottom),
           paddingTop: 8,
         },
@@ -237,15 +224,15 @@ const useTabScreenOptions = (variant: 'tech' | 'client' = 'tech') => {
       headerShown: false,
       tabBarShowLabel: true,
       tabBarHideOnKeyboard: true,
-      tabBarActiveTintColor: '#006e68',
-      tabBarInactiveTintColor: '#536e76',
+      tabBarActiveTintColor: COLORS.brand,
+      tabBarInactiveTintColor: COLORS.textSecondary,
       tabBarStyle: {
         height: 64 + insets.bottom,
         paddingBottom: Math.max(8, insets.bottom),
         paddingTop: 8,
         backgroundColor: '#FFFFFF',
         borderTopWidth: 1,
-        borderTopColor: '#d5dfdf',
+        borderTopColor: COLORS.border,
       },
       tabBarLabelStyle: { fontFamily: FONTS.body, fontSize: 10 },
       tabBarIcon: ({ focused, color }: any) => <Ionicons name={getTabIconName(route.name, focused) as any} size={22} color={color} />,
@@ -261,7 +248,7 @@ function TechTabs() {
       <Tab.Screen name="Proyectos" component={ProjectsScreen} />
       <Tab.Screen name="Panel" component={JobsScreenWithSwipe} options={{ title: 'Dashboard' }} />
       <Tab.Screen name="Agenda" component={AgendaScreenWithSwipe} options={{ title: 'Orden del dia' }} />
-      <Tab.Screen name="Operativo" component={OperationalScreenWithSwipe} options={{ title: 'Mapa operativo' }} />
+      <Tab.Screen name="Operativo" component={OperationalScreen} options={{ title: 'Mapa operativo' }} />
       <Tab.Screen name="Más" component={MoreScreen} />
     </Tab.Navigator>
   );
@@ -274,7 +261,7 @@ function ClientTabs() {
     <Tab.Navigator initialRouteName="MiPerfil" screenOptions={screenOptions}>
       <Tab.Screen name="Solicitudes" component={ClientRequestsScreenWithSwipe} />
       <Tab.Screen name="Publicar" component={ClientPublishScreenWithSwipe} />
-      <Tab.Screen name="Mapa" component={ClientMapScreenWithSwipe} />
+      <Tab.Screen name="Mapa" component={ClientMapScreen} />
       <Tab.Screen name="MiPerfil" component={ClientProfileScreenWithSwipe} options={{ title: 'Perfil' }} />
     </Tab.Navigator>
   );
@@ -360,25 +347,26 @@ export default function RootNavigator() {
     const metadata = ((session.user as any)?.user_metadata || {}) as Record<string, unknown>;
 
     const seedProfileFromMetadata = async () => {
-      const profileSeed: Record<string, unknown> = {
-        id: session.user.id,
-        email: session.user.email || null,
-      };
+      const { data: existing, error: readError } = await supabase
+        .from('profiles')
+        .select('email, full_name, phone, city, business_name')
+        .eq('id', session.user.id)
+        .maybeSingle();
+      if (readError) throw readError;
+      if (!existing) return;
 
-      if (hasRequiredValue(metadata.full_name)) {
-        profileSeed.full_name = String(metadata.full_name).trim();
+      const profileSeed: Record<string, unknown> = {};
+      if (!hasRequiredValue(existing.email) && session.user.email) {
+        profileSeed.email = session.user.email;
       }
-      if (hasRequiredValue(metadata.phone)) {
-        profileSeed.phone = String(metadata.phone).trim();
+      for (const field of ['full_name', 'phone', 'city', 'business_name'] as const) {
+        if (!hasRequiredValue(existing[field]) && hasRequiredValue(metadata[field])) {
+          profileSeed[field] = String(metadata[field]).trim();
+        }
       }
-      if (hasRequiredValue(metadata.city)) {
-        profileSeed.city = String(metadata.city).trim();
-      }
-      if (hasRequiredValue(metadata.business_name)) {
-        profileSeed.business_name = String(metadata.business_name).trim();
-      }
+      if (Object.keys(profileSeed).length === 0) return;
 
-      const { error } = await supabase.from('profiles').upsert(profileSeed);
+      const { error } = await supabase.from('profiles').update(profileSeed).eq('id', session.user.id);
       if (error) throw error;
     };
 
@@ -401,7 +389,7 @@ export default function RootNavigator() {
       try {
         const { data: profile, error } = await supabase
           .from('profiles')
-          .select('full_name, phone, city, business_name, company_address, location_lat, location_lng, service_lat, service_lng')
+          .select('full_name, phone, city, business_name')
           .eq('id', session.user.id)
           .maybeSingle();
 
@@ -524,8 +512,9 @@ export default function RootNavigator() {
         <Stack.Screen name="Main" component={TechTabs} />
         <Stack.Screen name="NewProject" component={NewProjectScreen} />
         <Stack.Screen name="ProjectDetail" component={ProjectDetailScreen} />
-        <Stack.Screen name="Notificaciones" component={NotificationsScreen} options={{ headerShown: true, title: 'Notificaciones' }} />
-        <Stack.Screen name="Perfil" component={ProfileScreen} options={{ headerShown: true, title: 'Perfil' }} />
+        <Stack.Screen name="DesignWorkspace" component={DesignWorkspaceScreen} />
+        <Stack.Screen name="Notificaciones" component={NotificationsScreen} />
+        <Stack.Screen name="Perfil" component={ProfileScreen} />
 
         <Stack.Screen name="JobConfig" component={JobConfigScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen
@@ -564,7 +553,7 @@ export default function RootNavigator() {
 
   return (
     <ProjectOwnerContext.Provider value={session?.user?.id || null}>
-    <NavigationContainer>
+    <NavigationContainer theme={navigationTheme}>
       <Stack.Navigator key={`${session?.user?.id || 'signed-out'}:${audience}`} screenOptions={{ headerShown: false }}>
         {rootContent}
       </Stack.Navigator>

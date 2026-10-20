@@ -8,6 +8,11 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "test:projects": "node --test tests/projectWorkspace.test.mjs",
+    "test:design": "node --test tests/designContract.test.mjs",
+    "build:design": "node ../../scripts/build-design-workspace.mjs",
+    "sync:material-renders": "node ../../scripts/sync-material-previews.mjs",
+    "build:work-renders": "node ../../scripts/generate-work-previews.mjs",
+    "test:catalog-renders": "node --test tests/catalogRenders.test.mjs",
     "typecheck": "tsc --noEmit",
     "check:bundles": "expo export --platform android --platform ios --output-dir dist/native-check"
   },
@@ -45,6 +50,7 @@
     "expo-splash-screen": "~31.0.11",
     "expo-status-bar": "~3.0.8",
     "expo-web-browser": "~15.0.11",
+    "leaflet": "^1.9.4",
     "lucide-react": "^0.555.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
@@ -57,10 +63,12 @@
     "react-native-screens": "~4.16.0",
     "react-native-svg": "15.12.1",
     "react-native-url-polyfill": "^3.0.0",
-    "react-native-web": "^0.21.0"
+    "react-native-web": "^0.21.0",
+    "react-native-webview": "13.15.0"
   },
   "devDependencies": {
     "@types/google.maps": "^3.58.1",
+    "@types/leaflet": "^1.9.21",
     "@types/react": "~19.1.0",
     "eas-cli": "^18.4.0",
     "typescript": "~5.9.2"

@@ -183,7 +183,7 @@ export default function MapScreen() {
 
   return (
     <View style={styles.container}>
-      <ScreenHeader title="MAPA" subtitle={subtitle} centerTitle />
+      <ScreenHeader title="MAPA" subtitle={subtitle} showBack />
       <View style={styles.content}>
         {isMapLoading ? (
           <View style={styles.mapPanel}>

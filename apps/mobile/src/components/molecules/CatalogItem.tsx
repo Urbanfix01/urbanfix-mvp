@@ -3,10 +3,13 @@ import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native
 import { Ionicons } from '@expo/vector-icons';
 import { MasterItem } from '../../types/database';
 import { FONTS } from '../../utils/theme';
+import MaterialRenderImage from '../../materials/MaterialRenderImage';
+import type { CatalogRenderPreview } from '../../materials/useCatalogRenders';
 
 interface CatalogItemProps {
   item: MasterItem;
   onPress: (item: MasterItem) => void;
+  preview?: CatalogRenderPreview;
 }
 
 const formatSource = (source?: string | null) => {
@@ -15,32 +18,32 @@ const formatSource = (source?: string | null) => {
 };
 
 const formatPrice = (value?: number | null) => {
-  if (!value) return '$0';
+  if (!value || value < 0) return 'Pendiente';
   return `$${value.toLocaleString('es-AR')}`;
 };
 
-export const CatalogItem = ({ item, onPress }: CatalogItemProps) => {
+export const CatalogItem = ({ item, onPress, preview }: CatalogItemProps) => {
   const isLabor = item.type === 'labor';
   const isConsumable = item.type === 'consumable';
   const typeLabel = isLabor ? 'MANO DE OBRA' : isConsumable ? 'INSUMO' : 'MATERIAL';
   const sourcePretty = formatSource(item.source_ref);
 
   return (
-    <TouchableOpacity style={styles.card} onPress={() => onPress(item)} activeOpacity={0.82}>
+    <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Ver detalle de ${item.name}`} style={styles.card} onPress={() => onPress(item)} activeOpacity={0.82}>
       <View style={styles.accentBar} />
 
-      <View style={styles.iconContainer}>
+      {preview?.source ? <MaterialRenderImage preview={preview} name={item.name} style={styles.render} /> : <View style={styles.iconContainer}>
         <Ionicons name={isLabor ? 'construct-outline' : 'cube-outline'} size={19} color="#FF8F1F" />
-      </View>
+      </View>}
 
       <View style={styles.cardContent}>
         <View style={styles.metaRow}>
-          <Text style={styles.typePill}>{typeLabel}</Text>
+          <Text style={styles.typePill} numberOfLines={1}>{typeLabel}</Text>
           <Text style={styles.sourcePill} numberOfLines={1}>
             {sourcePretty}
           </Text>
         </View>
-        <Text style={styles.itemName} numberOfLines={2}>
+        <Text style={styles.itemName} numberOfLines={3}>
           {item.name}
         </Text>
       </View>
@@ -103,6 +106,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,143,31,0.42)',
   },
+  render: { width: 64, height: 64, borderRadius: 12, marginRight: 12, backgroundColor: '#F4F6F8' },
   cardContent: {
     flex: 1,
     minWidth: 0,
@@ -115,6 +119,7 @@ const styles = StyleSheet.create({
     marginBottom: 7,
   },
   typePill: {
+    flexShrink: 0,
     overflow: 'hidden',
     borderRadius: 999,
     paddingHorizontal: 8,
@@ -123,7 +128,7 @@ const styles = StyleSheet.create({
     color: '#9A4C00',
     fontFamily: FONTS.title,
     fontSize: 8,
-    letterSpacing: 0.9,
+    letterSpacing: 0,
   },
   sourcePill: {
     flexShrink: 1,

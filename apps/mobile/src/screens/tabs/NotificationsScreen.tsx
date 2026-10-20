@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScreenHeader, HeaderIconButton } from '../../components/molecules/ScreenHeader';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
@@ -110,14 +110,7 @@ export default function NotificationsScreen() {
 
   return (
     <View style={styles.container}>
-      <SafeAreaView edges={['top']}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Notificaciones</Text>
-          <TouchableOpacity style={styles.headerButton} onPress={markAllRead}>
-            <Text style={styles.headerButtonText}>Marcar todo</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+      <ScreenHeader title="Notificaciones" subtitle="Actividad de tu cuenta" showBack rightAction={<HeaderIconButton name="checkmark-done-outline" label="Marcar todas como leídas" disabled={!notifications.some((item) => !item.read_at)} onPress={() => void markAllRead()} />} />
 
       {isLoading ? (
         <View style={styles.center}>
@@ -146,21 +139,10 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
-  header: {
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    paddingTop: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerTitle: { fontSize: 20, fontFamily: FONTS.title, color: COLORS.text },
-  headerButton: { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: COLORS.primary, borderRadius: 8 },
-  headerButtonText: { color: '#FFF', fontFamily: FONTS.subtitle, fontSize: 12 },
+  container: { flex: 1, backgroundColor: COLORS.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
   emptyText: { marginTop: 12, color: COLORS.textLight, fontFamily: FONTS.body, textAlign: 'center' },
-  listContent: { paddingHorizontal: 20, paddingBottom: 20 },
+  listContent: { padding: 16, paddingBottom: 32 },
   card: {
     backgroundColor: '#FFF',
     borderRadius: 14,
