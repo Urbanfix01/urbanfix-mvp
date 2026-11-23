@@ -485,6 +485,9 @@ export default function ClientPublishScreen() {
         throw new Error(preferredWindowError);
       }
 
+      // Do not upload private work photos when the request service is unavailable.
+      // The legacy upload must be migrated before a new store release.
+      await fetchClientWorkspace();
       const photoUrls = await uploadPendingWorkPhotos();
       if (photoUrls.length < WORK_PHOTO_MIN) {
         throw new Error(`Sube al menos ${WORK_PHOTO_MIN} fotos validas del trabajo antes de publicar.`);

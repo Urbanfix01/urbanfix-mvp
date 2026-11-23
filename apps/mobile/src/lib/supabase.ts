@@ -1,6 +1,6 @@
 import 'react-native-url-polyfill/auto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, processLock } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
 
 const extra = (Constants.expoConfig?.extra || Constants.manifest2?.extra || {}) as {
@@ -39,6 +39,7 @@ export const supabase = createClient(
       persistSession: true,
       detectSessionInUrl: false,
       flowType: 'pkce',
+      lock: processLock,
     },
   }
 );

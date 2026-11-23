@@ -2,6 +2,10 @@
 
 ## Actualizaciones
 
+- 2026-11-23: preparación móvil 1.5.1 con editor actualizado, sesión,
+  catálogo controlado, solicitud de baja y permisos revisados. Todavía no
+  distribuida: faltan migraciones de servicios, Maps, revisión Apple y QA física.
+  Ver [estado y comprobaciones](docs/mobile-readiness-2026-11-23.md).
 - 2026-10-20: las tarjetas de Todos y Mano de obra tambien muestran vistas
   orientativas de trabajos reconocidos (pilares, contrapisos, muros y otros),
   manteniendo su tipo y tarifa. Los trabajos sin referencia conservan el icono.

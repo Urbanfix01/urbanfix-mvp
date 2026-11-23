@@ -67,8 +67,14 @@ export default (): ExpoConfig => {
     ...baseConfig,
     name: preview ? 'UrbanFix Prueba' : baseConfig.name,
     scheme: preview ? 'urbanfix-preview' : baseConfig.scheme,
-    plugins: [...(baseConfig.plugins || []), ['expo-location', {
+    plugins: [...(baseConfig.plugins || []), ['expo-image-picker', {
+      cameraPermission: 'UrbanFix usa la cámara cuando elegís fotografiar un trabajo o tu perfil.',
+      photosPermission: 'UrbanFix accede a las fotos que elegís para un trabajo o tu perfil.',
+      microphonePermission: false,
+    }], ['expo-notifications', { defaultChannel: 'default', enableBackgroundRemoteNotifications: false }], ['expo-location', {
       locationWhenInUsePermission: 'UrbanFix usa tu ubicación únicamente cuando elegís ubicar la obra.',
+      locationAlwaysPermission: false,
+      locationAlwaysAndWhenInUsePermission: false,
       isIosBackgroundLocationEnabled: false,
       isAndroidBackgroundLocationEnabled: false,
       isAndroidForegroundServiceEnabled: false,

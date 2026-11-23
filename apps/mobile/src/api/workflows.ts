@@ -2,8 +2,8 @@ import { Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { getWebApiUrl } from '../utils/config';
 
-type Workflow = 'pricing-workflow-v2' | 'pricing-review' | 'quote-workflow' | 'supabase-technician-data';
-const workflows = new Set<Workflow>(['pricing-workflow-v2', 'pricing-review', 'quote-workflow', 'supabase-technician-data']);
+type Workflow = 'pricing-workflow-v2' | 'pricing-review' | 'quote-workflow' | 'supabase-technician-data' | 'account-workflow';
+const workflows = new Set<Workflow>(['pricing-workflow-v2', 'pricing-review', 'quote-workflow', 'supabase-technician-data', 'account-workflow']);
 
 export async function workflowRequest(scope: { owner: string }, name: Workflow, body: unknown, signal?: AbortSignal) {
   if (!workflows.has(name)) throw new Error('Consulta no disponible.');

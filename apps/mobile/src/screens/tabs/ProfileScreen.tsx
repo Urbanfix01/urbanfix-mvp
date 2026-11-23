@@ -13,7 +13,7 @@ import { supabase } from '../../lib/supabase';
 import { COLORS, FONTS, FORM } from '../../utils/theme';
 import { ScreenHeader } from '../../components/molecules/ScreenHeader';
 import { uploadImageToSupabase } from '../../services/StorageService';
-import { deleteCurrentAccount } from '../../services/accountDeletion';
+import { deleteCurrentAccount, DELETION_WARNING, DELETION_SUCCESS } from '../../services/accountDeletion';
 import { setStoredAudience } from '../../utils/audience';
 
 // --- COMPONENTES DE MAPAS ---
@@ -685,8 +685,8 @@ export default function ProfileScreen({
       setDeletingAccount(true);
       await setStoredAudience('tecnico');
       await deleteCurrentAccount();
-      const successMessage = 'Tu cuenta fue eliminada correctamente.';
-      isWeb ? alert(successMessage) : Alert.alert('Cuenta eliminada', successMessage);
+      const successMessage = DELETION_SUCCESS;
+      isWeb ? alert(successMessage) : Alert.alert('Solicitud registrada', successMessage);
     } catch (error: any) {
       const errorMessage = error?.message || 'No se pudo eliminar la cuenta.';
       isWeb ? alert(errorMessage) : Alert.alert('Error', errorMessage);
@@ -696,7 +696,7 @@ export default function ProfileScreen({
   };
 
   const handleDeleteAccount = () => {
-    const warningMessage = 'Esta accion elimina tu cuenta de forma permanente y no se puede deshacer.';
+    const warningMessage = DELETION_WARNING;
 
     if (Platform.OS === 'web') {
       if (window.confirm(`${warningMessage}\n\nDeseas continuar?`)) {
@@ -705,9 +705,9 @@ export default function ProfileScreen({
       return;
     }
 
-    Alert.alert('Eliminar cuenta', warningMessage, [
+    Alert.alert('Solicitar eliminación', warningMessage, [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: () => void confirmDeleteAccount() },
+      { text: 'Solicitar', style: 'destructive', onPress: () => void confirmDeleteAccount() },
     ]);
   };
 
@@ -1402,7 +1402,7 @@ export default function ProfileScreen({
           ) : (
             <>
               <Ionicons name="trash-outline" size={20} color={COLORS.danger} />
-              <Text style={styles.deleteAccountText}>Eliminar cuenta</Text>
+              <Text style={styles.deleteAccountText}>Solicitar eliminación</Text>
             </>
           )}
         </TouchableOpacity>

@@ -1,54 +1,19 @@
 import { supabase } from '../lib/supabase';
-import { getWebApiUrl } from '../utils/config';
+import { workflowRequest } from '../api/workflows';
 
-const DELETE_ACCOUNT_PATH = '/api/account/delete';
+export const DELETION_WARNING = 'Se registrará una solicitud de eliminación. El equipo verificará el pedido antes de borrar la cuenta; la eliminación no es inmediata.';
+export const DELETION_SUCCESS = 'Solicitud de eliminación registrada. Podés consultar su estado en Preferencias de UrbanFix Web.';
 
 export const deleteCurrentAccount = async () => {
-  const {
-    data: { session },
-    error: sessionError,
-  } = await supabase.auth.getSession();
-
-  if (sessionError) {
-    throw new Error(sessionError.message || 'No se pudo validar la sesion.');
-  }
-
-  let accessToken = session?.access_token || '';
-  if (!accessToken) {
-    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-    if (refreshError) {
-      throw new Error(refreshError.message || 'Sesion expirada. Ingresa nuevamente e intenta otra vez.');
-    }
-    accessToken = refreshData?.session?.access_token || '';
-  }
-
-  if (!accessToken) {
-    throw new Error('Sesion expirada. Ingresa nuevamente e intenta otra vez.');
-  }
-
-  const response = await fetch(getWebApiUrl(DELETE_ACCOUNT_PATH), {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ source: 'mobile_app' }),
+  const { data, error } = await supabase.auth.getSession();
+  const owner = data.session?.user.id;
+  if (error || !owner) throw new Error('Iniciá sesión nuevamente para solicitar la eliminación.');
+  const result = await workflowRequest({ owner }, 'account-workflow', {
+    action: 'request_deletion', data: { scope: 'full_account', details: 'Solicitud desde la app móvil.' },
   });
-
-  const payload = await response.json().catch(() => null);
-  if (!response.ok) {
-    const apiMessage =
-      payload && typeof payload.error === 'string'
-        ? payload.error
-        : 'No pudimos eliminar la cuenta por ahora.';
-    throw new Error(apiMessage);
+  if (!result.request?.id || !['pending', 'verified', 'processing'].includes(result.request.status)) {
+    throw new Error('El servidor no confirmó la solicitud de eliminación. Consultá Preferencias antes de reintentar.');
   }
-
-  const { error: signOutError } = await supabase.auth.signOut();
-  if (signOutError) {
-    const signOutMessage = String(signOutError.message || '');
-    if (!/auth session missing/i.test(signOutMessage)) {
-      throw new Error(signOutMessage || 'La cuenta se elimino, pero no se pudo cerrar sesion.');
-    }
-  }
+  // A queued request is not deletion; keep the session so it can be consulted/cancelled.
+  return result.request;
 };

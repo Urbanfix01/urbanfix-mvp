@@ -42,7 +42,7 @@ const enhance = config.server.enhanceMiddleware;
 config.server.enhanceMiddleware = (middleware, server) => {
   const next = enhance ? enhance(middleware, server) : middleware;
   return (request, response, ...args) => {
-    const routes = ['/api/functions/pricing-workflow-v2', '/api/functions/pricing-review', '/api/functions/quote-workflow', '/api/functions/supabase-technician-data'];
+    const routes = ['/api/functions/pricing-workflow-v2', '/api/functions/pricing-review', '/api/functions/quote-workflow', '/api/functions/supabase-technician-data', '/api/functions/account-workflow'];
     if (!routes.includes(request.url)) return next(request, response, ...args);
     const remote = request.socket.remoteAddress;
     if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(remote) || request.method !== 'POST'

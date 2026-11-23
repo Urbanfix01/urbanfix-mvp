@@ -142,7 +142,7 @@ const requestApi = async <T>(path: string, init?: RequestInit): Promise<T> => {
     payload = null;
   }
 
-  if (!response.ok) {
+  if (!response.ok || !payload || typeof payload !== 'object') {
     throw new Error(parseApiError(payload, 'No pudimos procesar la solicitud.'));
   }
 

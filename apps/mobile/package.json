@@ -13,6 +13,7 @@
     "sync:material-renders": "node ../../scripts/sync-material-previews.mjs",
     "build:work-renders": "node ../../scripts/generate-work-previews.mjs",
     "test:catalog-renders": "node --test tests/catalogRenders.test.mjs",
+    "test:readiness": "node --test tests/mobileReadiness.test.mjs",
     "typecheck": "tsc --noEmit",
     "check:bundles": "expo export --platform android --platform ios --output-dir dist/native-check"
   },
@@ -32,12 +33,12 @@
     "@supabase/supabase-js": "^2.86.0",
     "@tanstack/react-query": "^5.90.11",
     "base64-arraybuffer": "^1.0.2",
-    "expo": "~54.0.35",
+    "expo": "~54.0.37",
     "expo-apple-authentication": "~8.0.8",
     "expo-auth-session": "~7.0.11",
-    "expo-constants": "~18.0.10",
+    "expo-constants": "~18.0.14",
     "expo-crypto": "~15.0.9",
-    "expo-file-system": "~19.0.23",
+    "expo-file-system": "~19.0.24",
     "expo-font": "~14.0.12",
     "expo-haptics": "~15.0.8",
     "expo-image-picker": "~17.0.11",
@@ -70,7 +71,7 @@
     "@types/google.maps": "^3.58.1",
     "@types/leaflet": "^1.9.21",
     "@types/react": "~19.1.0",
-    "eas-cli": "^18.4.0",
+    "eas-cli": "27.11.0",
     "typescript": "~5.9.2"
   },
   "private": true

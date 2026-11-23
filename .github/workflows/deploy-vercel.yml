@@ -1,41 +1,13 @@
-name: Deploy web to Vercel
+name: Legacy web deployment disabled
 
 on:
-  push:
-    branches: [ main ]
-
-env:
-  VERCEL_PROJECT_ID: prj_Zbqz7xpNasuOge49NtpVjLfVkBeA
-  VERCEL_ORG_ID: team_EcyP0zlgrTTH0IvVyOT6dQY4
+  workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  canonical-web-source:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install dependencies (apps/web)
-        working-directory: apps/web
-        run: npm ci
-
-      - name: Build (apps/web)
-        working-directory: apps/web
-        run: npm run build
-
-      - name: Deploy to Vercel
-        uses: amondnet/vercel-action@v20
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-args: --prod
-          vercel-project-id: ${{ env.VERCEL_PROJECT_ID }}
-          vercel-org-id: ${{ env.VERCEL_ORG_ID }}
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_PROJECT_ID: ${{ env.VERCEL_PROJECT_ID }}
-          VERCEL_ORG_ID: ${{ env.VERCEL_ORG_ID }}
+      - name: Explain the canonical web release path
+        run: |
+          echo "The current web app is released from Urbanfix01/urbanfix_web."
+          echo "This mobile repository must never deploy the historical apps/web."

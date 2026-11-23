@@ -14,13 +14,15 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import * as WebBrowser from 'expo-web-browser';
+import { getWebApiUrl } from '../../utils/config';
 
 import { fetchClientWorkspace, ClientWorkspacePayload } from '../../api/client';
 import { supabase } from '../../lib/supabase';
 import { setStoredAudience } from '../../utils/audience';
 import { ScreenHeader } from '../../components/molecules/ScreenHeader';
 import { COLORS, FONTS, FORM } from '../../utils/theme';
-import { deleteCurrentAccount } from '../../services/accountDeletion';
+import { deleteCurrentAccount, DELETION_WARNING, DELETION_SUCCESS } from '../../services/accountDeletion';
 
 const toErrorMessage = (error: unknown, fallback: string) => {
   if (error instanceof Error && error.message.trim()) return error.message;
@@ -206,7 +208,7 @@ export default function ClientProfileScreen({
       setDeletingAccount(true);
       await setStoredAudience('cliente');
       await deleteCurrentAccount();
-      setMessage('Cuenta eliminada correctamente.');
+      setMessage(DELETION_SUCCESS);
     } catch (error: any) {
       setMessage(error?.message || 'No pudimos eliminar tu cuenta.');
     } finally {
@@ -216,12 +218,12 @@ export default function ClientProfileScreen({
 
   const handleDeleteAccount = () => {
     Alert.alert(
-      'Eliminar cuenta',
-      'Esta accion elimina tu cuenta de forma permanente y no se puede deshacer.',
+      'Solicitar eliminación',
+      DELETION_WARNING,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Eliminar',
+          text: 'Solicitar',
           style: 'destructive',
           onPress: () => void confirmDeleteAccount(),
         },
@@ -447,7 +449,7 @@ export default function ClientProfileScreen({
               </View>
             </View>
             <Text style={styles.sectionDescription}>
-              Cerrar sesion mantiene tu cuenta intacta. Eliminarla borra tu acceso de forma permanente.
+              Cerrar sesión mantiene tu cuenta intacta. Podés solicitar su eliminación; el equipo verificará el pedido antes de ejecutarlo.
             </Text>
             <TouchableOpacity style={styles.dangerBtn} onPress={handleDeleteAccount} disabled={deletingAccount}>
               {deletingAccount ? (
@@ -455,10 +457,15 @@ export default function ClientProfileScreen({
               ) : (
                 <View style={styles.buttonRow}>
                   <Ionicons name="trash-outline" size={16} color="#B91C1C" />
-                  <Text style={styles.dangerBtnText}>Eliminar cuenta</Text>
+                  <Text style={styles.dangerBtnText}>Solicitar eliminación</Text>
                 </View>
               )}
             </TouchableOpacity>
+            {([['Privacidad', '/privacidad'], ['Términos', '/terminos'], ['Estado de mi solicitud', '/preferencias']] as const).map(([label, path]) => (
+              <TouchableOpacity key={path} accessibilityRole="link" style={styles.signOutBtn} onPress={() => {
+                void WebBrowser.openBrowserAsync(getWebApiUrl(path)).catch(() => setMessage('No pudimos abrir UrbanFix Web.'));
+              }}><Text style={styles.signOutBtnText}>{label} · web</Text></TouchableOpacity>
+            ))}
             <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} disabled={signingOut}>
               {signingOut ? (
                 <ActivityIndicator color="#334155" />

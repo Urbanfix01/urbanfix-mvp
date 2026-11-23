@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
+import { mobileSourceHash } from '../../../scripts/lib/mobile-source-hash.mjs';
 const generated = await readFile(new URL('../src/design/designBundle.js', import.meta.url), 'utf8');
 const html = JSON.parse(generated.slice(generated.indexOf('export default ') + 15).trim().replace(/;$/, ''));
 const manifest = JSON.parse(await readFile(new URL('../src/design/designManifest.json', import.meta.url), 'utf8'));
@@ -27,10 +28,10 @@ test('the renderer bridge does not transfer the native access token', async () =
 
 test('the local work-scene sources match the shipped renderer', async () => {
   assert.ok(manifest.nativeInputs?.['apps/mobile/embedded-design/workScenes.js']);
-  for (const [file, digest] of Object.entries(manifest.nativeInputs)) assert.equal(createHash('sha256').update(await readFile(new URL(`../../../${file}`, import.meta.url))).digest('hex'), digest, file);
+  for (const [file, digest] of Object.entries(manifest.nativeInputs)) assert.equal(mobileSourceHash(await readFile(new URL(`../../../${file}`, import.meta.url)), file), digest, file);
 });
 test('all shared source files still match the canonical source snapshot', { skip: !process.env.URBANFIX_WEB_ROOT }, async () => {
   for (const [file, digest] of Object.entries(manifest.inputs)) {
-    assert.equal(createHash('sha256').update(await readFile(path.join(process.env.URBANFIX_WEB_ROOT, file))).digest('hex'), digest, `Rebuild the local engine after changing ${file}`);
+    assert.equal(mobileSourceHash(await readFile(path.join(process.env.URBANFIX_WEB_ROOT, file)), file), digest, `Rebuild the local engine after changing ${file}`);
   }
 });

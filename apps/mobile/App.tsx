@@ -1,5 +1,5 @@
-import React, { useCallback } from 'react';
-import { View, LogBox, Platform } from 'react-native';
+import React, { useCallback, useEffect } from 'react';
+import { AppState, LogBox, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
@@ -12,6 +12,8 @@ import { Raleway_400Regular, Raleway_600SemiBold } from '@expo-google-fonts/rale
 
 // Navegación (CORREGIDO: Apuntamos al archivo explícito)
 import RootNavigator from './src/navigation/RootNavigator'; 
+import { supabase } from './src/lib/supabase';
+import { attachAuthRefresh } from './src/lib/authLifecycle';
 
 // 2. CREAMOS EL CLIENTE (El cerebro de React Query)
 const queryClient = new QueryClient();
@@ -27,6 +29,9 @@ if (Platform.OS === 'web') {
 }
 
 export default function App() {
+  useEffect(() => {
+    if (Platform.OS !== 'web') return attachAuthRefresh(supabase.auth, AppState);
+  }, []);
   const [fontsLoaded] = useFonts({
     Montserrat_700Bold,
     Raleway_600SemiBold,
