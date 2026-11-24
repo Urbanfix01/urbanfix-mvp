@@ -210,8 +210,10 @@ Se continúa en la cuenta profesional y la misma **1.5.1 (39)**, con Internet
 activo. La primera tanda solicitada desde **Más** comprende seis accesos
 internos: **Catálogo de precios, Mapa de trabajos, Notificaciones, Mi perfil,
 Materiales y renders, y Valores de mano de obra**. Abrir cada uno, regresar a
-Más con Atrás y comprobar que conserva cuenta y contexto. El resultado está
-pendiente de informar.
+Más con Atrás y comprobar que conserva cuenta y contexto. El titular informó
+que el único que funciona mal es **Mapa de trabajos**: no muestra los puntos y
+centra el mapa en el océano. Los otros cinco funcionan, según su confirmación.
+La prueba corresponde a **1.5.1 (39)** y al iPhone informado para este bloque.
 
 La revisión de `apps/mobile/src/projects/MoreScreen.tsx` también identifica
 once accesos web todavía por probar: Escuelita; Caja; Finanzas; Clientes y
@@ -220,5 +222,62 @@ facturación; Soporte; Privacidad; Términos. Deben comprobarse apertura,
 identificación de la sesión web independiente y regreso a la app.
 
 La primera tanda no basta para completar MNAV-04. Hasta recibir el resultado
-de todos los accesos, permanece **En trabajo**. La observación de lectura sin
+de la corrección del mapa y de los accesos web, permanece **En trabajo**.
+Se guardó esa evidencia parcial en Admin. La observación de lectura sin
 conexión de MSEG-03 conserva su estado **Pendiente**.
+
+## Corrección del mapa de trabajos
+
+Código: `7cf0dc4bbfddfeb537ec683115650ea2e4a6badd` en la misma rama móvil.
+
+La pantalla convertía coordenadas vacías con `Number(null)`, obteniendo `0,0`.
+Esos puntos participaban del encuadre, aunque el mapa nativo los rechazaba al
+dibujar los marcadores. El resultado era un mapa en el océano sin puntos.
+La misma conversión estaba duplicada en el Dashboard y en la ficha individual.
+
+- Mapa de trabajos y Dashboard comparten la proyección `quoteMapData`, que
+  valida coordenadas antes de contar puntos y calcular el encuadre. Conserva
+  estados y ventana de tres meses; excluye registros archivados o borrados.
+- Los trabajos sin coordenadas de obra válidas se cuentan aparte y la pantalla
+  indica por qué no tienen punto. Sin puntos, usa el centro de referencia
+  existente; no lo presenta como ubicación real de una obra o del teléfono.
+- El mapa nativo también rechaza un centro vacío, fuera de rango o en `0,0`.
+- La ficha utiliza `quoteWorkMapLinks`: coordenadas válidas o dirección de obra
+  explícita. No usa la dirección ni las coordenadas del contacto como ubicación
+  de obra. No se agregaron búsquedas ni guardados automáticos de ubicaciones.
+- La consulta del mapa conserva el filtro por propietario y excluye papelera.
+  Una consulta agregada de lectura encontró presupuestos activos recientes sin
+  coordenadas de obra. No se copiaron direcciones privadas ni se alteraron datos.
+
+Se reprodujo el defecto con tres pruebas de los componentes reales antes de
+corregirlo: puntos ausentes contados como `0,0`, encuadre erróneo y centro nativo
+inválido. Las ocho pruebas finales incluyen además puntos válidos, selección,
+rangos, estados, antigüedad, papelera y separación de dirección de contacto/obra.
+Pasan las **73 pruebas** completas, la comprobación de tipos y la exportación
+Hermes para Android e iOS (`dist/work-map-stage-20261124`).
+
+La preparación firmada **iOS 1.5.1 (40)** terminó correctamente: build
+[`45fa6567-0160-47e6-8b21-06726d25a990`](https://expo.dev/accounts/urbanfix/projects/UrbanFix/builds/45fa6567-0160-47e6-8b21-06726d25a990),
+**FINISHED**, código `7cf0dc4`, 24/11/2026 a las 09:26:29 de Argentina.
+Usó el perfil de prueba existente con `--freeze-credentials`, conservando firmas.
+El envío
+[`462ac140-b097-4efb-8dca-f4773d509619`](https://expo.dev/accounts/urbanfix/projects/UrbanFix/submissions/462ac140-b097-4efb-8dca-f4773d509619)
+terminó **FINISHED**, sin errores, el 24/11/2026 a las 09:33:29 de Argentina.
+App Store Connect confirmó el build `25b861be-1fed-4eb5-a1ba-23de15f732ab`,
+**VALID / IN_BETA_TESTING**, no vencido. El grupo interno existente
+**BETA TESTER** incluye la 40 para `info@urbanfixar.com`. La asignación automática
+se verificó después del procesamiento; no se crearon grupos ni invitaciones,
+ni se solicitó revisión externa o publicación en App Store. Apple repitió el
+aviso ITMS-90725 de SDK para abril de 2027; la entrega fue aceptada.
+
+Se registró la entrega técnica en las notas de MNAV-04 y se solicitó actualizar
+desde TestFlight a **1.5.1 (40)** y repetir encuadre, aviso de trabajos sin
+ubicación y regreso. La evidencia física guardada sigue correspondiendo a la
+**39**, hasta recibir el resultado de esa nueva prueba. MNAV-04 sigue
+**En trabajo**, con los accesos web también pendientes.
+
+La 1.5.1 (39) no contiene esta corrección. Los trabajos existentes siguen
+necesitando coordenadas de obra guardadas para aparecer como puntos reales;
+se solicitó distinguir si el titular había guardado un punto en el mapa o
+solamente una dirección escrita. No se atribuye un resultado físico de la 40
+ni se acredita consulta sin conexión.
