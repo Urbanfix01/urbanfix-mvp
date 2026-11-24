@@ -61,7 +61,7 @@ resultado parcial de iPhone se detallan más abajo.
 | --- | --- |
 | MNAV-01 | iOS cerrado para arranque, segundo plano, reinicio y recuperación; consulta de datos sin red pendiente en MSEG-03. Android pendiente. |
 | MNAV-02 | iOS cerrado para las cinco entradas profesionales, pestaña activa y regreso desde un proyecto. Android pendiente. |
-| MNAV-03 | Cuatro entradas del cliente; salir y cambiar de cuenta sin mostrar el otro espacio. |
+| MNAV-03 | iOS pendiente por falta de cuenta cliente; cuatro entradas, regreso y separación de espacios sin probar. Android pendiente. |
 | MNAV-04 | Abrir todos los accesos de Más y cerrar el navegador; comprobar explícitamente la cuenta web. |
 | MNAV-05 | Enlaces `urbanfix://` o `urbanfix-preview://`, app abierta/cerrada, login pendiente y Atrás/gesto nativo. |
 | MNAV-06 | Texto grande, teclado, desplazamiento y áreas de gestos. Comprobar la orientación vertical declarada y ventanas de tablet. |
@@ -136,8 +136,9 @@ del plan de EAS antes de programar el envío. Se retiró esa opción y se comple
 el único envío anterior; no se cambió el plan ni se duplicó la compilación.
 
 El titular confirmó la instalación de **1.5.1 (39)** y el resultado registrado
-a continuación. **MNAV-01 y MNAV-02 / iOS están Finalizados**. MNAV-03 a
-MNAV-06 en iOS siguen **En trabajo**; las filas de Android conservan su estado.
+a continuación. **MNAV-01 y MNAV-02 / iOS están Finalizados**. MNAV-03 está
+**Pendiente** por falta de cuenta cliente. MNAV-04 a MNAV-06 en iOS siguen
+**En trabajo**; las filas de Android conservan su estado.
 
 ## Comprobación de arranque en iPhone
 
@@ -192,10 +193,32 @@ Se registró la confirmación y se cerró **MNAV-02 / iOS**. No se extrapola a c
 herramienta del menú Más, navegación cliente, todos los enlaces internos o
 consulta sin conexión. MSEG-03 sigue **Pendiente** con la observación anterior.
 
-## Próximo recorrido: MNAV-03 en iOS
+## MNAV-03 en iOS pendiente de cuenta cliente
 
 Con Internet activo y una cuenta de Cliente disponible, recorrer
 **Solicitudes → Publicar → Mapa → Perfil**, comprobar pestaña activa y regreso
 sin mostrar los datos del profesional. Volver a la cuenta profesional y
 comprobar que conserva su espacio. Se puede abrir Publicar sin enviar una
-solicitud. El resultado todavía no fue informado; **MNAV-03 sigue En trabajo**.
+solicitud. El titular informó que **no tiene una cuenta cliente disponible**.
+El recorrido no se realizó y **MNAV-03 queda Pendiente** por esa condición de
+prueba; no se registra como fallo de la app. No se creó otra cuenta ni se
+modificó su cuenta profesional.
+
+## Próximo recorrido: MNAV-04 en iOS
+
+Se continúa en la cuenta profesional y la misma **1.5.1 (39)**, con Internet
+activo. La primera tanda solicitada desde **Más** comprende seis accesos
+internos: **Catálogo de precios, Mapa de trabajos, Notificaciones, Mi perfil,
+Materiales y renders, y Valores de mano de obra**. Abrir cada uno, regresar a
+Más con Atrás y comprobar que conserva cuenta y contexto. El resultado está
+pendiente de informar.
+
+La revisión de `apps/mobile/src/projects/MoreScreen.tsx` también identifica
+once accesos web todavía por probar: Escuelita; Caja; Finanzas; Clientes y
+contactos; Ficha de obra y entregas; Normativas; Comunidad; Preferencias y
+facturación; Soporte; Privacidad; Términos. Deben comprobarse apertura,
+identificación de la sesión web independiente y regreso a la app.
+
+La primera tanda no basta para completar MNAV-04. Hasta recibir el resultado
+de todos los accesos, permanece **En trabajo**. La observación de lectura sin
+conexión de MSEG-03 conserva su estado **Pendiente**.
