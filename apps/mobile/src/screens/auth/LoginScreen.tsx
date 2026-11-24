@@ -26,7 +26,7 @@ import Constants from 'expo-constants';
 import { assertSupabaseConfig, supabase } from '../../lib/supabase';
 import { uploadImageToSupabase } from '../../services/StorageService';
 import { getWebApiUrl } from '../../utils/config';
-import { setStoredAudience } from '../../utils/audience';
+import { beginAudienceSignIn, cancelAudienceSignIn, setStoredAudience } from '../../utils/audience';
 import { COLORS, FONTS, SPACING } from '../../utils/theme';
 import { getArgentinaCitiesByProvince, getArgentinaProvinces, type GeoOption } from '../../utils/argentinaGeo';
 import { OptionSelectModal } from '../../components/molecules/OptionSelectModal';
@@ -448,6 +448,8 @@ export default function AuthScreen() {
     const user = session?.user;
     if (!user?.id) return;
 
+    await setStoredAudience(nextAudience, user.id);
+
     const metadata = ((user as any)?.user_metadata || {}) as Record<string, unknown>;
     const resolvedFullName =
       normalizeOptionalText(fullNameValue) ||
@@ -474,7 +476,7 @@ export default function AuthScreen() {
   const handleGoogleAuth = async () => {
     try {
       assertSupabaseConfig();
-      await setStoredAudience(audience);
+      await beginAudienceSignIn(audience);
 
       if (Platform.OS === 'web') {
         const { error } = await supabase.auth.signInWithOAuth({
@@ -561,6 +563,7 @@ export default function AuthScreen() {
       await WebBrowser.openBrowserAsync(data.url);
       Alert.alert('Continuar en Google', 'Si completaste el login, la app deberia abrirse automaticamente.');
     } catch (error: any) {
+      cancelAudienceSignIn();
       Alert.alert('Error', error?.message || 'No se pudo iniciar con Google.');
     }
   };
@@ -576,7 +579,7 @@ export default function AuthScreen() {
         throw new Error('Apple Sign-In no disponible en este dispositivo.');
       }
 
-      await setStoredAudience(audience);
+      await beginAudienceSignIn(audience);
 
       const credential = await AppleAuthentication.signInAsync({
         requestedScopes: [
@@ -609,8 +612,10 @@ export default function AuthScreen() {
       }
     } catch (error: any) {
       if (error?.code === 'ERR_REQUEST_CANCELED') {
+        cancelAudienceSignIn();
         return;
       }
+      cancelAudienceSignIn();
       Alert.alert('Error', error?.message || 'No se pudo iniciar con Apple.');
     }
   };
@@ -643,7 +648,7 @@ export default function AuthScreen() {
 
     try {
       assertSupabaseConfig();
-      await setStoredAudience(audience);
+      await beginAudienceSignIn(audience);
 
       const safeEmail = email.trim();
       if (!safeEmail || !password) {
@@ -750,6 +755,7 @@ export default function AuthScreen() {
         }
       }
     } catch (error: any) {
+      cancelAudienceSignIn();
       Alert.alert('Error', error?.message || 'No se pudo completar la autenticacion.');
     } finally {
       setLoading(false);

@@ -2,6 +2,9 @@
 
 ## Actualizaciones
 
+- 2026-11-24: primer bloque de Cierre Mobile: recuperación del inicio, navegación
+  por cuenta, enlaces internos y regreso. Conserva la interfaz actual y requiere
+  comprobación en cada teléfono. Ver [alcance y pruebas](docs/mobile-navigation-stage-2026-11-24.md).
 - 2026-11-23: preparación móvil 1.5.1 con editor actualizado, sesión,
   catálogo controlado, solicitud de baja y permisos revisados. Todavía no
   distribuida: faltan migraciones de servicios, Maps, revisión Apple y QA física.

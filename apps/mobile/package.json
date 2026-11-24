@@ -14,6 +14,7 @@
     "build:work-renders": "node ../../scripts/generate-work-previews.mjs",
     "test:catalog-renders": "node --test tests/catalogRenders.test.mjs",
     "test:readiness": "node --test tests/mobileReadiness.test.mjs",
+    "test:navigation": "node --test tests/navigationStartup.test.mjs tests/navigationShell.test.mjs",
     "typecheck": "tsc --noEmit",
     "check:bundles": "expo export --platform android --platform ios --output-dir dist/native-check"
   },
@@ -72,6 +73,7 @@
     "@types/leaflet": "^1.9.21",
     "@types/react": "~19.1.0",
     "eas-cli": "27.11.0",
+    "react-test-renderer": "19.1.0",
     "typescript": "~5.9.2"
   },
   "private": true
