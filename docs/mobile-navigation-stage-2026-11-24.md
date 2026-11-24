@@ -47,12 +47,13 @@ npm run typecheck
 npx expo export --platform android --platform ios --output-dir dist/navigation-stage
 ```
 
-## Verificación en teléfonos pendiente
+## Verificación en teléfonos
 
 El titular confirmó que dispone de Android e iPhone. La versión instalada debe
 corresponder al commit y build exactos antes de registrar evidencia en Admin.
-La última distribución documentada es 1.5.0 (Android 19 / iOS 38), anterior a
-estos cambios. No utilizar esa entrega para aprobar este bloque.
+La distribución anterior era 1.5.0 (Android 19 / iOS 38), sin estos cambios.
+No utilizar esa entrega para aprobar este bloque. Las candidatas actuales y el
+resultado parcial de iPhone se detallan más abajo.
 
 | Punto | Recorrido que falta comprobar en cada plataforma |
 | --- | --- |
@@ -101,8 +102,8 @@ inventados ni cierres físicos. Los 257 registros del cierre web conservaron su
 contenido; ninguna comprobación Mobile se marcó finalizada.
 
 La prueba física de Android se solicitó al titular con el APK exacto y el modelo
-y versión del teléfono. Hasta recibir resultados concretos, los puntos continúan
-sin comprobar en ambos sistemas.
+y versión del teléfono; todavía no se recibió su resultado. En iPhone se recibió
+la comprobación parcial de instalación, apertura y segundo plano detallada abajo.
 
 ## Entrega interna de iPhone
 
@@ -132,9 +133,33 @@ El intento inicial de adjuntar notas de prueba fue rechazado por una limitación
 del plan de EAS antes de programar el envío. Se retiró esa opción y se completó
 el único envío anterior; no se cambió el plan ni se duplicó la compilación.
 
-Se solicitó al titular instalar **1.5.1 (39)** desde TestFlight y comprobar apertura
-y regreso desde segundo plano, junto con el modelo y versión de iOS. La entrega
-habilita esas pruebas; MNAV-01 a MNAV-06 siguen **En trabajo**, sin acreditar un
-dispositivo, una instalación actual ni un resultado físico todavía no informado.
-Las seis notas de iOS en Cierre Mobile se actualizaron con la entrega comprobada;
-los campos de evidencia física y las filas de Android conservan su estado.
+El titular confirmó la instalación de **1.5.1 (39)** y el resultado parcial
+registrado a continuación. MNAV-01 a MNAV-06 siguen **En trabajo**; las filas
+de Android conservan su estado.
+
+## Comprobación parcial en iPhone
+
+El 24/11/2026 el titular informó en este chat que instaló **1.5.1 (39)**, que la
+app abre bien y que regresa correctamente desde segundo plano. Indicó
+**iPhone 13 con iOS 27.2.1**. Tanto el equipo como la versión de sistema son datos
+aportados por el titular; no se consultaron directamente en el dispositivo.
+
+| Recorrido de MNAV-01 en iOS | Resultado disponible |
+| --- | --- |
+| Instalación de 1.5.1 (39) desde TestFlight | Correcta, informada por el titular. |
+| Apertura de la app | Correcta, informada por el titular. |
+| Regreso desde segundo plano | Correcto, informado por el titular. |
+| Cierre completo y nueva apertura | Pendiente de respuesta. |
+| Reinicio del iPhone y nueva apertura | Pendiente de respuesta. |
+| Inicio sin conexión y recuperación al restablecer Internet | Pendiente de respuesta. |
+
+Se registraron versión, dispositivo y evidencia parcial en **MNAV-01 / iOS**,
+con su fuente y alcance. Las otras cinco notas de iOS remiten a esa comprobación
+y mantienen sus recorridos pendientes. No se completó ningún criterio ni se
+atribuyó el resultado al equipo Android.
+
+El siguiente recorrido solicitado al titular es cerrar y reabrir la app,
+probarla en modo avión con Wi-Fi apagado, recuperar Internet y reintentar si se
+ofrece esa acción, y abrirla después de reiniciar el iPhone. No requiere borrar
+la app, sus datos ni cerrar la sesión. Después corresponde MNAV-02: Proyectos,
+Dashboard, Orden del día, Mapa operativo y Más, con pestaña activa y regreso.
