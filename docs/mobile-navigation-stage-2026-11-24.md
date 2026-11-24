@@ -4,7 +4,8 @@
 `codex/mobile-navigation-2026-11-24`, sobre la base móvil `81b7bd5`.
 El trabajo corresponde a MNAV-01 a MNAV-06, con revisión independiente en
 Android e iOS. Las pruebas de código no completan una comprobación física.
-MNAV-01 en iOS se cerró después con la confirmación del titular detallada abajo.
+MNAV-01 y MNAV-02 en iOS se cerraron después con las confirmaciones del titular
+detalladas abajo.
 
 ## Cambios
 
@@ -59,7 +60,7 @@ resultado parcial de iPhone se detallan más abajo.
 | Punto | Recorrido y estado de la comprobación física |
 | --- | --- |
 | MNAV-01 | iOS cerrado para arranque, segundo plano, reinicio y recuperación; consulta de datos sin red pendiente en MSEG-03. Android pendiente. |
-| MNAV-02 | Cinco entradas del profesional, pestaña activa, historial y regreso desde pantallas internas. |
+| MNAV-02 | iOS cerrado para las cinco entradas profesionales, pestaña activa y regreso desde un proyecto. Android pendiente. |
 | MNAV-03 | Cuatro entradas del cliente; salir y cambiar de cuenta sin mostrar el otro espacio. |
 | MNAV-04 | Abrir todos los accesos de Más y cerrar el navegador; comprobar explícitamente la cuenta web. |
 | MNAV-05 | Enlaces `urbanfix://` o `urbanfix-preview://`, app abierta/cerrada, login pendiente y Atrás/gesto nativo. |
@@ -135,8 +136,8 @@ del plan de EAS antes de programar el envío. Se retiró esa opción y se comple
 el único envío anterior; no se cambió el plan ni se duplicó la compilación.
 
 El titular confirmó la instalación de **1.5.1 (39)** y el resultado registrado
-a continuación. **MNAV-01 / iOS está Finalizado**. MNAV-02 a MNAV-06 en iOS
-siguen **En trabajo**; las filas de Android conservan su estado.
+a continuación. **MNAV-01 y MNAV-02 / iOS están Finalizados**. MNAV-03 a
+MNAV-06 en iOS siguen **En trabajo**; las filas de Android conservan su estado.
 
 ## Comprobación de arranque en iPhone
 
@@ -178,10 +179,23 @@ al guardar, reintentar, comprobar otro dispositivo y resolver conflictos sin
 sobrescribir trabajo. No se declaró lectura o edición offline aprobada ni se
 modificó la app para resolverla en esta actualización del registro.
 
-## Próximo recorrido: MNAV-02 en iOS
+## Comprobación de navegación profesional en iPhone
 
-Con Internet activo, recorrer **Proyectos → Dashboard → Orden del día → Mapa
-operativo → Más → Proyectos**. Comprobar que la pestaña activa coincide con la
-pantalla, abrir un proyecto existente y volver con Atrás conservando cuenta y
-lista. No requiere crear o modificar registros. El resultado todavía no fue
-informado y el criterio permanece **En trabajo**.
+El 24/11/2026, ante el recorrido solicitado con Internet activo
+**Proyectos → Dashboard → Orden del día → Mapa operativo → Más → Proyectos**,
+comprobación de pestaña activa y apertura de un proyecto existente con regreso
+mediante Atrás conservando cuenta y lista, el titular respondió «todo funciona
+Bien». Corresponde a la misma **1.5.1 (39)** y al **iPhone 13 con iOS 27.2.1**
+informados para este bloque; no hubo observación remota del agente.
+
+Se registró la confirmación y se cerró **MNAV-02 / iOS**. No se extrapola a cada
+herramienta del menú Más, navegación cliente, todos los enlaces internos o
+consulta sin conexión. MSEG-03 sigue **Pendiente** con la observación anterior.
+
+## Próximo recorrido: MNAV-03 en iOS
+
+Con Internet activo y una cuenta de Cliente disponible, recorrer
+**Solicitudes → Publicar → Mapa → Perfil**, comprobar pestaña activa y regreso
+sin mostrar los datos del profesional. Volver a la cuenta profesional y
+comprobar que conserva su espacio. Se puede abrir Publicar sin enviar una
+solicitud. El resultado todavía no fue informado; **MNAV-03 sigue En trabajo**.
