@@ -3,7 +3,8 @@
 24 de noviembre de 2026. Código preparado en
 `codex/mobile-navigation-2026-11-24`, sobre la base móvil `81b7bd5`.
 El trabajo corresponde a MNAV-01 a MNAV-06, con revisión independiente en
-Android e iOS. Ninguna comprobación física se da por finalizada con estas pruebas.
+Android e iOS. Las pruebas de código no completan una comprobación física.
+MNAV-01 en iOS se cerró después con la confirmación del titular detallada abajo.
 
 ## Cambios
 
@@ -55,9 +56,9 @@ La distribución anterior era 1.5.0 (Android 19 / iOS 38), sin estos cambios.
 No utilizar esa entrega para aprobar este bloque. Las candidatas actuales y el
 resultado parcial de iPhone se detallan más abajo.
 
-| Punto | Recorrido que falta comprobar en cada plataforma |
+| Punto | Recorrido y estado de la comprobación física |
 | --- | --- |
-| MNAV-01 | Arranque en frío, vuelta desde segundo plano, reinicio, falta de red y recuperación. |
+| MNAV-01 | iOS cerrado para arranque, segundo plano, reinicio y recuperación; consulta de datos sin red pendiente en MSEG-03. Android pendiente. |
 | MNAV-02 | Cinco entradas del profesional, pestaña activa, historial y regreso desde pantallas internas. |
 | MNAV-03 | Cuatro entradas del cliente; salir y cambiar de cuenta sin mostrar el otro espacio. |
 | MNAV-04 | Abrir todos los accesos de Más y cerrar el navegador; comprobar explícitamente la cuenta web. |
@@ -99,11 +100,11 @@ El backend de Preview coincide con el proyecto de la web canónica. Los seis
 criterios de navegación, para cada plataforma, se registraron en Admin como
 **En trabajo** con la referencia al código y pruebas, sin versión/dispositivo
 inventados ni cierres físicos. Los 257 registros del cierre web conservaron su
-contenido; ninguna comprobación Mobile se marcó finalizada.
+contenido; en ese registro inicial ninguna comprobación Mobile se marcó finalizada.
 
 La prueba física de Android se solicitó al titular con el APK exacto y el modelo
 y versión del teléfono; todavía no se recibió su resultado. En iPhone se recibió
-la comprobación parcial de instalación, apertura y segundo plano detallada abajo.
+la confirmación del recorrido de arranque y recuperación detallada abajo.
 
 ## Entrega interna de iPhone
 
@@ -133,33 +134,54 @@ El intento inicial de adjuntar notas de prueba fue rechazado por una limitación
 del plan de EAS antes de programar el envío. Se retiró esa opción y se completó
 el único envío anterior; no se cambió el plan ni se duplicó la compilación.
 
-El titular confirmó la instalación de **1.5.1 (39)** y el resultado parcial
-registrado a continuación. MNAV-01 a MNAV-06 siguen **En trabajo**; las filas
-de Android conservan su estado.
+El titular confirmó la instalación de **1.5.1 (39)** y el resultado registrado
+a continuación. **MNAV-01 / iOS está Finalizado**. MNAV-02 a MNAV-06 en iOS
+siguen **En trabajo**; las filas de Android conservan su estado.
 
-## Comprobación parcial en iPhone
+## Comprobación de arranque en iPhone
 
 El 24/11/2026 el titular informó en este chat que instaló **1.5.1 (39)**, que la
 app abre bien y que regresa correctamente desde segundo plano. Indicó
 **iPhone 13 con iOS 27.2.1**. Tanto el equipo como la versión de sistema son datos
 aportados por el titular; no se consultaron directamente en el dispositivo.
 
+Después confirmó que los cuatro pasos adicionales funcionaron y pidió cerrar
+MNAV-01 en iOS: cierre completo y reapertura, inicio en modo avión con Wi-Fi
+apagado, restablecimiento de Internet y reintento si correspondía, y reinicio del
+iPhone seguido de nueva apertura. Aclaró expresamente que **sin datos ni Wi-Fi
+no puede consultar la información de la app**. El cierre acredita arranque y
+recuperación; no acredita consulta ni trabajo sin conexión.
+
 | Recorrido de MNAV-01 en iOS | Resultado disponible |
 | --- | --- |
 | Instalación de 1.5.1 (39) desde TestFlight | Correcta, informada por el titular. |
 | Apertura de la app | Correcta, informada por el titular. |
 | Regreso desde segundo plano | Correcto, informado por el titular. |
-| Cierre completo y nueva apertura | Pendiente de respuesta. |
-| Reinicio del iPhone y nueva apertura | Pendiente de respuesta. |
-| Inicio sin conexión y recuperación al restablecer Internet | Pendiente de respuesta. |
+| Cierre completo y nueva apertura | Correctos, informados por el titular. |
+| Reinicio del iPhone y nueva apertura | Correctos, informados por el titular. |
+| Inicio sin conexión y recuperación al restablecer Internet | El recorrido de recuperación funcionó, según el titular; sin conexión no puede consultar la información. |
 
-Se registraron versión, dispositivo y evidencia parcial en **MNAV-01 / iOS**,
-con su fuente y alcance. Las otras cinco notas de iOS remiten a esa comprobación
-y mantienen sus recorridos pendientes. No se completó ningún criterio ni se
-atribuyó el resultado al equipo Android.
+Se registraron versión, dispositivo, fuente, alcance y salvedad en
+**MNAV-01 / iOS**, que quedó **Finalizado** por solicitud expresa del titular.
+No se atribuye el resultado a Android ni a los demás recorridos de navegación.
 
-El siguiente recorrido solicitado al titular es cerrar y reabrir la app,
-probarla en modo avión con Wi-Fi apagado, recuperar Internet y reintentar si se
-ofrece esa acción, y abrirla después de reiniciar el iPhone. No requiere borrar
-la app, sus datos ni cerrar la sesión. Después corresponde MNAV-02: Proyectos,
-Dashboard, Orden del día, Mapa operativo y Más, con pestaña activa y regreso.
+## Observación abierta de uso sin conexión
+
+La falta de consulta de información sin datos móviles ni Wi-Fi se registró en
+Admin bajo **MSEG-03 / iOS — Trabajo sin conexión y conflictos**, como
+**Pendiente**, con la versión y el equipo informados. Se solicitó distinguir si
+la pantalla de inicio bloquea el acceso al panel, si el panel abre pero no carga
+los datos, o si queda una pantalla vacía o cargando. La causa no está confirmada.
+
+La observación no sustituye los demás ensayos de ese criterio: interrumpir la red
+al guardar, reintentar, comprobar otro dispositivo y resolver conflictos sin
+sobrescribir trabajo. No se declaró lectura o edición offline aprobada ni se
+modificó la app para resolverla en esta actualización del registro.
+
+## Próximo recorrido: MNAV-02 en iOS
+
+Con Internet activo, recorrer **Proyectos → Dashboard → Orden del día → Mapa
+operativo → Más → Proyectos**. Comprobar que la pestaña activa coincide con la
+pantalla, abrir un proyecto existente y volver con Atrás conservando cuenta y
+lista. No requiere crear o modificar registros. El resultado todavía no fue
+informado y el criterio permanece **En trabajo**.
