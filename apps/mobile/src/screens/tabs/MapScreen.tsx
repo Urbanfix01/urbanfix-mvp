@@ -18,7 +18,7 @@ import { supabase } from '../../lib/supabase';
 import { MapPoint } from '../../types/maps';
 import { COLORS, FONTS } from '../../utils/theme';
 import { formatCurrency } from '../../utils/number';
-import { isApproved, isClosed, isPending, normalizeStatus } from '../../utils/status';
+import { quoteMapData } from '../../utils/quoteMap';
 
 type QuoteListItem = {
   id: string;
@@ -44,6 +44,7 @@ async function getQuotes(userId: string): Promise<QuoteListItem[]> {
     .from('quotes')
     .select('id, client_name, client_address, address, location_address, location_lat, location_lng, total_amount, status, created_at')
     .eq('user_id', userId)
+    .is('deleted_at', null)
     .is('archived_at', null)
     .order('created_at', { ascending: false });
 
@@ -52,6 +53,7 @@ async function getQuotes(userId: string): Promise<QuoteListItem[]> {
       .from('quotes')
       .select('id, client_name, client_address, address, location_address, location_lat, location_lng, total_amount, status, created_at')
       .eq('user_id', userId)
+      .is('deleted_at', null)
       .order('created_at', { ascending: false });
     data = fallback.data;
     error = fallback.error;
@@ -110,39 +112,7 @@ export default function MapScreen() {
 
   const formatMoney = useCallback((value: number) => formatCurrency(value), []);
 
-  const mapPoints = useMemo<MapPoint[]>(() => {
-    const cutoff = new Date();
-    cutoff.setMonth(cutoff.getMonth() - 3);
-
-    const resolveStatus = (status: string) => {
-      if (isClosed(status)) return { key: 'closed', label: 'Cerrado', color: STATUS_COLORS.closed };
-      if (isApproved(status)) return { key: 'approved', label: 'Aprobado', color: STATUS_COLORS.approved };
-      if (isPending(status)) return { key: 'pending', label: 'Presupuestado', color: STATUS_COLORS.pending };
-      return null;
-    };
-
-    return jobs
-      .map((job) => {
-        const createdAt = new Date(job.created_at);
-        if (Number.isNaN(createdAt.getTime()) || createdAt < cutoff) return null;
-        const lat = Number(job.location_lat);
-        const lng = Number(job.location_lng);
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-        const status = resolveStatus(normalizeStatus(job.status));
-        if (!status) return null;
-        return {
-          id: job.id,
-          title: job.client_name || `Presupuesto #${job.id.slice(0, 4).toUpperCase()}`,
-          amount: job.total_amount || 0,
-          address: job.client_address || job.address || job.location_address || '',
-          createdAt: job.created_at,
-          lat,
-          lng,
-          status,
-        };
-      })
-      .filter(Boolean) as MapPoint[];
-  }, [jobs]);
+  const { points: mapPoints, missingLocationCount, region: mapRegion } = useMemo(() => quoteMapData(jobs), [jobs]);
 
   const mapCounts = useMemo(() => {
     return mapPoints.reduce(
@@ -154,28 +124,6 @@ export default function MapScreen() {
       },
       { pending: 0, approved: 0, closed: 0 }
     );
-  }, [mapPoints]);
-
-  const mapRegion = useMemo(() => {
-    if (!mapPoints.length) {
-      return {
-        latitude: -34.6037,
-        longitude: -58.3816,
-        latitudeDelta: 0.35,
-        longitudeDelta: 0.35,
-      };
-    }
-    const lats = mapPoints.map((point) => point.lat);
-    const lngs = mapPoints.map((point) => point.lng);
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
-    const minLng = Math.min(...lngs);
-    const maxLng = Math.max(...lngs);
-    const latitude = (minLat + maxLat) / 2;
-    const longitude = (minLng + maxLng) / 2;
-    const latitudeDelta = Math.max(0.05, (maxLat - minLat) * 1.6);
-    const longitudeDelta = Math.max(0.05, (maxLng - minLng) * 1.6);
-    return { latitude, longitude, latitudeDelta, longitudeDelta };
   }, [mapPoints]);
 
   const mapKey = `${mapPoints.length}-${mapRegion.latitude}-${mapRegion.longitude}`;
@@ -241,9 +189,12 @@ export default function MapScreen() {
               />
               {!mapPoints.length && (
                 <Text style={styles.emptyHint}>
-                  Agregá ubicaciones en tus presupuestos para verlos en el mapa.
+                  No hay trabajos ubicados en el mapa para los últimos 3 meses.
                 </Text>
               )}
+              {missingLocationCount > 0 && <Text style={styles.emptyHint}>
+                {missingLocationCount} {missingLocationCount === 1 ? 'trabajo sin ubicación de obra válida' : 'trabajos sin ubicación de obra válida'}. Para marcarlos, guardá la ubicación de la obra en cada presupuesto.
+              </Text>}
             </View>
           </>
         )}

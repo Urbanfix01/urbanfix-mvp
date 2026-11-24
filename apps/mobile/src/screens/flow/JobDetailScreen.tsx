@@ -1,3 +1,4 @@
+import { quoteWorkMapLinks } from '../../utils/quoteMap';
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -230,23 +231,7 @@ export default function JobDetailScreen() {
     };
   }, [data, params]);
 
-  const mapData = useMemo(() => {
-    if (!quote) return null;
-
-    const address = quote.client_address;
-    const lat = Number(quote.location_lat);
-    const lng = Number(quote.location_lng);
-    const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
-
-    if (!address && !hasCoords) return null;
-
-    const query = hasCoords ? `${lat},${lng}` : encodeURIComponent(address);
-
-    return {
-      embedUrl: `https://maps.google.com/maps?q=${query}&t=m&z=15&output=embed&iwloc=near`,
-      externalUrl: `https://www.google.com/maps/search/?api=1&query=${query}`,
-    };
-  }, [quote]);
+  const mapData = useMemo(() => quote ? quoteWorkMapLinks(quote) : null, [quote]);
 
   const handleEdit = () => navigation.navigate('JobConfig', { quote });
 

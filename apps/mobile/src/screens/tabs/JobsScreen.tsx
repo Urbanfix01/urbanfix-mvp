@@ -1,3 +1,4 @@
+import { quoteMapData } from '../../utils/quoteMap';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, 
@@ -690,39 +691,7 @@ export default function JobsScreen() {
     [statusChart]
   );
 
-  const mapPoints = useMemo<MapPoint[]>(() => {
-    const cutoff = new Date();
-    cutoff.setMonth(cutoff.getMonth() - 3);
-
-    const resolveStatus = (status: string) => {
-      if (isClosed(status)) return { key: 'closed', label: 'Cerrado', color: STATUS_COLORS.closed };
-      if (isApproved(status)) return { key: 'approved', label: 'Aprobado', color: STATUS_COLORS.approved };
-      if (isPending(status)) return { key: 'pending', label: 'Presupuestado', color: STATUS_COLORS.pending };
-      return null;
-    };
-
-    return jobs
-      .map((job) => {
-        const createdAt = new Date(job.created_at);
-        if (Number.isNaN(createdAt.getTime()) || createdAt < cutoff) return null;
-        const lat = Number(job.location_lat);
-        const lng = Number(job.location_lng);
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-        const status = resolveStatus(normalizeStatus(job.status));
-        if (!status) return null;
-        return {
-          id: job.id,
-          title: job.client_name || `Presupuesto #${job.id.slice(0,4).toUpperCase()}`,
-          amount: job.total_amount || 0,
-          address: job.client_address || job.address || job.location_address || '',
-          createdAt: job.created_at,
-          lat,
-          lng,
-          status,
-        };
-      })
-      .filter(Boolean) as MapPoint[];
-  }, [jobs]);
+  const { points: mapPoints, missingLocationCount, region: mapRegion } = useMemo(() => quoteMapData(jobs), [jobs]);
 
   const mapCounts = useMemo(() => {
     return mapPoints.reduce(
@@ -734,30 +703,6 @@ export default function JobsScreen() {
       },
       { pending: 0, approved: 0, closed: 0 }
     );
-  }, [mapPoints]);
-
-  const mapRegion = useMemo(() => {
-    if (!mapPoints.length) {
-      return {
-        latitude: -34.6037,
-        longitude: -58.3816,
-        latitudeDelta: 0.35,
-        longitudeDelta: 0.35,
-      };
-    }
-    const lats = mapPoints.map((point) => point.lat);
-    const lngs = mapPoints.map((point) => point.lng);
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
-    const minLng = Math.min(...lngs);
-    const maxLng = Math.max(...lngs);
-    const latitude = (minLat + maxLat) / 2;
-    const longitude = (minLng + maxLng) / 2;
-    const latSpan = maxLat - minLat;
-    const lngSpan = maxLng - minLng;
-    const latitudeDelta = latSpan > 0 ? Math.max(0.012, latSpan * 1.18) : 0.018;
-    const longitudeDelta = lngSpan > 0 ? Math.max(0.012, lngSpan * 1.18) : 0.018;
-    return { latitude, longitude, latitudeDelta, longitudeDelta };
   }, [mapPoints]);
 
   const mapKey = [
@@ -1377,8 +1322,9 @@ export default function JobsScreen() {
                               height={260}
                             />
                             {!mapPoints.length && (
-                              <Text style={styles.mapEmptyText}>Agrega ubicaciones en tus presupuestos.</Text>
+                              <Text style={styles.mapEmptyText}>No hay trabajos ubicados en el mapa para los últimos 3 meses.</Text>
                             )}
+                            {missingLocationCount > 0 && <Text style={styles.mapEmptyText}>{missingLocationCount} {missingLocationCount === 1 ? 'trabajo sin ubicación de obra válida' : 'trabajos sin ubicación de obra válida'}. Guardá la ubicación de la obra en cada presupuesto para marcarlos.</Text>}
                           </>
                         )}
                         <TouchableOpacity

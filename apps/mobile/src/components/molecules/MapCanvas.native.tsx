@@ -4,18 +4,21 @@ import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker } from 'react-native-maps';
 import Constants from 'expo-constants';
 import { MapCanvasProps, MapPoint, MapRegion } from '../../types/maps';
-import { mapCoordinate } from '../../utils/mapGeometry';
+import { DEFAULT_MAP_REGION, mapCoordinate } from '../../utils/mapGeometry';
 import { COLORS } from '../../utils/theme';
 
 const isValidCoordinate = (point: MapPoint) =>
   Boolean(mapCoordinate(point.lat, point.lng));
 
-const normalizeRegion = (region: MapRegion): MapRegion => ({
-  latitude: Number.isFinite(region.latitude) ? region.latitude : -34.6037,
-  longitude: Number.isFinite(region.longitude) ? region.longitude : -58.3816,
-  latitudeDelta: Number.isFinite(region.latitudeDelta) && region.latitudeDelta > 0 ? region.latitudeDelta : 0.25,
-  longitudeDelta: Number.isFinite(region.longitudeDelta) && region.longitudeDelta > 0 ? region.longitudeDelta : 0.25,
-});
+const normalizeRegion = (region: MapRegion): MapRegion => {
+  const center = mapCoordinate(region.latitude, region.longitude);
+  return {
+    latitude: center?.lat ?? DEFAULT_MAP_REGION.latitude,
+    longitude: center?.lng ?? DEFAULT_MAP_REGION.longitude,
+    latitudeDelta: Number.isFinite(region.latitudeDelta) && region.latitudeDelta > 0 ? region.latitudeDelta : 0.25,
+    longitudeDelta: Number.isFinite(region.longitudeDelta) && region.longitudeDelta > 0 ? region.longitudeDelta : 0.25,
+  };
+};
 
 const MapCanvas = ({ points, region, onSelect, formatMoney, height, valuePrefix = '$', selectedId, focusKey }: MapCanvasProps) => {
   const mapHeight = height ?? 220;
