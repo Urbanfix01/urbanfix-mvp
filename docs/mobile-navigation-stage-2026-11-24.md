@@ -64,9 +64,10 @@ estos cambios. No utilizar esa entrega para aprobar este bloque.
 | MNAV-06 | Texto grande, teclado, desplazamiento y áreas de gestos. Comprobar la orientación vertical declarada y ventanas de tablet. |
 
 Un teléfono conectado o una compilación terminada no cierran esos puntos.
-Los acuerdos de Apple, Maps/push y la migración de servicios pendientes conservan
-los límites documentados en [preparación móvil](mobile-readiness-2026-11-23.md).
-No publicar en las tiendas con esos bloqueos.
+Maps/push y la migración de servicios pendientes conservan los límites
+documentados en [preparación móvil](mobile-readiness-2026-11-23.md).
+El acceso y envío interno a Apple se comprobaron después, como se detalla abajo.
+No publicar en las tiendas con los bloqueos funcionales pendientes.
 
 ## Candidatas de este bloque
 
@@ -83,9 +84,10 @@ anterior. No se desplegó la web histórica ni una actualización OTA.
 - **iOS 1.5.1 (39)**: build
   [`72c8499d-7df2-43d5-9a9a-e9ee14cc02e3`](https://expo.dev/accounts/urbanfix/projects/UrbanFix/builds/72c8499d-7df2-43d5-9a9a-e9ee14cc02e3),
   terminado con la firma existente del identificador `com.urbanfix.urbanfix`.
-  Es un archivo para App Store Connect, no un instalador directo. No se envió a
-  TestFlight ni a revisión pública. La consulta de perfiles a Apple falló y EAS
-  continuó con su validación local; el acceso y los acuerdos siguen sin confirmar.
+  Es un archivo para App Store Connect, no un instalador directo. Al compilar,
+  la consulta de perfiles a Apple falló y EAS continuó con su validación local.
+  El acceso se comprobó después y esta candidata ya está disponible en el grupo
+  interno de TestFlight, como se detalla abajo.
 
 Los builds se pidieron con `--freeze-credentials`, sin crear o renovar firmas.
 No había credenciales de distribución interna para el identificador iOS de
@@ -101,3 +103,38 @@ contenido; ninguna comprobación Mobile se marcó finalizada.
 La prueba física de Android se solicitó al titular con el APK exacto y el modelo
 y versión del teléfono. Hasta recibir resultados concretos, los puntos continúan
 sin comprobar en ambos sistemas.
+
+## Entrega interna de iPhone
+
+El titular confirmó la revisión del acceso y los acuerdos de Apple y autorizó
+continuar con el envío. Se cargó únicamente la candidata anterior, sin generar
+otra compilación ni cambiar firmas o permisos.
+
+- Envío EAS
+  [`071a6604-92d1-49ee-ba25-e600238cc9a0`](https://expo.dev/accounts/urbanfix/projects/UrbanFix/submissions/071a6604-92d1-49ee-ba25-e600238cc9a0):
+  **FINISHED**, 24/11/2026 a las 08:15:56 de Argentina (11:15:56 UTC), sin error
+  de acuerdos de Apple.
+- App Store Connect: app `6758969211`, build
+  `56dea029-57cc-446d-b310-11070fa3529c`, **1.5.1 (39)**. La consulta posterior
+  confirmó `processingState: VALID`, `internalState: IN_BETA_TESTING`,
+  `expired: false` y `usesNonExemptEncryption: false`.
+- El grupo interno existente **BETA TESTER** incluye esta compilación y la cuenta
+  `info@urbanfixar.com`. Mantiene su acceso automático a los builds; no se crearon
+  grupos ni se enviaron invitaciones adicionales. El estado histórico del tester
+  `INSTALLED` no acredita que haya instalado la versión 39.
+- No se solicitó revisión externa de TestFlight ni publicación en App Store.
+  El estado externo es `READY_FOR_BETA_SUBMISSION`.
+- Apple envió el aviso **ITMS-90725**: la entrega usa el SDK iOS 26.0 y el correo
+  anuncia el requisito de iOS 27/Xcode 27 a partir de abril de 2027. Esta entrega
+  fue aceptada; registrar la actualización de SDK para una futura compilación.
+
+El intento inicial de adjuntar notas de prueba fue rechazado por una limitación
+del plan de EAS antes de programar el envío. Se retiró esa opción y se completó
+el único envío anterior; no se cambió el plan ni se duplicó la compilación.
+
+Se solicitó al titular instalar **1.5.1 (39)** desde TestFlight y comprobar apertura
+y regreso desde segundo plano, junto con el modelo y versión de iOS. La entrega
+habilita esas pruebas; MNAV-01 a MNAV-06 siguen **En trabajo**, sin acreditar un
+dispositivo, una instalación actual ni un resultado físico todavía no informado.
+Las seis notas de iOS en Cierre Mobile se actualizaron con la entrega comprobada;
+los campos de evidencia física y las filas de Android conservan su estado.
